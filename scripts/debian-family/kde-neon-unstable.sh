@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KDE Neon Unstable - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/kde-neon-unstable.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/kde-neon-unstable.sh | sudo bash
 #       또는: sudo bash kde-neon-unstable.sh
 
 set -euo pipefail

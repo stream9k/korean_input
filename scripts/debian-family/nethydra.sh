@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Kali Linux / Parrot OS / 보안 데비안 NetHydra - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/nethydra.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/nethydra.sh | sudo bash
 #       또는: sudo bash nethydra.sh
 
 set -euo pipefail

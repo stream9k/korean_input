@@ -97,7 +97,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     <p style="color:var(--muted); font-size:0.9rem; margin-bottom:0.75rem;">
       <code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다.
     </p>
-    <pre><code id="autoOneliner">curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash</code></pre>
+    <pre><code id="autoOneliner">curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash</code></pre>
     <div class="btn-row">
       <button onclick="copyAutoOneliner()">📋 원라인 복사</button>
       <button class="secondary" onclick="downloadAutoInstaller()">⬇️ 만능 install.sh 다운로드</button>
@@ -268,7 +268,7 @@ fcitx5 -r</code></pre>
 <div class="toast" id="toast"></div>
 
 <script>
-const GITHUB_REPO = "stream9k/korean_input_method_installer";
+const GITHUB_REPO = "stream9k/korean_input";
 
 // ──────────────────────────────────────────────────────────────
 // 데이터: 배포판별 에디션/스크립트 매핑

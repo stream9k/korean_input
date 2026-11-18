@@ -31,12 +31,12 @@
 
 ```bash
 # curl 사용 (대부분의 배포판 기본 포함)
-curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 ```
 
 > `curl`이 없는 환경이라면 `wget`을 사용하세요:
 > ```bash
-> wget -qO- https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash
+> wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 > ```
 
 ---
@@ -47,7 +47,7 @@ curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input_method_instal
 
 ```bash
 # 예시 1: 만능 자동 감지 스크립트 다운로드 후 바로 실행
-curl -fsSLO https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh
+curl -fsSLO https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh
 sudo bash install.sh
 
 # 예시 2: 브라우저로 다운로드 폴더에 받은 경우
@@ -56,7 +56,7 @@ sudo bash ~/Downloads/install.sh
 sudo bash ~/Downloads/garuda-kde.sh
 ```
 
-- **웹 생성기 활용**: 온라인 웹 생성기(`https://stream9k.github.io/korean_input_method_installer/`) 또는 로컬의 [`index.html`](index.html)을 브라우저로 열면 원하는 배포판·에디션별 스크립트를 확인하고 다운로드할 수 있습니다.
+- **웹 생성기 활용**: 온라인 웹 생성기(`https://stream9k.github.io/korean_input/`) 또는 로컬의 [`index.html`](index.html)을 브라우저로 열면 원하는 배포판·에디션별 스크립트를 확인하고 다운로드할 수 있습니다.
 
 ---
 
@@ -66,22 +66,22 @@ sudo bash ~/Downloads/garuda-kde.sh
 
 | 배포판 | 데스크톱 / 에디션 | 원라인 설치 명령어 |
 |---|---|---|
-| **Garuda Linux** | KDE Plasma (Dragonized) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/arch-family/garuda-kde.sh \| sudo bash` |
-| **Linux Mint** | Cinnamon (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-cinnamon.sh \| sudo bash` |
-| **Linux Mint** | Xfce | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-xfce.sh \| sudo bash` |
-| **Linux Mint** | MATE | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-mate.sh \| sudo bash` |
-| **Ubuntu** | GNOME (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/ubuntu-gnome.sh \| sudo bash` |
-| **Kubuntu** | KDE Plasma | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/ubuntu-kde.sh \| sudo bash` |
-| **Debian** | GNOME (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/debian-gnome.sh \| sudo bash` |
-| **Fedora** | KDE Plasma | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/fedora/fedora-kde.sh \| sudo bash` |
-| **Fedora** | GNOME (Workstation) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/fedora/fedora-gnome.sh \| sudo bash` |
-| **Arch Linux** | Base | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/arch-family/arch-base.sh \| sudo bash` |
-| **Manjaro** | KDE Plasma | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/arch-family/manjaro-kde.sh \| sudo bash` |
-| **openSUSE** | Tumbleweed KDE | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/opensuse/opensuse-tumbleweed-kde.sh \| sudo bash` |
-| **MX Linux** | Xfce (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mx-xfce.sh \| sudo bash` |
-| **Bazzite** | KDE / Deck (불변 OS) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/fedora-atomic/bazzite-kde.sh \| sudo bash` |
-| **AlmaLinux** | GNOME (`ibus-hangul`) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/rhel-family/almalinux.sh \| sudo bash` |
-| **Void Linux** | glibc | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/void/void-glibc.sh \| sudo bash` |
+| **Garuda Linux** | KDE Plasma (Dragonized) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/arch-family/garuda-kde.sh \| sudo bash` |
+| **Linux Mint** | Cinnamon (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/mint-cinnamon.sh \| sudo bash` |
+| **Linux Mint** | Xfce | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/mint-xfce.sh \| sudo bash` |
+| **Linux Mint** | MATE | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/mint-mate.sh \| sudo bash` |
+| **Ubuntu** | GNOME (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/ubuntu-gnome.sh \| sudo bash` |
+| **Kubuntu** | KDE Plasma | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/ubuntu-kde.sh \| sudo bash` |
+| **Debian** | GNOME (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/debian-gnome.sh \| sudo bash` |
+| **Fedora** | KDE Plasma | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/fedora/fedora-kde.sh \| sudo bash` |
+| **Fedora** | GNOME (Workstation) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/fedora/fedora-gnome.sh \| sudo bash` |
+| **Arch Linux** | Base | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/arch-family/arch-base.sh \| sudo bash` |
+| **Manjaro** | KDE Plasma | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/arch-family/manjaro-kde.sh \| sudo bash` |
+| **openSUSE** | Tumbleweed KDE | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/opensuse/opensuse-tumbleweed-kde.sh \| sudo bash` |
+| **MX Linux** | Xfce (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/mx-xfce.sh \| sudo bash` |
+| **Bazzite** | KDE / Deck (불변 OS) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/fedora-atomic/bazzite-kde.sh \| sudo bash` |
+| **AlmaLinux** | GNOME (`ibus-hangul`) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/rhel-family/almalinux.sh \| sudo bash` |
+| **Void Linux** | glibc | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/void/void-glibc.sh \| sudo bash` |
 
 ---
 
@@ -102,8 +102,8 @@ sudo bash ~/Downloads/garuda-kde.sh
 모든 `.sh` 파일에는 Git 실행 권한(`100755`)이 부여되어 있으므로 `git clone` 후 별도 `chmod +x` 없이 바로 `./` 실행이 가능합니다.
 
 ```bash
-git clone https://github.com/stream9k/korean_input_method_installer.git
-cd korean_input_method_installer
+git clone https://github.com/stream9k/korean_input.git
+cd korean_input
 sudo ./install.sh
 # 또는 개별 스크립트 직접 실행:
 sudo ./scripts/arch-family/garuda-kde.sh

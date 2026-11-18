@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # 리눅스 한글 입력기(fcitx5-hangul / RHEL: ibus-hangul) 배포판 자동 감지 올인원 설치 스크립트
 # 실행 (git·다운로드·chmod 불필요):
-#   curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash
-#   또는 wget: wget -qO- https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash
+#   curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
+#   또는 wget: wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 #   또는 로컬 파일: sudo bash install.sh
 
 set -euo pipefail
@@ -312,7 +312,7 @@ main() {
     echo "   i18n.inputMethod.enabled = \"fcitx5\";"
     echo "   i18n.inputMethod.fcitx5.enable = true;"
     echo "   i18n.inputMethod.fcitx5.engines = with pkgs; [ fcitx5-hangul ];"
-    echo " 상세 예시: https://github.com/stream9k/korean_input_method_installer/tree/main/scripts/nixos"
+    echo " 상세 예시: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
     echo " 적용: sudo nixos-rebuild switch"
     echo "============================================================"
     exit 0

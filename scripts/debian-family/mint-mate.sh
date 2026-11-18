@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Linux Mint MATE - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-mate.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/mint-mate.sh | sudo bash
 #       또는: sudo bash mint-mate.sh
 
 set -euo pipefail

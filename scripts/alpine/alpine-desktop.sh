@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Alpine Linux / Chimera / Nura Alpine Desktop (Xfce / GNOME / KDE) - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/alpine/alpine-desktop.sh | sudo sh
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/alpine/alpine-desktop.sh | sudo sh
 
 set -eu
 

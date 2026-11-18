@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # KDE Neon User Edition (기본) - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/kde-neon-user.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/kde-neon-user.sh | sudo bash
 #       또는: sudo bash kde-neon-user.sh
 
 set -euo pipefail

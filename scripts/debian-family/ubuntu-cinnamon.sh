@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Ubuntu Ubuntu Cinnamon - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/ubuntu-cinnamon.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/ubuntu-cinnamon.sh | sudo bash
 #       또는: sudo bash ubuntu-cinnamon.sh
 
 set -euo pipefail

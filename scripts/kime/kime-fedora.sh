@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # kime (Rust 기반 경량 입력기) Fedora (COPR) - kime (Rust 기반 경량 한글 입력기) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/kime/kime-fedora.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/kime/kime-fedora.sh | sudo bash
 
 set -euo pipefail
 

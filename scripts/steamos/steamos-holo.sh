@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SteamOS 3.x SteamOS 3 / Deck Desktop Mode - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/steamos/steamos-holo.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/steamos/steamos-holo.sh | sudo bash
 
 set -euo pipefail
 

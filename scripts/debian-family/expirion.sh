@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # MX Linux / antiX / Devuan Expirion Linux - 한글 입력기(fcitx5-hangul) 자동 설치
-# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/expirion.sh | sudo bash
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/expirion.sh | sudo bash
 #       또는: sudo bash expirion.sh
 
 set -euo pipefail

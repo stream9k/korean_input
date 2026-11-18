@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 
-	installer "github.com/stream9k/korean_input_method_installer"
+	installer "github.com/stream9k/korean_input"
 )
 
 const version = "1.0.0"
