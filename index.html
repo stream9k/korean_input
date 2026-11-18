@@ -67,10 +67,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .info-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .info-value { font-family: var(--mono); font-size: 0.85rem; }
 .edition-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
-.edition-tag { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.2); color: var(--accent); padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
-.edition-tag:hover { background: rgba(88,166,255,0.2); }
-.edition-tag.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); }
-.edition-tag.disabled { opacity: 0.4; cursor: not-allowed; }
+.edition-tag { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.25); color: var(--fg); padding: 0.5rem 0.95rem; border-radius: 8px; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 0.35rem; }
+.edition-tag:hover { background: rgba(88,166,255,0.18); border-color: var(--accent); color: var(--accent-hover); transform: translateY(-1px); }
+.edition-tag.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 700; box-shadow: 0 0 12px rgba(88,166,255,0.35); }
+.edition-tag.disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 .search-wrap { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .search-box { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: stretch; }
 .search-box input[type="search"] { flex: 1 1 240px; background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 1rem; color: var(--fg); font-size: 0.95rem; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
@@ -151,10 +151,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       </div>
       <div id="searchResults" class="search-results" style="display:none;"></div>
     </div>
-    <div class="select-row">
-      <div class="select-group">
-        <label id="distroLabel" for="distroSelect">배포판</label>
-        <select id="distroSelect" onchange="onDistroChange()">
+    <!-- 1. 배포판 선택 (단독 행으로 시원하게 배치) -->
+    <div class="select-group" style="margin-bottom:1.25rem;">
+      <label id="distroLabel" for="distroSelect" style="font-weight:600; font-size:0.9rem; margin-bottom:0.35rem; display:block;">1. 배포판 선택</label>
+      <select id="distroSelect" style="width:100%;" onchange="onDistroChange()">
           <option id="distroPlaceholderOpt" value="">-- 배포판 선택 --</option>
           <option value="mint">Linux Mint (21.x / 22.x)</option>
           <option value="ubuntu">Ubuntu (22.04 / 24.04 / 24.10)</option>
@@ -203,14 +203,19 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
           </optgroup>
         </select>
       </div>
-      <div class="select-group">
-        <label id="editionLabel" for="editionSelect">에디션 / 데스크톱</label>
-        <select id="editionSelect" disabled onchange="selectEdition(this.value)">
-          <option id="editionPlaceholderOpt" value="">-- 먼저 배포판 선택 --</option>
-        </select>
+
+    <!-- 2. 에디션 / 데스크톱 선택 영역 (배포판 선택 시 부드럽게 노출) -->
+    <div id="editionSection" class="select-group" style="display:none; padding-top:1rem; border-top:1px dashed var(--border);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem; flex-wrap:wrap; gap:0.25rem;">
+        <label id="editionLabel" for="editionSelect" style="font-weight:600; font-size:0.9rem; color:var(--fg); margin:0;">2. 데스크톱 환경 / 에디션 선택</label>
+        <span id="editionHintText" style="font-size:0.78rem; color:var(--muted);">원하시는 데스크톱을 클릭하세요</span>
       </div>
+      <div id="editionTags" class="edition-list" style="display:flex; flex-wrap:wrap; gap:0.5rem;"></div>
+      <!-- 내부 호환용 셀렉트 (화면에는 미표시) -->
+      <select id="editionSelect" style="display:none;" onchange="selectEdition(this.value)">
+        <option id="editionPlaceholderOpt" value="">-- 에디션 선택 --</option>
+      </select>
     </div>
-    <div id="editionTags" class="edition-list" style="display:none;"></div>
   </div>
 
   <div class="card" id="scriptCard" style="display:none;">
@@ -3773,6 +3778,8 @@ function applyTranslations() {
   document.getElementById("distroLabel").textContent = t.distroLabel;
   document.getElementById("distroPlaceholderOpt").textContent = t.distroPlaceholder;
   document.getElementById("editionLabel").textContent = t.editionLabel;
+  const hintEl = document.getElementById("editionHintText");
+  if (hintEl) hintEl.textContent = currentLang === "en" ? "Click your desktop environment" : "원하시는 데스크톱을 클릭하세요";
 
   Array.from(distroSelect.options).forEach(opt => {
     if (!opt.value) return;
@@ -3842,6 +3849,7 @@ function showToast(msg, type = "success") {
 function onDistroChange() {
   const t = I18N[currentLang];
   const key = distroSelect.value;
+  const editionSection = document.getElementById("editionSection");
   editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholder}</option>`;
   editionTags.innerHTML = "";
   editionTags.style.display = "none";
@@ -3849,6 +3857,7 @@ function onDistroChange() {
   verifyCard.style.display = "none";
 
   if (!key) {
+    if (editionSection) editionSection.style.display = "none";
     editionSelect.disabled = true;
     editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholderFirst}</option>`;
     currentDistro = null;
@@ -3858,6 +3867,7 @@ function onDistroChange() {
 
   currentDistro = DISTRO_DATA[key];
   editionSelect.disabled = false;
+  if (editionSection) editionSection.style.display = "block";
 
   // 셀렉트 옵션 채우기
   Object.entries(currentDistro.editions).forEach(([edKey, ed]) => {
