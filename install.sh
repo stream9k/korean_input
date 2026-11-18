@@ -226,6 +226,7 @@ register_first_login_guide() {
     else
       msg+="⌨️  전환 단축키: 한/영 키, Ctrl+Space, Shift+Space\n"
       msg+="💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\n"
+      msg+="   (Firefox 메뉴와 Alt키 충돌 시: 설정→키보드→키바인딩→키보드옵션에서 '오른쪽 ALT를 한/영키로 만들기' 체크)\n"
       msg+="⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\n"
     fi
     msg+="📝 로그: $LOG_FILE\n\n"
@@ -782,6 +783,7 @@ EOF
       fi
       echo " ⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space"
       echo " 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R)를 전환키로 추가할 수 있습니다."
+      echo "    (Firefox 메뉴바와 충돌 시: 설정 → 키보드 → 키바인딩 → 키보드 옵션에서 '오른쪽 ALT를 한/영키로 만들기' 체크)"
       echo " ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose"
     fi
     echo " 📝 로그: $LOG_FILE"
