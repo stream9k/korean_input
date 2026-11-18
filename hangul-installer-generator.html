@@ -3607,7 +3607,11 @@ const I18N = {
     btnCopyOneliner: "📋 원라인 명령어 복사",
     downloadLabel: (ext) => `⬇️ 다운로드 (.${ext})`,
     step3Title: "✅ 3단계: 설치 후 검증",
-    verifyCode: `# 재로그인 후 실행\nfcitx5-diagnose\n\n# 환경변수 확인\nenv | grep -i im_module\n\n# 프로세스 확인\npgrep -af fcitx5\n\n# 설정 확인\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# 강제 재시작\nfcitx5 -r`,
+    verifyCode: {
+      fcitx5: `# 1. fcitx5 상세 진단 (재로그인 후 실행)\nfcitx5-diagnose\n\n# 2. 환경변수 확인 (fcitx 가 출력되어야 함)\nenv | grep -i im_module\n\n# 3. 프로세스 확인\npgrep -af fcitx5\n\n# 4. 설정 확인\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# 5. 강제 재시작\nfcitx5 -r`,
+      ibus: `# 1. ibus 데몬 프로세스 확인\npgrep -af ibus-daemon\n\n# 2. 환경변수 확인 (ibus 가 출력되어야 함)\nenv | grep -i im_module\n\n# 3. GNOME 입력 소스 한글 등록 확인\ngsettings get org.gnome.desktop.input-sources sources\n\n# 4. ibus 한글 엔진 등록 확인\nibus list-engine | grep hangul\n\n# 5. ibus 설정 창 열기 (단축키 및 세부 설정)\nibus-setup`,
+      kime: `# 1. kime 시스템 상태 진단\nkime-check\n\n# 2. kime 프로세스 확인\npgrep -af kime\n\n# 3. 환경변수 확인\nenv | grep -i im_module\n\n# 4. kime 설정 파일 확인\ncat ~/.config/kime/config.ron`
+    },
     step4Title: "📚 지원 현황",
     footerNote: "이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.",
     thProject: "프로젝트",
@@ -3670,7 +3674,11 @@ const I18N = {
     btnCopyOneliner: "📋 Copy One-Liner",
     downloadLabel: (ext) => `⬇️ Download (.${ext})`,
     step3Title: "✅ Step 3: Post-Install Verification",
-    verifyCode: `# Run after re-login\nfcitx5-diagnose\n\n# Check environment variables\nenv | grep -i im_module\n\n# Check running process\npgrep -af fcitx5\n\n# Inspect config files\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# Force restart\nfcitx5 -r`,
+    verifyCode: {
+      fcitx5: `# 1. fcitx5 diagnostics (run after re-login)\nfcitx5-diagnose\n\n# 2. Check environment variables (should show fcitx)\nenv | grep -i im_module\n\n# 3. Check running process\npgrep -af fcitx5\n\n# 4. Inspect config files\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# 5. Force restart\nfcitx5 -r`,
+      ibus: `# 1. Check ibus daemon process\npgrep -af ibus-daemon\n\n# 2. Check environment variables (should show ibus)\nenv | grep -i im_module\n\n# 3. Check GNOME input sources\ngsettings get org.gnome.desktop.input-sources sources\n\n# 4. Check ibus Hangul engine\nibus list-engine | grep hangul\n\n# 5. Open ibus setup dialog\nibus-setup`,
+      kime: `# 1. Run kime system diagnostics\nkime-check\n\n# 2. Check kime process\npgrep -af kime\n\n# 3. Check environment variables\nenv | grep -i im_module\n\n# 4. Inspect kime config file\ncat ~/.config/kime/config.ron`
+    },
     step4Title: "📚 Supported Matrix",
     footerNote: "Templates were created by referencing package setups, configuration order, and edge-case handling from these projects.",
     thProject: "Project",
@@ -3815,7 +3823,17 @@ function applyTranslations() {
   document.getElementById("btnCopyScript").textContent = t.btnCopyScript;
   document.getElementById("btnCopyOneliner").textContent = t.btnCopyOneliner;
   document.getElementById("step3Title").textContent = t.step3Title;
-  document.getElementById("verifyCodeBlock").textContent = t.verifyCode;
+  const verifyBlock = document.getElementById("verifyCodeBlock");
+  if (verifyBlock) {
+    let imType = "fcitx5";
+    if (currentDistro) {
+      const dKey = distroSelect ? distroSelect.value : "";
+      const tf = typeof getTemplateFamily === "function" ? getTemplateFamily(dKey) : "";
+      if (tf === "rhel-family") imType = "ibus";
+      else if (dKey === "kime") imType = "kime";
+    }
+    verifyBlock.textContent = t.verifyCode[imType] || t.verifyCode.fcitx5;
+  }
   document.getElementById("step4Title").textContent = t.step4Title;
   const legTitle = document.getElementById("legendTitle");
   if (legTitle) legTitle.textContent = currentLang === "en" ? "Status Legend:" : "색상 / 상태 구분:";
@@ -4009,6 +4027,13 @@ function generateScript() {
     if (onelinerLabel) onelinerLabel.textContent = t.shOnelinerLabel;
     oneliner.textContent = `curl -sL ${rawUrl} | sudo ${shellCmd}`;
     localRunHint.innerHTML = t.shHint(shellCmd, scriptFileName);
+  }
+
+  // 3단계 검증 코드 맞춤형 업데이트
+  const verifyBlock = document.getElementById("verifyCodeBlock");
+  if (verifyBlock) {
+    const imType = templateFamily === "rhel-family" ? "ibus" : (distroKey === "kime" ? "kime" : "fcitx5");
+    verifyBlock.textContent = t.verifyCode[imType] || t.verifyCode.fcitx5;
   }
 
   scriptCard.style.display = "block";
