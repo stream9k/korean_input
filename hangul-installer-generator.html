@@ -69,10 +69,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .edition-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 .edition-tag { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.25); color: var(--fg); padding: 0.5rem 0.95rem; border-radius: 8px; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 0.35rem; }
 .edition-tag:hover { background: rgba(88,166,255,0.18); border-color: var(--accent); color: var(--accent-hover); transform: translateY(-1px); }
-.edition-tag.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 700; box-shadow: 0 0 12px rgba(88,166,255,0.35); }
+.edition-tag.selected { background: var(--accent) !important; color: #0d1117 !important; border-color: var(--accent) !important; font-weight: 700; box-shadow: 0 0 12px rgba(88,166,255,0.45); }
 .edition-tag.experimental { border-color: rgba(248,81,73,0.45); background: rgba(248,81,73,0.08); color: #ff7b72; }
 .edition-tag.experimental:hover { background: rgba(248,81,73,0.18); border-color: var(--danger); color: #ffa198; transform: translateY(-1px); }
-.edition-tag.experimental.selected { background: var(--danger); color: #fff; border-color: var(--danger); font-weight: 700; box-shadow: 0 0 12px rgba(248,81,73,0.35); }
+.edition-tag.experimental.selected { background: var(--danger) !important; color: #fff !important; border-color: var(--danger) !important; font-weight: 700; box-shadow: 0 0 12px rgba(248,81,73,0.45); }
 .search-wrap { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .search-box { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: stretch; }
 .search-box input[type="search"] { flex: 1 1 240px; background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 1rem; color: var(--fg); font-size: 0.95rem; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
@@ -4453,23 +4453,33 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// 해시 변경 감지
+// 해시 변경 감지 (뒤로 가기 / 앞으로 가기 시에만 실행)
 window.addEventListener("hashchange", () => {
+  if (!location.hash) return;
   const [distro, edition] = location.hash.slice(1).split("/");
   if (DISTRO_DATA[distro]) {
-    distroSelect.value = distro;
-    onDistroChange();
-    if (edition && DISTRO_DATA[distro].editions[edition]) {
-      setTimeout(() => selectEdition(edition), 50);
+    if (distroSelect.value !== distro) {
+      distroSelect.value = distro;
+      onDistroChange();
+    }
+    if (edition && DISTRO_DATA[distro].editions[edition] && currentEdition !== edition) {
+      origSelectEdition(edition);
     }
   }
 });
 
-// 해시 업데이트 함수 (선택 시 URL 공유 가능)
+// 해시 업데이트 함수 (replaceState 사용하여 hashchange 루프 방지)
 function updateHash() {
   if (currentDistro && currentEdition) {
     const distroKey = distroSelect.value;
-    location.hash = `${distroKey}/${currentEdition}`;
+    const newHash = `#${distroKey}/${currentEdition}`;
+    if (location.hash !== newHash) {
+      if (window.history && window.history.replaceState) {
+        window.history.replaceState(null, "", newHash);
+      } else {
+        location.hash = `${distroKey}/${currentEdition}`;
+      }
+    }
   }
 }
 // selectEdition에서 호출하도록 패치
