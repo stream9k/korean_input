@@ -91,12 +91,33 @@ hangul-installer-scripts/
 
 | 패밀리 | 대상 | 패키지 관리자 | 입력기 전환 방식 | 환경변수 적용 | 특이사항 |
 |---|---|---|---|---|---|
-| **debian-family** | Mint, Ubuntu, Debian, LMDE, Pop, elementary, Zorin, KDE Neon | `apt` | `im-config -n fcitx5` | `~/.config/environment.d/fcitx5.conf` + `/etc/environment` | `gsettings`로 DE별 단축키 충돌 해제 (Cinnamon/GNOME/Xfce/MATE 분기) |
-| **fedora** | Fedora 40/41/42 | `dnf` | `alternatives --set xinputrc` + `sed`로 xinputrc 패치 | `~/.bash_profile` 또는 `~/.profile` | `systemctl --user disable ibus` 필수, KDE는 Virtual Keyboard 별도 설정 필요 |
-| **arch-family** | Arch, Manjaro, EndeavourOS, Garuda | `pacman` | 수동 (환경변수만) | `/etc/environment` (시스템 와이드) + `~/.config/environment.d/` | `fcitx5-im` 메타패키지, `systemctl --user enable fcitx5` 권장 |
-| **opensuse** | openSUSE Leap/Tumbleweed | `zypper` | `alternatives` + `sed` 패치 | `~/.bash_profile` | `fcitx5-qt5/qt6` 별도 패키지, KDE Virtual Keyboard 안내 |
-| **nixos** | NixOS | `nix` | 선언적 (`configuration.nix`) | `environment.sessionVariables` | **스크립트 아님**, Nix 설정 조각 제공 |
+| **debian-family** | Mint, Ubuntu, Debian, LMDE, Pop, elementary, Zorin, KDE Neon, MX, antiX, Devuan, Kali, Parrot, TUXEDO, Q4OS, Lite, deepin, PikaOS, AnduinOS | `apt` | `im-config -n fcitx5` | `~/.config/environment.d/fcitx5.conf` + `/etc/environment` + `~/.xsessionrc` | `gsettings`로 DE별 단축키 충돌 해제, Non-systemd 호환 |
+| **fedora** | Fedora 40/41/42, Nobara, Ultramarine, RakuOS, Qubes VM | `dnf` | `alternatives --set xinputrc` + `sed`로 xinputrc 패치 | `~/.bash_profile` 또는 `~/.profile` | `systemctl --user disable ibus` 필수, KDE는 Virtual Keyboard 별도 설정 필요 |
+| **arch-family** | Arch, Manjaro, EndeavourOS, Garuda, CachyOS, Omarchy, Artix, BigLinux, pearOS, Bluestar | `pacman` | 수동 (환경변수만) | `/etc/environment` (시스템 와이드) + `~/.config/environment.d/` | `fcitx5-im` 메타패키지, `systemctl --user enable fcitx5` 권장 |
+| **opensuse** | openSUSE Leap/Tumbleweed/MicroOS/Slowroll | `zypper` | `alternatives` + `sed` 패치 | `~/.bash_profile` | `fcitx5-qt5/qt6` 별도 패키지, KDE Virtual Keyboard 안내 |
+| **nixos** | NixOS, Abora | `nix` | 선언적 (`configuration.nix`) | `environment.sessionVariables` | **스크립트 아님**, Nix 설정 조각 제공 |
+| **fedora-atomic** | Bazzite, Aurora, Fedora Silverblue/Kinoite | `rpm-ostree` | 환경변수 + 레이어링 | `~/.config/environment.d/fcitx5.conf` | 불변 OS, 설치 후 **재부팅 필수** |
+| **steamos** | SteamOS 3.x (Steam Deck) | `pacman` | 수동 (readonly 임시 해제) | `/etc/environment` | `steamos-readonly disable/enable` 자동 처리 |
+| **rhel-family** | AlmaLinux, Rocky, RHEL, CentOS Stream | `dnf` | `ibus-hangul` + `gsettings` | `~/.config/environment.d/ibus.conf` + `~/.bash_profile` | 공식 저장소 표준(`ibus-hangul`) 기준 구성 |
+| **void** | Void Linux (glibc/musl), AgarimOS | `xbps-install` | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.xprofile` | `runit` 기반, Non-systemd 환경 |
+| **alpine** | Alpine Linux | `apk` | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.profile` | BusyBox `sh` 호환 POSIX 셸 스크립트 |
+| **solus** | Solus (Budgie/GNOME/KDE/Xfce) | `eopkg` | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.config/environment.d/` | Solus 전용 패키지명 적용 |
+| **gentoo** | Gentoo (OpenRC/systemd), CalamaroOS | `emerge` | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.xprofile` | `app-i18n/fcitx:5` 슬롯 지정 설치 |
+| **mandriva-family** | Mageia, OpenMandriva, PCLinuxOS, MagOS | `dnf`/`urpmi`/`apt-get` | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.xprofile` | 패키지 관리자 자동 분기 |
+| **kaos** | KaOS | `pacman` | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.config/environment.d/` | KDE/Qt 전용 패키지(`fcitx5-gtk` 제외) |
+| **vanilla** | Vanilla OS 2 Orchid | `abroot` | 환경변수 + autostart | `~/.config/environment.d/fcitx5.conf` | ABRoot 불변 Debian, 설치 후 **재부팅 필수** |
 | **kime** | 전체 (대안) | 각자 | 수동 | `~/.config/environment.d/kime.conf` | Rust 기반, Wayland 네이티브, AUR/COPR/.deb/zypper 분기 |
+
+---
+
+## 📊 DistroWatch Top 100 커버리지 및 제외 목록 (2026-11-18 기준)
+
+- **전체 커버리지**: DistroWatch Top 100 중 **83종 지원 (83.0%)** / 비리눅스 및 비데스크톱·특수목적 OS(17종) 제외한 **일반 리눅스 데스크톱 92종 중 83종 지원 (90.2%)**
+- **생성 스크립트**: 총 **16개 패밀리, 127개 스크립트/설정 파일**
+- **제외(미지원) 대상 17종 및 사유**:
+  - **비리눅스 (5종)**: FreeBSD, GhostBSD, ChromeOS, FydeOS, ReactOS — 리눅스 패키지/입력기 프레임워크 대상 외
+  - **특수 목적/비데스크톱 (3종)**: Talos(K8s 전용), ZimaOS(NAS 전용), Tails(휘발성 Tor 라이브 OS)
+  - **자동 스크립트 부적합/패키지 미성숙 (9종)**: Puppy Linux, EasyOS, Tiny Core(독자 포맷·root 구조), Slackware, PorteuX(공식 바이너리 의존성 해결 부재/SlackBuilds 소스 빌드 필요), aerynOS(알파 단계 `moss`), GNOME OS, KDE Linux(개발용 Nightly 이미지), MocaccinoOS(`luet` 레이어 미비)
 
 ---
 

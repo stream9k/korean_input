@@ -149,8 +149,8 @@ EOF
   fi
   ok "단축키 해제 완료"
 
-  # 6. Wayland 환경변수
-  log "[6/7] Wayland 환경변수 설정..."
+  # 6. Wayland / X11 / Non-systemd 환경변수
+  log "[6/7] Wayland/X11 환경변수 설정..."
   local ENV_FILE="$TARGET_HOME/.config/environment.d/fcitx5.conf"
   mkdir -p "$(dirname "$ENV_FILE")"
   cat > "$ENV_FILE" <<'EOF'
@@ -159,6 +159,22 @@ QT_IM_MODULE=fcitx
 XMODIFIERS=@im=fcitx
 EOF
   chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
+  grep -q "GTK_IM_MODULE=fcitx" /etc/environment 2>/dev/null || cat >> /etc/environment <<'EOF'
+
+# fcitx5 환경변수
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+EOF
+  local XSESSION_FILE="$TARGET_HOME/.xsessionrc"
+  grep -q "GTK_IM_MODULE=fcitx" "$XSESSION_FILE" 2>/dev/null || cat >> "$XSESSION_FILE" <<'EOF'
+
+# fcitx5 환경변수 (Non-systemd / X11 세션 호환)
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+  chown "$USER:$USER" "$XSESSION_FILE"
   ok "환경변수 파일 생성"
 
   # 7. 자동시작
