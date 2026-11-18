@@ -65,6 +65,16 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .edition-tag:hover { background: rgba(88,166,255,0.2); }
 .edition-tag.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); }
 .edition-tag.disabled { opacity: 0.4; cursor: not-allowed; }
+.search-wrap { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.search-box { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: stretch; }
+.search-box input[type="search"] { flex: 1 1 240px; background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 1rem; color: var(--fg); font-size: 0.95rem; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
+.search-box input[type="search"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,0.15); }
+.search-results { margin-top: 0.75rem; padding: 0.75rem; background: #010409; border: 1px solid var(--border); border-radius: 8px; }
+.search-meta { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.5rem; }
+.search-list { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.search-item { background: rgba(88,166,255,0.12); border: 1px solid rgba(88,166,255,0.28); color: var(--fg); padding: 0.38rem 0.7rem; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.15s; }
+.search-item:hover { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+.search-item .search-sub { font-size: 0.75rem; opacity: 0.8; }
 .footer { max-width: 900px; margin: 3rem auto 2rem; padding: 1.5rem 1.5rem 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
 .footer-note { text-align: center; margin-bottom: 1rem; color: var(--fg); }
 .footer-meta { text-align: center; margin-top: 1.25rem; color: var(--muted); }
@@ -109,6 +119,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
   <div class="card">
     <h2>📋 1단계: 배포판 선택</h2>
+    <div class="search-wrap">
+      <label for="distroSearchInput" style="display:block; margin-bottom:0.4rem;">배포판·데스크톱 빠른 검색</label>
+      <div class="search-box">
+        <input type="search" id="distroSearchInput" placeholder="배포판 또는 데스크톱 검색 (예: garuda, 가루다, mint, 민트, bazzite, kde...)" oninput="runDistroSearch(false)" onkeydown="if(event.key==='Enter'){event.preventDefault();runDistroSearch(true);}">
+        <button type="button" onclick="runDistroSearch(true)">🔍 검색</button>
+        <button type="button" class="secondary" id="clearSearchBtn" style="display:none;" onclick="clearDistroSearch()">✕ 초기화</button>
+      </div>
+      <div id="searchResults" class="search-results" style="display:none;"></div>
+    </div>
     <div class="select-row">
       <div class="select-group">
         <label for="distroSelect">배포판</label>
@@ -3302,6 +3321,176 @@ function copyScript() {
   }).catch(() => showToast("복사 실패", "error"));
 }
 
+const KOREAN_ALIASES = {
+  "가루다": "garuda",
+  "민트": "mint",
+  "우분투": "ubuntu",
+  "쿠분투": "kubuntu kde",
+  "주분투": "xubuntu xfce",
+  "루분투": "lubuntu lxqt",
+  "페도라": "fedora",
+  "노바라": "nobara",
+  "바자이트": "bazzite",
+  "오로라": "aurora",
+  "실버블루": "silverblue",
+  "키노이트": "kinoite",
+  "아치": "arch",
+  "만자로": "manjaro",
+  "엔데버": "endeavour",
+  "캐치": "cachyos",
+  "오마키": "omarchy",
+  "아트릭스": "artix",
+  "데비안": "debian",
+  "칼리": "kali",
+  "패럿": "parrot",
+  "라즈베리": "raspios raspberry",
+  "오픈수세": "opensuse",
+  "수세": "opensuse",
+  "알마": "almalinux",
+  "록키": "rocky",
+  "센트": "centos",
+  "레드햇": "rhel",
+  "보이드": "void",
+  "알파인": "alpine",
+  "솔루스": "solus",
+  "젠투": "gentoo",
+  "마게이아": "mageia",
+  "카오스": "kaos",
+  "바닐라": "vanilla",
+  "닉스": "nixos",
+  "스팀": "steamos",
+  "덱": "steamos deck",
+  "턱시도": "tuxedo",
+  "딥인": "deepin",
+  "구익스": "guix",
+  "키메": "kime"
+};
+
+function expandSearchQuery(raw) {
+  let q = raw.trim().toLowerCase();
+  for (const [ko, en] of Object.entries(KOREAN_ALIASES)) {
+    if (q.includes(ko)) {
+      q = q.split(ko).join(` ${en} `);
+    }
+  }
+  return q.trim().split(/\s+/).filter(Boolean);
+}
+
+function runDistroSearch(autoSelectFirst = false) {
+  const input = document.getElementById("distroSearchInput");
+  const resultsEl = document.getElementById("searchResults");
+  const clearBtn = document.getElementById("clearSearchBtn");
+  const raw = input.value.trim();
+
+  if (!raw) {
+    resultsEl.style.display = "none";
+    resultsEl.innerHTML = "";
+    clearBtn.style.display = "none";
+    if (autoSelectFirst) {
+      showToast("검색어를 입력해 주세요", "error");
+      input.focus();
+    }
+    return;
+  }
+
+  clearBtn.style.display = "inline-block";
+  const terms = expandSearchQuery(raw);
+  const matches = [];
+
+  for (const [distroKey, distro] of Object.entries(DISTRO_DATA)) {
+    for (const [edKey, ed] of Object.entries(distro.editions)) {
+      const scriptId = getScriptId(distroKey, edKey);
+      const haystack = [
+        distroKey,
+        distro.name,
+        distro.base,
+        distro.pkgMgr,
+        edKey,
+        ed.label,
+        scriptId
+      ].join(" ").toLowerCase();
+
+      if (terms.every(t => haystack.includes(t))) {
+        matches.push({
+          distroKey,
+          editionKey: edKey,
+          distroName: distro.name,
+          editionLabel: ed.label,
+          scriptId
+        });
+      }
+    }
+  }
+
+  resultsEl.innerHTML = "";
+  resultsEl.style.display = "block";
+
+  if (matches.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "search-meta";
+    empty.style.marginBottom = "0";
+    empty.textContent = `'${raw}'에 일치하는 배포판/에디션이 없습니다. 상단 0단계 만능 install.sh 를 사용하거나 다른 키워드로 검색해 보세요.`;
+    resultsEl.appendChild(empty);
+    if (autoSelectFirst) showToast("검색 결과가 없습니다", "error");
+    return;
+  }
+
+  const meta = document.createElement("div");
+  meta.className = "search-meta";
+  const shown = matches.slice(0, 30);
+  meta.textContent = matches.length > 30
+    ? `검색 결과 ${matches.length}개 중 상위 30개 표시 (클릭하면 바로 스크립트 생성)`
+    : `검색 결과 ${matches.length}개 (클릭하면 바로 스크립트 생성)`;
+  resultsEl.appendChild(meta);
+
+  const list = document.createElement("div");
+  list.className = "search-list";
+  for (const m of shown) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "search-item";
+    btn.onclick = () => pickDistroEdition(m.distroKey, m.editionKey);
+
+    const mainSpan = document.createElement("span");
+    mainSpan.textContent = `${m.distroName} · ${m.editionLabel}`;
+    const subSpan = document.createElement("span");
+    subSpan.className = "search-sub";
+    subSpan.textContent = `(${m.scriptId})`;
+
+    btn.appendChild(mainSpan);
+    btn.appendChild(subSpan);
+    list.appendChild(btn);
+  }
+  resultsEl.appendChild(list);
+
+  if (autoSelectFirst) {
+    const first = matches[0];
+    pickDistroEdition(first.distroKey, first.editionKey);
+    showToast(`${first.distroName} · ${first.editionLabel} 선택됨`);
+  }
+}
+
+function pickDistroEdition(distroKey, editionKey) {
+  if (!DISTRO_DATA[distroKey]) return;
+  distroSelect.value = distroKey;
+  onDistroChange();
+  if (editionKey && DISTRO_DATA[distroKey].editions[editionKey]) {
+    selectEdition(editionKey);
+  }
+  scriptCard.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function clearDistroSearch() {
+  const input = document.getElementById("distroSearchInput");
+  const resultsEl = document.getElementById("searchResults");
+  const clearBtn = document.getElementById("clearSearchBtn");
+  input.value = "";
+  resultsEl.innerHTML = "";
+  resultsEl.style.display = "none";
+  clearBtn.style.display = "none";
+  input.focus();
+}
+
 function downloadScript() {
   if (!currentDistro || !currentEdition) return;
   const distroKey = distroSelect.value;
@@ -3342,7 +3531,7 @@ function renderSupportMatrix() {
               beta: "badge-beta",
               experimental: "badge-experimental",
               community: "badge-community"
-            })[e.status]}" style="font-size:0.7rem;">${e.label}</span>
+            })[e.status]}" style="font-size:0.7rem; cursor:pointer;" onclick="pickDistroEdition('${key}', '${ek}')" title="클릭해서 바로 선택">${e.label}</span>
           `).join("")}
         </div>
         <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--muted);">
