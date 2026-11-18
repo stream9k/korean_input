@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# Alpine Linux Alpine Desktop (Xfce / GNOME / KDE) - 한글 입력기(fcitx5-hangul) 자동 설치
+# Alpine Linux / Chimera / Nura Alpine Desktop (Xfce / GNOME / KDE) - 한글 입력기(fcitx5-hangul) 자동 설치
 # 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/alpine/alpine-desktop.sh | sudo sh
 
 set -eu
@@ -27,16 +27,16 @@ detect_user() {
 main() {
   require_root
   mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== Alpine Linux Alpine Desktop (Xfce / GNOME / KDE) 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  log "=== Alpine Linux / Chimera / Nura Alpine Desktop (Xfce / GNOME / KDE) 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
   USER=$(detect_user)
   TARGET_HOME=$(awk -F: -v u="$USER" '$1==u {print $6}' /etc/passwd)
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
-  # 1. apk 패키지 설치
+  # 1. apk 패키지 설치 (Alpine / Chimera 공용)
   log "[1/4] fcitx5 패키지 설치 (apk)..."
   apk update
-  apk add --no-cache fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-noto-cjk
+  apk add fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-noto-cjk
   ok "패키지 설치 완료"
 
   # 2. 환경변수 설정

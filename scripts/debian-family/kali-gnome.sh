@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Kali Linux / Parrot OS Kali Linux GNOME - 한글 입력기(fcitx5-hangul) 자동 설치
+# Kali Linux / Parrot OS / 보안 데비안 Kali Linux GNOME - 한글 입력기(fcitx5-hangul) 자동 설치
 # 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/kali-gnome.sh | sudo bash
 #       또는: sudo bash kali-gnome.sh
 
@@ -41,7 +41,7 @@ detect_desktop() {
 main() {
   require_root
   mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== Kali Linux / Parrot OS Kali Linux GNOME 한글 입력기 설치 시작 (v$SCRIPT_VERSION) ==="
+  log "=== Kali Linux / Parrot OS / 보안 데비안 Kali Linux GNOME 한글 입력기 설치 시작 (v$SCRIPT_VERSION) ==="
 
   local USER TARGET_HOME TARGET_UID DESKTOP
   USER=$(detect_user)

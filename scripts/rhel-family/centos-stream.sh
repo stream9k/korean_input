@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AlmaLinux / Rocky / RHEL / CentOS CentOS Stream - 한글 입력기(ibus-hangul) 자동 설치
+# AlmaLinux / Rocky / RHEL / CentOS / Oreon CentOS Stream - 한글 입력기(ibus-hangul) 자동 설치
 # 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/rhel-family/centos-stream.sh | sudo bash
 
 set -euo pipefail
@@ -28,7 +28,7 @@ detect_user() {
 main() {
   require_root
   mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== AlmaLinux / Rocky / RHEL / CentOS CentOS Stream 한글 입력기(ibus-hangul) 설치 (v$SCRIPT_VERSION) ==="
+  log "=== AlmaLinux / Rocky / RHEL / CentOS / Oreon CentOS Stream 한글 입력기(ibus-hangul) 설치 (v$SCRIPT_VERSION) ==="
 
   local USER TARGET_HOME TARGET_UID
   USER=$(detect_user)

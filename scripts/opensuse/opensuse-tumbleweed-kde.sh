@@ -36,12 +36,20 @@ main() {
   TARGET_UID=$(id -u "$USER")
   info "사용자: $USER (UID=$TARGET_UID)"
 
-  # 1. 패키지 설치 (zypper)
-  log "[1/5] fcitx5 패키지 설치 (zypper)..."
-  zypper --non-interactive install -y \
-    fcitx5 fcitx5-hangul fcitx5-configtool \
-    fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
-    fcitx5-autostart
+  # 1. 패키지 설치 (transactional-update / zypper)
+  log "[1/5] fcitx5 패키지 설치..."
+  if command -v transactional-update >/dev/null 2>&1; then
+    transactional-update --non-interactive pkg install \
+      fcitx5 fcitx5-hangul fcitx5-configtool \
+      fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
+      fcitx5-autostart
+    info "Aeon / MicroOS 감지: transactional-update 적용을 위해 설치 후 재부팅이 필요합니다."
+  else
+    zypper --non-interactive install -y \
+      fcitx5 fcitx5-hangul fcitx5-configtool \
+      fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
+      fcitx5-autostart
+  fi
   ok "패키지 설치 완료"
 
   # 2. 시스템 입력기 설정 (alternatives)

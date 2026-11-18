@@ -144,54 +144,56 @@ NixOS는 명령형 설치 스크립트(`.sh`)가 아닌 선언형 설정 조각(
 
 ## 📋 지원 배포판 및 에디션 전체 목록
 
-이 저장소는 **16개 템플릿 패밀리**를 통해 주요 리눅스 배포판과 파생판(DistroWatch Top 100 기준 일반 리눅스 데스크톱 92종 중 **83종, 90.2%** 커버)을 지원하며, `scripts/` 폴더 아래에 **127개의 생성된 스크립트/설정 파일**이 준비되어 있습니다.
+이 저장소는 **18개 템플릿 패밀리**를 통해 주요 리눅스 배포판과 파생판(DistroWatch Top 200 기준 일반 리눅스 데스크톱 176종 중 **160종, 90.9%** / 전체 200종 중 **80.0%** 커버)을 지원하며, `scripts/` 폴더 아래에 **168개의 생성된 스크립트/설정 파일**이 준비되어 있습니다.
 
 > ⚠️ **테스트 상태 안내**: 모든 배포판을 실기기/VM에서 전수 테스트한 상태는 아닙니다. 일부 신규·독자 배포판은 공식 패키징 규약에 따라 작성된 **베타(⚠️) / 실험적(🧪)** 스크립트이므로 실행 전 스크립트 내용을 확인하시기 바랍니다.
 
-### 1. Debian / Ubuntu 계열 (`scripts/debian-family/`, 44개)
+### 1. Debian / Ubuntu 계열 (`scripts/debian-family/`, 62개)
 - **Linux Mint**: `mint-cinnamon.sh`, `mint-xfce.sh`, `mint-mate.sh`, `mint-edge.sh`
 - **LMDE**: `lmde-cinnamon.sh`
-- **Ubuntu**: `ubuntu-gnome.sh`, `ubuntu-kde.sh`, `ubuntu-xfce.sh`, `ubuntu-mate.sh`, `ubuntu-budgie.sh`, `ubuntu-cinnamon.sh`, `ubuntu-lxqt.sh`, `ubuntu-studio.sh`
+- **Ubuntu**: `ubuntu-gnome.sh`, `ubuntu-kde.sh`, `ubuntu-xfce.sh`, `ubuntu-mate.sh`, `ubuntu-budgie.sh`, `ubuntu-cinnamon.sh`, `ubuntu-lxqt.sh`, `ubuntu-studio.sh`, `ubuntu-sway.sh`, `ubuntu-unity.sh`
 - **Debian**: `debian-gnome.sh`, `debian-kde.sh`, `debian-xfce.sh`, `debian-mate.sh`, `debian-cinnamon.sh`, `debian-lxqt.sh`
 - **Pop!_OS**: `pop-gnome.sh`, `pop-nvidia.sh`
 - **elementary OS**: `elementary-pantheon.sh`
 - **Zorin OS**: `zorin-core.sh`, `zorin-pro.sh`, `zorin-lite.sh`, `zorin-education.sh`
 - **KDE Neon**: `kde-neon-user.sh`, `kde-neon-testing.sh`, `kde-neon-unstable.sh`
-- **MX Linux / antiX / Devuan (Non-systemd 포함)**: `mx-xfce.sh`, `mx-kde.sh`, `mx-fluxbox.sh`, `antix.sh`, `devuan.sh`
-- **Kali / Parrot (보안 데비안 계열)**: `kali-xfce.sh`, `kali-gnome.sh`, `kali-kde.sh`, `parrot.sh`
-- **Ubuntu/Debian 주요 파생**: `tuxedo-os.sh`, `q4os.sh`, `linux-lite.sh`, `deepin.sh`, `pikaos.sh`, `anduinos.sh`
+- **MX Linux / antiX / Devuan (Non-systemd 포함)**: `mx-xfce.sh`, `mx-kde.sh`, `mx-fluxbox.sh`, `antix.sh`, `devuan.sh`, `expirion.sh`, `lcos.sh`, `superlite.sh`
+- **Kali / Parrot / 보안 데비안**: `kali-xfce.sh`, `kali-gnome.sh`, `kali-kde.sh`, `parrot.sh`, `kodachi.sh`, `gnoppix.sh`, `osintvm.sh`, `nethydra.sh`
+- **Ubuntu/Debian 주요 파생**: `tuxedo-os.sh`, `q4os.sh`, `linux-lite.sh`, `deepin.sh`, `pikaos.sh`, `anduinos.sh`, `pureos.sh`, `slimbook-os.sh`, `emmabuntus.sh`, `siduction.sh`, `solydxk.sh`, `raspios.sh`, `dietpi.sh`, `makulu.sh`, `cuerdos.sh`
 
-### 2. Fedora 계열 (`scripts/fedora/`, 12개)
+### 2. Fedora 계열 (`scripts/fedora/`, 14개)
 - `fedora-kde.sh`, `fedora-gnome.sh`, `fedora-xfce.sh`, `fedora-mate.sh`, `fedora-cinnamon.sh`, `fedora-lxqt.sh`, `fedora-i3.sh`, `fedora-sway.sh`
-- **파생 / 특수**: `fedora-nobara.sh`, `fedora-ultramarine.sh`, `fedora-rakuos.sh`, `fedora-qubes.sh` *(Qubes OS Fedora TemplateVM 내부에서 실행)*
+- **파생 / 특수**: `fedora-nobara.sh`, `fedora-ultramarine.sh`, `fedora-rakuos.sh`, `fedora-qubes.sh` *(Qubes OS Fedora TemplateVM 내부에서 실행)*, `fedora-capivaraos.sh`, `fedora-ludora.sh`
 
-### 3. Arch 계열 (`scripts/arch-family/`, 29개)
-- **Arch Linux 및 파생**: `arch-base.sh`, `arch-endeavour.sh`, `arch-manjaro.sh`, `arch-garuda.sh`, `arch-cachyos.sh`, `arch-omarchy.sh`, `arch-artix.sh`, `arch-biglinux.sh`, `arch-pearos.sh`, `arch-bluestar.sh`
+### 3. Arch 계열 (`scripts/arch-family/`, 37개)
+- **Arch Linux 및 파생**: `arch-base.sh`, `arch-endeavour.sh`, `arch-manjaro.sh`, `arch-garuda.sh`, `arch-cachyos.sh`, `arch-omarchy.sh`, `arch-artix.sh`, `arch-biglinux.sh`, `arch-pearos.sh`, `arch-bluestar.sh`, `arch-ml4w.sh`, `arch-archcraft.sh`, `arch-tromjaro.sh`, `arch-blendos.sh`, `arch-prismlinux.sh`, `arch-kiro.sh`, `arch-stratos.sh`, `arch-ezarcher.sh`
 - **Manjaro**: `manjaro-kde.sh`, `manjaro-gnome.sh`, `manjaro-xfce.sh`, `manjaro-cinnamon.sh`, `manjaro-mate.sh`, `manjaro-i3.sh`, `manjaro-sway.sh`
 - **EndeavourOS**: `endeavour-kde.sh`, `endeavour-gnome.sh`, `endeavour-xfce.sh`, `endeavour-i3wm.sh`, `endeavour-sway.sh`, `endeavour-bspwm.sh`
 - **Garuda Linux**: `garuda-kde.sh`, `garuda-gnome.sh`, `garuda-xfce.sh`, `garuda-wayfire.sh`, `garuda-hyprland.sh`, `garuda-qtile.sh`
 
-### 4. openSUSE 계열 (`scripts/opensuse/`, 6개)
-- `opensuse-tumbleweed-kde.sh`, `opensuse-tumbleweed-gnome.sh`, `opensuse-leap-kde.sh`, `opensuse-leap-gnome.sh`, `opensuse-microos.sh`, `opensuse-slowroll.sh`
+### 4. openSUSE 계열 (`scripts/opensuse/`, 7개)
+- `opensuse-tumbleweed-kde.sh`, `opensuse-tumbleweed-gnome.sh`, `opensuse-leap-kde.sh`, `opensuse-leap-gnome.sh`, `opensuse-microos.sh`, `opensuse-slowroll.sh`, `opensuse-aeon.sh` *(`transactional-update` 자동 분기)*
 
-### 5. NixOS (`scripts/nixos/`, 5개)
-- `nixos-gnome.nix`, `nixos-kde.nix`, `nixos-hyprland.nix`, `nixos-sway.nix`, `nixos-minimal.nix`
+### 5. NixOS (`scripts/nixos/`, 6개)
+- `nixos-gnome.nix`, `nixos-kde.nix`, `nixos-hyprland.nix`, `nixos-sway.nix`, `nixos-minimal.nix`, `nixos-glf.nix`
 
-### 6. 불변(Immutable) OS 계열 (7개)
-- **Fedora Atomic (`scripts/fedora-atomic/`, 5개, 설치 후 재부팅 필수)**: `bazzite-kde.sh`, `bazzite-gnome.sh`, `aurora.sh`, `fedora-silverblue.sh`, `fedora-kinoite.sh`
+### 6. 불변(Immutable) OS 계열 (9개)
+- **Fedora Atomic (`scripts/fedora-atomic/`, 7개, 설치 후 재부팅 필수)**: `bazzite-kde.sh`, `bazzite-gnome.sh`, `aurora.sh`, `fedora-silverblue.sh`, `fedora-kinoite.sh`, `butrelinux.sh`, `margine.sh`
 - **SteamOS 3.x (`scripts/steamos/`, 1개)**: `steamos-holo.sh` *(`steamos-readonly disable/enable` 포함)*
 - **Vanilla OS (`scripts/vanilla/`, 1개, 설치 후 재부팅 필수)**: `vanilla-gnome.sh` *(`abroot pkg add` 사용)*
 
-### 7. 엔터프라이즈 RHEL 계열 (`scripts/rhel-family/`, 4개)
-- `almalinux.sh`, `rocky-linux.sh`, `rhel.sh`, `centos-stream.sh` *(공식 저장소 표준인 `ibus-hangul` 설치 및 GNOME 입력 소스 등록)*
+### 7. 엔터프라이즈 RHEL 계열 (`scripts/rhel-family/`, 5개)
+- `almalinux.sh`, `rocky-linux.sh`, `rhel.sh`, `centos-stream.sh`, `oreon.sh` *(공식 저장소 표준인 `ibus-hangul` 설치 및 GNOME 입력 소스 등록)*
 
-### 8. 독립 / 독자 패키지 관리자 계열 (13개)
-- **Void Linux / AgarimOS (`scripts/void/`, 3개)**: `void-glibc.sh`, `void-musl.sh`, `agarimos.sh`
-- **Alpine Linux (`scripts/alpine/`, 1개)**: `alpine-desktop.sh` *(BusyBox `sh` 호환 — `| sudo sh` 실행 권장)*
+### 8. 독립 / 독자 패키지 관리자 계열 (20개)
+- **Void Linux / 파생 (`scripts/void/`, 6개)**: `void-glibc.sh`, `void-musl.sh`, `agarimos.sh`, `lazylinux.sh`, `nekovoid.sh`, `d77void.sh`
+- **Alpine / Chimera / Nura (`scripts/alpine/`, 3개)**: `alpine-desktop.sh`, `chimera-linux.sh`, `nura-linux.sh` *(`apk` 기반 — `| sudo sh` 실행 권장)*
 - **Solus (`scripts/solus/`, 4개)**: `solus-budgie.sh`, `solus-gnome.sh`, `solus-kde.sh`, `solus-xfce.sh`
-- **Gentoo / CalamaroOS (`scripts/gentoo/`, 3개)**: `gentoo-openrc.sh`, `gentoo-systemd.sh`, `calamaroos.sh` *(Portage `emerge` 사용)*
+- **Gentoo / Calculate / CalamaroOS (`scripts/gentoo/`, 4개)**: `gentoo-openrc.sh`, `gentoo-systemd.sh`, `calculate-linux.sh`, `calamaroos.sh` *(Portage `emerge` 사용)*
 - **Mandriva 계열 (`scripts/mandriva-family/`, 4개)**: `mageia.sh`, `openmandriva.sh`, `pclinuxos.sh`, `magos.sh` *(`dnf`/`urpmi`/`apt-get` 자동 분기)*
 - **KaOS (`scripts/kaos/`, 1개)**: `kaos-kde.sh` *(KDE/Qt 전용 패키지 구성)*
+- **ALT Linux (`scripts/alt/`, 1개)**: `alt-workstation.sh` *(`apt-rpm` 기반)*
+- **Guix System (`scripts/guix/`, 1개)**: `guix-desktop.sh` *(GNU Guix 패키지 관리자)*
 
 ### 9. kime 대안 입력기 (`scripts/kime/`, 4개)
 Rust 기반의 경량·Wayland 친화적인 한글 입력기 `kime`을 설치하고 싶다면 아래 스크립트를 사용하세요.
@@ -202,15 +204,15 @@ Rust 기반의 경량·Wayland 친화적인 한글 입력기 `kime`을 설치하
 
 ---
 
-## 🚫 DistroWatch Top 100 중 미지원(제외) OS 목록 및 사유
+## 🚫 DistroWatch Top 200 중 미지원(제외) OS 목록 및 사유
 
-기술적 구조나 OS 성격상 원라인 자동 설치 스크립트가 부적합하거나 제외된 17종입니다.
+기술적 구조나 OS 성격상 원라인 자동 설치 스크립트가 부적합하거나 제외된 40종입니다.
 
 | 분류 | 대상 OS | 제외 사유 |
 |---|---|---|
-| **비(非) 리눅스 OS (5종)** | FreeBSD, GhostBSD, ChromeOS, FydeOS, ReactOS | 리눅스 커널/패키지 생태계가 아님 (BSD 계열은 `pkg install ko-fcitx5-hangul` 수동 설치 필요) |
-| **특수 목적 / 비데스크톱 (3종)** | Talos Linux, ZimaOS, Tails | 쿠버네티스 전용(쉘·패키지관리자 없음), NAS 어플라이언스 전용, 휘발성 Tor 라이브 OS(기본 IBus 내장) |
-| **독자 포맷 / 수동 빌드 / 미성숙 (9종)** | Puppy Linux, EasyOS, Tiny Core, Slackware, PorteuX, aerynOS, GNOME OS, KDE Linux, MocaccinoOS | `.pet`/`.sfs`/`.tcz` root 단일 구조, 공식 바이너리 의존성 부재(`SlackBuilds` 소스 컴파일 필요), 알파 단계 패키지 레포(`moss`), 개발용 Nightly 불변 이미지 등 |
+| **비(非) 리눅스 OS (12종)** | FreeBSD, GhostBSD, NetBSD, OpenBSD, MidnightBSD, SmartOS, OpenIndiana, ChromeOS, FydeOS, ReactOS, Haiku, CalyxOS | 리눅스 커널/패키지 생태계가 아님 (BSD 계열은 `pkg install ko-fcitx5-hangul` 등 각 OS별 수동 설치 필요) |
+| **특수 목적 / 서버 / NAS / 유틸리티 리눅스 (12종)** | Talos Linux, ZimaOS, Tails, HAOS (Home Assistant OS), umbrelOS, StartOS, TrueNAS, ShredOS, Clonezilla, Flatcar, Univention, Koozali | 쿠버네티스/컨테이너/NAS/복구/서버 어플라이언스 전용이거나 휘발성 라이브 OS로 일반 데스크톱 한글 입력기 설치 대상이 아님 |
+| **독자 포맷 / 수동 빌드 / 미성숙 데스크톱 (16종)** | Puppy Linux, EasyOS, Tiny Core, 4MLinux, Slackware, PorteuX, Zenwalk, AUSTRUMI, Slackel, T2 Linux, Nitrux, aerynOS, GNOME OS, KDE Linux, MocaccinoOS, Netdeep | `.pet`/`.sfs`/`.tcz` 등 독자 구조, 공식 바이너리 의존성 부재(`SlackBuilds` 소스 빌드 필요), `apt` 제거 불변 구조(Nitrux), 알파 단계 패키지 레포(`moss`), 개발용 Nightly 이미지 등 |
 
 ---
 
