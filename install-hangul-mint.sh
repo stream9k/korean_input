@@ -9,7 +9,7 @@ set -euo pipefail
 # ──────────────────────────────────────────────────────────────
 # 설정값 (필요시 수정)
 # ──────────────────────────────────────────────────────────────
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 LOG_FILE="/var/log/install-hangul-mint.log"
 BACKUP_DIR="/root/hangul-setup-backup-$(date +%Y%m%d-%H%M%S)"
 

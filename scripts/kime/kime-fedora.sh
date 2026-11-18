@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 LOG_FILE="/var/log/install-kime-kime-fedora.log"
 
 log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
