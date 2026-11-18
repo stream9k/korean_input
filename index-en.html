@@ -81,6 +81,13 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .search-item { background: rgba(88,166,255,0.12); border: 1px solid rgba(88,166,255,0.28); color: var(--fg); padding: 0.38rem 0.7rem; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.15s; }
 .search-item:hover { background: var(--accent); color: #0d1117; border-color: var(--accent); }
 .search-item .search-sub { font-size: 0.75rem; opacity: 0.8; }
+.search-item.fallback { background: rgba(63,185,80,0.12); border-color: rgba(63,185,80,0.3); }
+.search-item.fallback:hover { background: var(--success); color: #0d1117; }
+.search-item.generic { background: rgba(210,153,34,0.12); border-color: rgba(210,153,34,0.3); }
+.search-item.generic:hover { background: var(--warning); color: #0d1117; }
+.search-unsupported { margin-top: 0.5rem; padding: 0.6rem 0.8rem; background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.25); border-radius: 6px; font-size: 0.82rem; }
+.search-generic-box { margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px dashed var(--border); }
+.search-generic-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; font-weight: 500; }
 .footer { max-width: 900px; margin: 3rem auto 2rem; padding: 1.5rem 1.5rem 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
 .footer-note { text-align: center; margin-bottom: 1rem; color: var(--fg); }
 .footer-meta { text-align: center; margin-top: 1.25rem; color: var(--muted); }
@@ -180,6 +187,20 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
           <option value="alt">ALT Linux</option>
           <option value="guix">Guix System</option>
           <option value="kime">kime (Rust 기반 대안 입력기)</option>
+          <optgroup label="── 200위권 인기 데스크톱 ──">
+            <option value="sparky">SparkyLinux (Debian 기반)</option>
+            <option value="bodhi">Bodhi Linux (Ubuntu 기반 / Moksha)</option>
+            <option value="peppermint">Peppermint OS (Debian/Devuan 기반)</option>
+            <option value="voyager">Voyager Live (Ubuntu/Debian 기반)</option>
+            <option value="mabox">Mabox Linux (Arch 기반 / Openbox)</option>
+            <option value="bunsenlabs">BunsenLabs Linux (Debian 기반)</option>
+          </optgroup>
+          <optgroup label="── 기타 / 기반 배포판 직접 선택 (Generic Base) ──">
+            <option value="generic-debian">기타 Debian / Ubuntu 계열 (Simple OS 등 모든 파생)</option>
+            <option value="generic-arch">기타 Arch Linux 계열 (ArcoLinux 등 모든 파생)</option>
+            <option value="generic-fedora">기타 Fedora / RPM 계열 모든 파생</option>
+            <option value="generic-opensuse">기타 openSUSE 계열 모든 파생</option>
+          </optgroup>
         </select>
       </div>
       <div class="select-group">
@@ -743,6 +764,118 @@ const DISTRO_DATA = {
       desktop: { label: "Guix System Desktop", status: "experimental", script: "guix-desktop" }
     },
     defaultEdition: "desktop"
+  },
+  sparky: {
+    name: "SparkyLinux",
+    base: "Debian (Testing / Stable)",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      lxqt: { label: "LXQt (기본 에디션)", status: "verified", script: "sparky-lxqt" },
+      xfce: { label: "Xfce", status: "verified", script: "sparky-xfce" },
+      kde: { label: "KDE Plasma", status: "verified", script: "sparky-kde" }
+    },
+    defaultEdition: "lxqt"
+  },
+  bodhi: {
+    name: "Bodhi Linux",
+    base: "Ubuntu LTS",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      moksha: { label: "Standard (Moksha Desktop)", status: "verified", script: "bodhi-moksha" },
+      hwe: { label: "HWE (최신 하드웨어)", status: "verified", script: "bodhi-hwe" }
+    },
+    defaultEdition: "moksha"
+  },
+  peppermint: {
+    name: "Peppermint OS",
+    base: "Debian / Devuan",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      xfce: { label: "Xfce (기본)", status: "verified", script: "peppermint-xfce" },
+      devuan: { label: "Devuan 베이스 (SysVinit)", status: "beta", script: "peppermint-devuan" }
+    },
+    defaultEdition: "xfce"
+  },
+  voyager: {
+    name: "Voyager Live",
+    base: "Ubuntu / Debian",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      gnome: { label: "GNOME (기본)", status: "verified", script: "voyager-gnome" },
+      xfce: { label: "Xfce", status: "verified", script: "voyager-xfce" }
+    },
+    defaultEdition: "gnome"
+  },
+  mabox: {
+    name: "Mabox Linux",
+    base: "Manjaro / Arch (Rolling)",
+    pkgMgr: "pacman",
+    imConfig: "수동 (environment.d + autostart)",
+    editions: {
+      openbox: { label: "Openbox (경량 WM)", status: "verified", script: "mabox-openbox" }
+    },
+    defaultEdition: "openbox"
+  },
+  bunsenlabs: {
+    name: "BunsenLabs Linux",
+    base: "Debian Stable (Boron)",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      openbox: { label: "Openbox (CrunchBang 후속)", status: "verified", script: "bunsenlabs-openbox" }
+    },
+    defaultEdition: "openbox"
+  },
+  "generic-debian": {
+    name: "기타 Debian / Ubuntu 파생 (Generic Debian/Ubuntu)",
+    base: "Debian / Ubuntu 기반 모든 파생 OS (Simple OS, Sparky, Peppermint 등)",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      gnome: { label: "GNOME / COSMIC / Pantheon", status: "verified", script: "generic-debian-gnome" },
+      xfce: { label: "Xfce / MATE / Cinnamon / Openbox / 기타", status: "verified", script: "generic-debian-xfce" },
+      kde: { label: "KDE Plasma", status: "verified", script: "generic-debian-kde" }
+    },
+    defaultEdition: "gnome"
+  },
+  "generic-arch": {
+    name: "기타 Arch Linux 파생 (Generic Arch)",
+    base: "Arch Linux 기반 모든 파생 OS (Mabox, ArcoLinux, BlackArch 등)",
+    pkgMgr: "pacman",
+    imConfig: "수동 (environment.d + autostart)",
+    editions: {
+      kde: { label: "KDE Plasma", status: "verified", script: "generic-arch-kde" },
+      gnome: { label: "GNOME", status: "verified", script: "generic-arch-gnome" },
+      wm: { label: "Xfce / Openbox / i3 / 기타 WM", status: "verified", script: "generic-arch-wm" }
+    },
+    defaultEdition: "kde"
+  },
+  "generic-fedora": {
+    name: "기타 Fedora / RPM 파생 (Generic Fedora/RPM)",
+    base: "Fedora 및 RPM 기반 모든 파생 OS",
+    pkgMgr: "dnf",
+    imConfig: "alternatives + xinputrc",
+    editions: {
+      workstation: { label: "GNOME / Workstation", status: "verified", script: "generic-fedora-gnome" },
+      kde: { label: "KDE Plasma Spin", status: "verified", script: "generic-fedora-kde" },
+      spin: { label: "Xfce / Cinnamon / MATE / 기타 Spin", status: "verified", script: "generic-fedora-spin" }
+    },
+    defaultEdition: "workstation"
+  },
+  "generic-opensuse": {
+    name: "기타 openSUSE 파생 (Generic openSUSE)",
+    base: "openSUSE 기반 모든 파생 OS (Regata OS, GeckoLinux 등)",
+    pkgMgr: "zypper",
+    imConfig: "alternatives + xinputrc",
+    editions: {
+      kde: { label: "KDE Plasma (기본)", status: "verified", script: "generic-opensuse-kde" },
+      gnome: { label: "GNOME", status: "verified", script: "generic-opensuse-gnome" }
+    },
+    defaultEdition: "kde"
   },
   kime: {
     name: "kime (Rust 기반 경량 입력기)",
@@ -3141,10 +3274,176 @@ function getTemplateFamily(distroKey) {
     vanilla: "vanilla",
     alt: "alt",
     guix: "guix",
+    sparky: "debian-family",
+    bodhi: "debian-family",
+    peppermint: "debian-family",
+    voyager: "debian-family",
+    mabox: "arch-family",
+    bunsenlabs: "debian-family",
+    "generic-debian": "debian-family",
+    "generic-arch": "arch-family",
+    "generic-fedora": "fedora",
+    "generic-opensuse": "opensuse",
     kime: "kime"
   };
   return families[distroKey] || "debian-family";
 }
+
+// ──────────────────────────────────────────────────────────────
+// 201위~552위 배포판 검색 가이드 & 파생 매핑 데이터베이스
+// ──────────────────────────────────────────────────────────────
+const DISTRO_FALLBACK_MAP = {
+  simpleos: {
+    name: "Simple OS",
+    badge: "552위 · Debian 기반",
+    base: "Debian (Calamares + Openbox)",
+    targetDistro: "generic-debian",
+    targetEdition: "xfce",
+    hint: "Debian 기반의 미니멀 데스크톱입니다. Debian/Ubuntu 범용 스크립트(apt)로 100% 호환됩니다."
+  },
+  lxle: {
+    name: "LXLE",
+    badge: "Ubuntu 파생",
+    base: "Ubuntu LTS (LXDE)",
+    targetDistro: "generic-debian",
+    targetEdition: "xfce",
+    hint: "Ubuntu LTS 기반 경량 OS입니다. Debian/Ubuntu 범용 스크립트로 호환됩니다."
+  },
+  arcolinux: {
+    name: "ArcoLinux",
+    badge: "Arch 파생",
+    base: "Arch Linux (Rolling)",
+    targetDistro: "arch",
+    targetEdition: "base",
+    hint: "Arch Linux 기반 학습용 배포판입니다. Arch Linux 스크립트와 100% 호환됩니다."
+  },
+  blackarch: {
+    name: "BlackArch",
+    badge: "Arch 파생",
+    base: "Arch Linux (Security)",
+    targetDistro: "arch",
+    targetEdition: "base",
+    hint: "Arch Linux 기반 보안 침투 테스트 OS입니다. Arch Linux 스크립트와 100% 호환됩니다."
+  },
+  regata: {
+    name: "Regata OS",
+    badge: "openSUSE 파생",
+    base: "openSUSE (Gaming)",
+    targetDistro: "opensuse",
+    targetEdition: "tumbleweed_kde",
+    hint: "openSUSE 기반 게이밍 배포판입니다. openSUSE 스크립트로 100% 호환됩니다."
+  },
+  geckolinux: {
+    name: "GeckoLinux",
+    badge: "openSUSE 파생",
+    base: "openSUSE Leap / Tumbleweed",
+    targetDistro: "opensuse",
+    targetEdition: "leap_kde",
+    hint: "openSUSE 기반 데스크톱 배포판입니다. openSUSE 스크립트로 호환됩니다."
+  },
+  trisquel: {
+    name: "Trisquel",
+    badge: "Ubuntu 파생",
+    base: "Ubuntu (자유 소프트웨어)",
+    targetDistro: "generic-debian",
+    targetEdition: "gnome",
+    hint: "완전 자유 소프트웨어 Ubuntu 파생입니다. Debian/Ubuntu 범용 스크립트로 호환됩니다."
+  },
+  elive: {
+    name: "Elive",
+    badge: "Debian 파생",
+    base: "Debian (Enlightenment)",
+    targetDistro: "generic-debian",
+    targetEdition: "xfce",
+    hint: "Debian 기반의 감각적인 경량 OS입니다. Debian/Ubuntu 범용 스크립트로 호환됩니다."
+  },
+  feren: {
+    name: "Feren OS",
+    badge: "Ubuntu 파생",
+    base: "Ubuntu LTS (KDE Plasma)",
+    targetDistro: "generic-debian",
+    targetEdition: "kde",
+    hint: "Ubuntu 기반 Plasma 데스크톱 OS입니다. Debian/Ubuntu KDE 스크립트로 호환됩니다."
+  },
+  tails: {
+    name: "Tails (The Amnesic Incognito Live System)",
+    badge: "특수 보안 OS",
+    unsupported: true,
+    reason: "Tails는 매 부팅 시 RAM에서 실행되고 세션이 초기화되는 보안 익명 OS로, 영구 입력기 설치가 권장되지 않습니다."
+  },
+  tinycore: {
+    name: "Tiny Core Linux",
+    badge: "독립 초경량",
+    unsupported: true,
+    reason: "독자 .tcz 패키지 구조 및 초경량 라이브러리로 인해 Fcitx5 바이너리가 지원되지 않습니다."
+  },
+  puppy: {
+    name: "Puppy Linux / EasyOS",
+    badge: "독립 초경량",
+    unsupported: true,
+    reason: "독자 .pet 패키지 관리자 구조로 인해 Fcitx5 한글 입력기 바이너리가 공식 지원되지 않습니다."
+  },
+  slackware: {
+    name: "Slackware / Salix / PorteuX / Slackel",
+    badge: "독립 배포판",
+    unsupported: true,
+    reason: "Slackware 계열은 사용자가 직접 SlackBuilds(sbopkg)로 Fcitx5 및 의존 라이브러리를 소스 컴파일해야 합니다."
+  },
+  freebsd: {
+    name: "FreeBSD / GhostBSD / NomadBSD",
+    badge: "비리눅스 (BSD)",
+    unsupported: true,
+    reason: "리눅스가 아닌 BSD 유닉스 운영체제입니다. 터미널에서 'sudo pkg install fcitx5 fcitx5-hangul'로 설치를 권장합니다."
+  },
+  openbsd: {
+    name: "OpenBSD / NetBSD",
+    badge: "비리눅스 (BSD)",
+    unsupported: true,
+    reason: "리눅스가 아닌 독립 BSD 운영체제입니다."
+  },
+  haiku: {
+    name: "Haiku OS",
+    badge: "독립 OS (BeOS 후속)",
+    unsupported: true,
+    reason: "리눅스가 아닌 독립 오픈소스 운영체제로 Fcitx5가 호환되지 않습니다."
+  },
+  reactos: {
+    name: "ReactOS",
+    badge: "독립 OS (Windows NT 호환)",
+    unsupported: true,
+    reason: "윈도우 NT 호환을 목표로 하는 독립 운영체제로 리눅스 입력기를 사용할 수 없습니다."
+  },
+  openwrt: {
+    name: "OpenWrt / IPFire",
+    badge: "네트워크 전용 OS",
+    unsupported: true,
+    reason: "네트워크 라우터/임베디드 전용 운영체제로 GUI 데스크톱 환경이 없습니다."
+  },
+  pfsense: {
+    name: "pfSense / OPNsense",
+    badge: "방화벽 전용 OS",
+    unsupported: true,
+    reason: "방화벽/네트워크 게이트웨이 전용 운영체제로 GUI 데스크톱 환경이 없습니다."
+  },
+  truenas: {
+    name: "TrueNAS / unRAID",
+    badge: "스토리지 (NAS) 전용 OS",
+    unsupported: true,
+    reason: "네트워크 연결 스토리지(NAS) 전용 운영체제입니다."
+  },
+  crux: {
+    name: "CRUX / Lunar Linux",
+    badge: "소스 빌드 독립 OS",
+    unsupported: true,
+    reason: "BSD 스타일의 소스 컴파일 전용 독립 리눅스로 Fcitx5 자동 패키징이 지원되지 않습니다."
+  },
+  "4mlinux": {
+    name: "4MLinux",
+    badge: "독립 미니멀 OS",
+    unsupported: true,
+    reason: "독자 바이너리 패키지 구조로 Fcitx5 한글 엔진이 제공되지 않습니다."
+  }
+};
 
 // ──────────────────────────────────────────────────────────────
 // UI 로직
@@ -3617,6 +3916,26 @@ function copyScript() {
 }
 
 const KOREAN_ALIASES = {
+  "심플": "simpleos",
+  "스파키": "sparky",
+  "보디": "bodhi",
+  "페퍼민트": "peppermint",
+  "보이저": "voyager",
+  "마복스": "mabox",
+  "번센": "bunsenlabs",
+  "테일즈": "tails",
+  "퍼피": "puppy",
+  "슬랙웨어": "slackware",
+  "프리bsd": "freebsd",
+  "하이쿠": "haiku",
+  "리액트": "reactos",
+  "아르코": "arcolinux",
+  "블랙아치": "blackarch",
+  "레가타": "regata",
+  "게코": "geckolinux",
+  "트리스켈": "trisquel",
+  "엘라이브": "elive",
+  "페렌": "feren",
   "가루다": "garuda",
   "민트": "mint",
   "우분투": "ubuntu",
@@ -3671,7 +3990,7 @@ function expandSearchQuery(raw) {
   return q.trim().split(/\s+/).filter(Boolean);
 }
 
-function runDistroSearch(autoSelectFirst = false) {
+﻿function runDistroSearch(autoSelectFirst = false) {
   const t = I18N[currentLang];
   const input = document.getElementById("distroSearchInput");
   const resultsEl = document.getElementById("searchResults");
@@ -3719,51 +4038,156 @@ function runDistroSearch(autoSelectFirst = false) {
     }
   }
 
+  // 201위~552위 파생 & 미지원 배포판 검색
+  const fallbackMatches = [];
+  const unsupportedMatches = [];
+  if (typeof DISTRO_FALLBACK_MAP === "object") {
+    for (const [fbKey, fb] of Object.entries(DISTRO_FALLBACK_MAP)) {
+      const fbHaystack = [fbKey, fb.name, fb.badge || "", fb.base || "", fb.hint || "", fb.reason || ""].join(" ").toLowerCase();
+      if (terms.some(term => fbHaystack.includes(term))) {
+        if (fb.unsupported) {
+          unsupportedMatches.push({ key: fbKey, ...fb });
+        } else {
+          fallbackMatches.push({ key: fbKey, ...fb });
+        }
+      }
+    }
+  }
+
   resultsEl.innerHTML = "";
   resultsEl.style.display = "block";
 
-  if (matches.length === 0) {
+  const hasAnyMatch = matches.length > 0 || fallbackMatches.length > 0 || unsupportedMatches.length > 0;
+
+  if (!hasAnyMatch) {
     const empty = document.createElement("div");
     empty.className = "search-meta";
-    empty.style.marginBottom = "0";
     empty.textContent = t.searchNoMatch(raw);
     resultsEl.appendChild(empty);
-    if (autoSelectFirst) showToast(t.searchNoMatchToast, "error");
-    return;
+  } else {
+    // 1. 공식 지원 매칭 리스트
+    if (matches.length > 0) {
+      const meta = document.createElement("div");
+      meta.className = "search-meta";
+      const shown = matches.slice(0, 30);
+      meta.textContent = matches.length > 30
+        ? t.searchCountTop(matches.length)
+        : t.searchCountAll(matches.length);
+      resultsEl.appendChild(meta);
+
+      const list = document.createElement("div");
+      list.className = "search-list";
+      for (const m of shown) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "search-item";
+        btn.onclick = () => pickDistroEdition(m.distroKey, m.editionKey);
+
+        const mainSpan = document.createElement("span");
+        mainSpan.textContent = `${tLabel(m.distroName)} · ${tLabel(m.editionLabel)}`;
+        const subSpan = document.createElement("span");
+        subSpan.className = "search-sub";
+        subSpan.textContent = `(${m.scriptId})`;
+
+        btn.appendChild(mainSpan);
+        btn.appendChild(subSpan);
+        list.appendChild(btn);
+      }
+      resultsEl.appendChild(list);
+    }
+
+    // 2. 201위~552위 파생 배포판 매핑 리스트
+    if (fallbackMatches.length > 0) {
+      const fbMeta = document.createElement("div");
+      fbMeta.className = "search-meta";
+      fbMeta.style.marginTop = matches.length > 0 ? "0.75rem" : "0";
+      fbMeta.textContent = currentLang === "en"
+        ? `💡 Derivative Distro Guide (${fallbackMatches.length} match): Click to apply base compatible script`
+        : `💡 파생 배포판 매핑 가이드 (${fallbackMatches.length}개 발견): 클릭하면 기반 호환 스크립트가 적용됩니다`;
+      resultsEl.appendChild(fbMeta);
+
+      const fbList = document.createElement("div");
+      fbList.className = "search-list";
+      for (const fb of fallbackMatches) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "search-item fallback";
+        btn.onclick = () => {
+          pickDistroEdition(fb.targetDistro, fb.targetEdition);
+          showToast(currentLang === "en"
+            ? `💡 Applied compatible script for ${fb.name}`
+            : `💡 ${fb.name} (${fb.badge}) 호환 스크립트가 적용되었습니다`);
+        };
+
+        const mainSpan = document.createElement("span");
+        mainSpan.textContent = `💡 ${fb.name} (${fb.badge})`;
+        const subSpan = document.createElement("span");
+        subSpan.className = "search-sub";
+        subSpan.textContent = `→ ${fb.base}`;
+
+        btn.appendChild(mainSpan);
+        btn.appendChild(subSpan);
+        fbList.appendChild(btn);
+      }
+      resultsEl.appendChild(fbList);
+    }
+
+    // 3. 비리눅스 / 독립 OS 미지원 사유 안내
+    if (unsupportedMatches.length > 0) {
+      for (const u of unsupportedMatches) {
+        const box = document.createElement("div");
+        box.className = "search-unsupported";
+        box.innerHTML = `<strong>⚠️ ${u.name} (${u.badge})</strong>: ${u.reason}`;
+        resultsEl.appendChild(box);
+      }
+    }
   }
 
-  const meta = document.createElement("div");
-  meta.className = "search-meta";
-  const shown = matches.slice(0, 30);
-  meta.textContent = matches.length > 30
-    ? t.searchCountTop(matches.length)
-    : t.searchCountAll(matches.length);
-  resultsEl.appendChild(meta);
+  // 4. 어떤 검색어든 목록에 없는 배포판을 위한 4대 기반 OS 빠른 선택 가이드
+  const genericBox = document.createElement("div");
+  genericBox.className = "search-generic-box";
+  const genericTitle = document.createElement("div");
+  genericTitle.className = "search-generic-title";
+  genericTitle.textContent = currentLang === "en"
+    ? "🌐 Unlisted or niche distro? Choose your base Linux family or run universal Step 0:"
+    : "🌐 목록에 없는 배포판이신가요? 시스템의 기반 OS를 선택하거나 0단계 만능 스크립트를 사용하세요:";
+  genericBox.appendChild(genericTitle);
 
-  const list = document.createElement("div");
-  list.className = "search-list";
-  for (const m of shown) {
+  const genericList = document.createElement("div");
+  genericList.className = "search-list";
+
+  const genericItems = [
+    { label: "Debian / Ubuntu 파생", distro: "generic-debian", ed: "gnome" },
+    { label: "Arch Linux 파생", distro: "generic-arch", ed: "kde" },
+    { label: "Fedora / RPM 파생", distro: "generic-fedora", ed: "workstation" },
+    { label: "openSUSE 파생", distro: "generic-opensuse", ed: "kde" }
+  ];
+
+  for (const gi of genericItems) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "search-item";
-    btn.onclick = () => pickDistroEdition(m.distroKey, m.editionKey);
-
-    const mainSpan = document.createElement("span");
-    mainSpan.textContent = `${tLabel(m.distroName)} · ${tLabel(m.editionLabel)}`;
-    const subSpan = document.createElement("span");
-    subSpan.className = "search-sub";
-    subSpan.textContent = `(${m.scriptId})`;
-
-    btn.appendChild(mainSpan);
-    btn.appendChild(subSpan);
-    list.appendChild(btn);
+    btn.className = "search-item generic";
+    btn.textContent = gi.label;
+    btn.onclick = () => pickDistroEdition(gi.distro, gi.ed);
+    genericList.appendChild(btn);
   }
-  resultsEl.appendChild(list);
+  genericBox.appendChild(genericList);
+  resultsEl.appendChild(genericBox);
 
   if (autoSelectFirst) {
-    const first = matches[0];
-    pickDistroEdition(first.distroKey, first.editionKey);
-    showToast(t.toastSelected(tLabel(first.distroName), tLabel(first.editionLabel)));
+    if (matches.length > 0) {
+      const first = matches[0];
+      pickDistroEdition(first.distroKey, first.editionKey);
+      showToast(t.toastSelected(tLabel(first.distroName), tLabel(first.editionLabel)));
+    } else if (fallbackMatches.length > 0) {
+      const first = fallbackMatches[0];
+      pickDistroEdition(first.targetDistro, first.targetEdition);
+      showToast(currentLang === "en"
+        ? `💡 Applied compatible script for ${first.name}`
+        : `💡 ${first.name} 호환 스크립트가 적용되었습니다`);
+    } else {
+      showToast(t.searchNoMatchToast, "error");
+    }
   }
 }
 

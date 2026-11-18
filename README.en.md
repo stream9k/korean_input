@@ -3,7 +3,7 @@
 🌐 [🇰🇷 한국어 (README.md)](README.md) | **🇺🇸 English** | [Web Generator (Short: is.gd/korean_input)](https://is.gd/korean_input) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
 
 Installed Linux in English (`en_US`) and struggling to type or render Korean characters?  
-This repository provides an **auto-detecting all-in-one installer (`install.sh`)**, a **web script generator**, and **168 distro/edition-specific scripts across 18 Linux families** to set up Korean input (`fcitx5-hangul` / `kime` / `ibus-hangul`) and **Noto CJK Korean fonts** in one step.
+This repository provides an **auto-detecting all-in-one installer (`install.sh`)**, a **web script generator**, and **190 distro/edition-specific scripts across 18 Linux families** to set up Korean input (`fcitx5-hangul` / `kime` / `ibus-hangul`) and **Noto CJK Korean fonts** in one step.
 
 > 💡 **Built for English-only Linux installs**: Even if your Linux OS was installed purely in English without Korean fonts or `git`, `install.sh` detects your `$LANG` locale, prints English terminal prompts before fonts are installed, installs **Noto CJK fonts** to prevent broken `□□□` glyphs, and configures English/Korean switching cleanly.
 

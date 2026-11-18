@@ -195,11 +195,17 @@ NixOS는 명령형 설치 스크립트(`.sh`)가 아닌 선언형 설정 조각(
 
 ## 📋 지원 배포판 및 에디션 전체 목록
 
-이 저장소는 **18개 템플릿 패밀리**를 통해 주요 리눅스 배포판과 파생판(DistroWatch Top 200 기준 일반 리눅스 데스크톱 176종 중 **160종, 90.9%** / 전체 200종 중 **80.0%** 커버)을 지원하며, `scripts/` 폴더 아래에 **168개의 생성된 스크립트/설정 파일**이 준비되어 있습니다.
+이 저장소는 **18개 템플릿 패밀리**를 통해 주요 리눅스 배포판과 파생판(DistroWatch Top 200 및 201위~552위 전수 분석 대응)을 폭넓게 지원하며, scripts/ 폴더 아래에 **총 190개의 생성된 스크립트/설정 파일**이 준비되어 있습니다.
+
+- **200위권 인기 데스크톱 추가**: SparkyLinux, Bodhi Linux, Peppermint OS, Voyager Live, Mabox Linux, BunsenLabs Linux
+- **기반 배포판 직접 선택 (Generic Base)**: Debian/Ubuntu 계열 파생, Arch Linux 계열 파생, Fedora/RPM 계열 파생, openSUSE 계열 파생
+- **201위~552위 파생/특수 배포판 검색 가이드 (DISTRO_FALLBACK_MAP)**: Simple OS(552위), ArcoLinux, BlackArch, Regata OS, GeckoLinux, LXLE, Tails, Tiny Core, Puppy, Slackware, FreeBSD 등 20여 종의 파생 매핑 및 미지원 사유 실시간 안내
 
 > ⚠️ **테스트 상태 안내**: 모든 배포판을 실기기/VM에서 전수 테스트한 상태는 아닙니다. 일부 신규·독자 배포판은 공식 패키징 규약에 따라 작성된 **베타(⚠️) / 실험적(🧪)** 스크립트이므로 실행 전 스크립트 내용을 확인하시기 바랍니다.
 
-### 1. Debian / Ubuntu 계열 (`scripts/debian-family/`, 62개)
+### 1. Debian / Ubuntu 계열 (`scripts/debian-family/`, 75개)
+- **200위권 인기 데스크톱**: `sparky-lxqt.sh`, `sparky-xfce.sh`, `sparky-kde.sh`, `bodhi-moksha.sh`, `bodhi-hwe.sh`, `peppermint-xfce.sh`, `peppermint-devuan.sh`, `voyager-gnome.sh`, `voyager-xfce.sh`, `bunsenlabs-openbox.sh`
+- **기반 OS 범용 (Simple OS 등 모든 파생)**: `generic-debian-gnome.sh`, `generic-debian-xfce.sh`, `generic-debian-kde.sh`
 - **Linux Mint**: `mint-cinnamon.sh`, `mint-xfce.sh`, `mint-mate.sh`, `mint-edge.sh`
 - **LMDE**: `lmde-cinnamon.sh`
 - **Ubuntu**: `ubuntu-gnome.sh`, `ubuntu-kde.sh`, `ubuntu-xfce.sh`, `ubuntu-mate.sh`, `ubuntu-budgie.sh`, `ubuntu-cinnamon.sh`, `ubuntu-lxqt.sh`, `ubuntu-studio.sh`, `ubuntu-sway.sh`, `ubuntu-unity.sh`
@@ -212,17 +218,21 @@ NixOS는 명령형 설치 스크립트(`.sh`)가 아닌 선언형 설정 조각(
 - **Kali / Parrot / 보안 데비안**: `kali-xfce.sh`, `kali-gnome.sh`, `kali-kde.sh`, `parrot.sh`, `kodachi.sh`, `gnoppix.sh`, `osintvm.sh`, `nethydra.sh`
 - **Ubuntu/Debian 주요 파생**: `tuxedo-os.sh`, `q4os.sh`, `linux-lite.sh`, `deepin.sh`, `pikaos.sh`, `anduinos.sh`, `pureos.sh`, `slimbook-os.sh`, `emmabuntus.sh`, `siduction.sh`, `solydxk.sh`, `raspios.sh`, `dietpi.sh`, `makulu.sh`, `cuerdos.sh`
 
-### 2. Fedora 계열 (`scripts/fedora/`, 14개)
+### 2. Fedora 계열 (`scripts/fedora/`, 17개)
+- **기반 OS 범용 (모든 Fedora/RPM 파생)**: `generic-fedora-workstation.sh`, `generic-fedora-kde.sh`, `generic-fedora-spin.sh`
 - `fedora-kde.sh`, `fedora-gnome.sh`, `fedora-xfce.sh`, `fedora-mate.sh`, `fedora-cinnamon.sh`, `fedora-lxqt.sh`, `fedora-i3.sh`, `fedora-sway.sh`
 - **파생 / 특수**: `fedora-nobara.sh`, `fedora-ultramarine.sh`, `fedora-rakuos.sh`, `fedora-qubes.sh` *(Qubes OS Fedora TemplateVM 내부에서 실행)*, `fedora-capivaraos.sh`, `fedora-ludora.sh`
 
-### 3. Arch 계열 (`scripts/arch-family/`, 37개)
+### 3. Arch 계열 (`scripts/arch-family/`, 41개)
+- **200위권 인기 데스크톱**: `mabox-openbox.sh` (Openbox 경량 WM)
+- **기반 OS 범용 (ArcoLinux 등 모든 파생)**: `generic-arch-kde.sh`, `generic-arch-gnome.sh`, `generic-arch-wm.sh`
 - **Arch Linux 및 파생**: `arch-base.sh`, `arch-endeavour.sh`, `arch-manjaro.sh`, `arch-garuda.sh`, `arch-cachyos.sh`, `arch-omarchy.sh`, `arch-artix.sh`, `arch-biglinux.sh`, `arch-pearos.sh`, `arch-bluestar.sh`, `arch-ml4w.sh`, `arch-archcraft.sh`, `arch-tromjaro.sh`, `arch-blendos.sh`, `arch-prismlinux.sh`, `arch-kiro.sh`, `arch-stratos.sh`, `arch-ezarcher.sh`
 - **Manjaro**: `manjaro-kde.sh`, `manjaro-gnome.sh`, `manjaro-xfce.sh`, `manjaro-cinnamon.sh`, `manjaro-mate.sh`, `manjaro-i3.sh`, `manjaro-sway.sh`
 - **EndeavourOS**: `endeavour-kde.sh`, `endeavour-gnome.sh`, `endeavour-xfce.sh`, `endeavour-i3wm.sh`, `endeavour-sway.sh`, `endeavour-bspwm.sh`
 - **Garuda Linux**: `garuda-kde.sh`, `garuda-gnome.sh`, `garuda-xfce.sh`, `garuda-wayfire.sh`, `garuda-hyprland.sh`, `garuda-qtile.sh`
 
-### 4. openSUSE 계열 (`scripts/opensuse/`, 7개)
+### 4. openSUSE 계열 (`scripts/opensuse/`, 9개)
+- **기반 OS 범용 (Regata OS 등 모든 파생)**: `generic-opensuse-kde.sh`, `generic-opensuse-gnome.sh`
 - `opensuse-tumbleweed-kde.sh`, `opensuse-tumbleweed-gnome.sh`, `opensuse-leap-kde.sh`, `opensuse-leap-gnome.sh`, `opensuse-microos.sh`, `opensuse-slowroll.sh`, `opensuse-aeon.sh` *(`transactional-update` 자동 분기)*
 
 ### 5. NixOS (`scripts/nixos/`, 6개)
@@ -388,7 +398,7 @@ Prefer picking your exact distribution and desktop environment? Use the interact
 - **Web Generator (Short URL)**: [https://is.gd/korean_input](https://is.gd/korean_input) (or [https://stream9k.github.io/korean_input/](https://stream9k.github.io/korean_input/))
 - **English Web Page**: [https://stream9k.github.io/korean_input/index-en.html](https://stream9k.github.io/korean_input/index-en.html)
 
-Representative distro-specific one-liners (168 scripts covering 18 distro families in [`scripts/`](scripts/)):
+Representative distro-specific one-liners (190 scripts covering 18 distro families in [`scripts/`](scripts/)):
 
 | Distro Family | Representative Distro | One-Line Command |
 | :--- | :--- | :--- |

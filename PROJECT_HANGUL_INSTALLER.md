@@ -112,10 +112,13 @@ hangul-installer-scripts/
 
 ---
 
-## 📊 DistroWatch Top 200 커버리지 및 제외 목록 (2026-11-18 기준)
+## 📊 DistroWatch Top 200 및 201위~552위 전수 대응 체계 (2026-11-18 기준)
 
-- **전체 커버리지**: DistroWatch Top 200 중 **160종 지원 (80.0%)** / 비리눅스 및 서버·NAS·특수목적 OS(40종) 제외한 **일반 리눅스 데스크톱 176종 중 160종 지원 (90.9%)**
-- **생성 스크립트**: 총 **18개 패밀리, 168개 스크립트/설정 파일** + 만능 자동 감지 스크립트(`install.sh`)
+- **전체 커버리지**: DistroWatch Top 200 + 201위~552위 전수 분석 대응
+  - **생성 스크립트**: 총 **18개 패밀리, 190개 스크립트/설정 파일** + 만능 자동 감지 스크립트(install.sh)
+  - **엄선 200위권 인기 데스크톱 (6종)**: SparkyLinux, Bodhi Linux, Peppermint OS, Voyager Live, Mabox Linux, BunsenLabs Linux 정식 탑재
+  - **기반 배포판 직접 선택 (Generic Base, 4종)**: Debian/Ubuntu 계열 파생, Arch Linux 계열 파생, Fedora/RPM 계열 파생, openSUSE 계열 파생
+  - **201위~552위 파생/특수 배포판 검색 가이드 시스템 (DISTRO_FALLBACK_MAP)**: Simple OS(552위), ArcoLinux, BlackArch, Regata OS, GeckoLinux, LXLE, Tails, Tiny Core, Puppy, Slackware, FreeBSD 등 20여 종의 파생 매핑 및 미지원 사유 즉시 안내
 - **추가 실행 편의 구성**:
   - `install.sh`: `git` 미설치 환경 및 배포판 미선택 사용자를 위한 18개 패밀리 자동 감지 올인원 설치 스크립트
   - `cmd/hangul-installer/main.go` + `embed.go`: `install.sh`를 내장(`go:embed`)하고 실행 시 자동 `sudo` 승격을 처리하는 Go 단일 실행 바이너리 소스
