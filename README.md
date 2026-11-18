@@ -1,6 +1,6 @@
 # 리눅스 한글 입력기 자동 설치 스크립트 (`fcitx5-hangul` / `kime`)
 
-🌐 **🇰🇷 한국어** | [🇺🇸 English (README.en.md)](README.en.md) | [웹 생성기 (한/영 자동 인식)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
+🌐 **🇰🇷 한국어** | [🇺🇸 English Guide Below ↓](#english-guide) | [English Docs (README.en.md)](README.en.md) | [웹 생성기 (한/영 자동 인식)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
 
 리눅스를 처음 설치한 뒤 복잡한 한글 입력기 설정 때문에 고생하고 계신가요?  
 이 프로젝트는 사용 중인 **리눅스 배포판과 데스크톱 환경(Cinnamon, GNOME, KDE Plasma, Xfce 등)을 선택**하면, 해당 환경에 맞는 **`fcitx5-hangul` 또는 `kime` 자동 설치 스크립트**를 바로 생성하고 실행할 수 있는 도구입니다.
@@ -342,3 +342,91 @@ node generate_scripts.js
 
 ### 라이선스
 이 프로젝트는 **MIT License**를 따릅니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 확인하세요.
+
+---
+
+<a id="english-guide"></a>
+
+## 🇺🇸 English Guide (For English-Only Linux Systems)
+
+Just installed an English-only Linux distro (Ubuntu, Mint, Arch, Garuda, Fedora, openSUSE, Void, Alpine, etc.) and need Korean input + Korean fonts right away?
+
+> 📘 Full standalone English documentation is also available in **[README.en.md](README.en.md)**, and the English Web Generator is live at **[https://stream9k.github.io/korean_input/index-en.html](https://stream9k.github.io/korean_input/index-en.html)**.
+
+### ⚡ 10-Second Quick Start (Auto-Detect)
+
+Run **one command** in your terminal — no `git`, no manual distro lookup, and no `chmod +x` needed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
+```
+
+If `curl` is not installed (e.g., fresh Ubuntu or Debian), use `wget`:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
+```
+
+- **Auto-Detected English Output**: `install.sh` reads your `LANG` / `LC_*` locale and prints prompts in English automatically on English systems. You can also force a language with `--lang=en` or `--lang=ko`:
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash -s -- --lang=en
+  ```
+- **Korean Fonts Included**: Installs Noto CJK Korean fonts (`fonts-noto-cjk`, `noto-fonts-cjk`, or distro equivalents) alongside `fcitx5-hangul` (or `ibus-hangul` on RHEL-family distros) so Korean text renders cleanly in browsers and terminals instead of broken boxes (`□`).
+
+### 📄 Running a Downloaded `.sh` File Without `chmod +x`
+
+Files downloaded with a web browser or `curl -O` do not have execute permission by default. Instead of running `./install.sh`, pass the file directly to `bash`:
+
+```bash
+sudo bash ~/Downloads/install.sh
+```
+
+### 🌐 Web Generator & Distro-Specific One-Liners
+
+Prefer picking your exact distribution and desktop environment? Use the interactive Web Generator (auto-detects your browser language, or open the English page directly):
+
+- **Web Generator (Auto-Detect)**: [https://stream9k.github.io/korean_input/](https://stream9k.github.io/korean_input/)
+- **English Web Page**: [https://stream9k.github.io/korean_input/index-en.html](https://stream9k.github.io/korean_input/index-en.html)
+
+Representative distro-specific one-liners (168 scripts covering 18 distro families in [`scripts/`](scripts/)):
+
+| Distro Family | Representative Distro | One-Line Command |
+| :--- | :--- | :--- |
+| **Debian / Ubuntu** | Ubuntu (GNOME) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/ubuntu-gnome.sh \| sudo bash` |
+| **Debian / Ubuntu** | Linux Mint (Cinnamon) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/debian-family/mint-cinnamon.sh \| sudo bash` |
+| **Arch-based** | Arch Linux | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/arch-family/arch-base.sh \| sudo bash` |
+| **Arch-based** | Garuda Linux (KDE) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/arch-family/garuda-kde.sh \| sudo bash` |
+| **Fedora** | Fedora (GNOME / KDE) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/fedora/fedora-gnome.sh \| sudo bash` |
+| **openSUSE** | Tumbleweed (KDE) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/opensuse/opensuse-tumbleweed-kde.sh \| sudo bash` |
+| **RHEL-family** | Rocky Linux (`ibus-hangul`) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/rhel-family/rocky-linux.sh \| sudo bash` |
+| **Void Linux** | Void (glibc) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/void/void-glibc.sh \| sudo bash` |
+| **Alpine Linux** | Alpine Desktop | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/alpine/alpine-desktop.sh \| sudo sh` |
+| **Gentoo** | Gentoo (systemd) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/gentoo/gentoo-systemd.sh \| sudo bash` |
+| **Solus** | Solus (Budgie) | `curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/solus/solus-budgie.sh \| sudo bash` |
+| **NixOS** | NixOS (GNOME) | Add [`scripts/nixos/nixos-gnome.nix`](scripts/nixos/nixos-gnome.nix) to `/etc/nixos/configuration.nix` |
+
+### 📦 Single Static Binary (`hangul-installer`)
+
+If you prefer a standalone Linux executable with the auto-detect installer embedded inside (no `curl`/`bash` pipeline needed after download), grab it from **[GitHub Releases](https://github.com/stream9k/korean_input/releases/latest)**:
+
+- **x86_64 (`amd64`)**:
+  ```bash
+  curl -LO https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-amd64
+  chmod +x hangul-installer-linux-amd64
+  ./hangul-installer-linux-amd64
+  ```
+- **ARM64 (`aarch64`)**:
+  ```bash
+  curl -LO https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-arm64
+  chmod +x hangul-installer-linux-arm64
+  ./hangul-installer-linux-arm64
+  ```
+
+### ✅ Post-Install Checklist (US Keyboard & Wayland Tips)
+
+1. **Log out and log back in** (or reboot) after installation so environment variables (`GTK_IM_MODULE`, `QT_IM_MODULE`, `XMODIFIERS`) take effect.
+2. **US Keyboard Toggle Key (`Right Alt` / `Alt_R`)**: Standard US keyboards have no physical `Hangul` key. Run `fcitx5-configtool`:
+   - Under **Input Method**, confirm **Hangul** is in the **Current Input Method** list.
+   - Under **Global Options** -> **Trigger Input Method**, add **`Right Alt` (`Alt_R`)** (or `Ctrl+Space` / `Shift+Space`) as your toggle shortcut.
+3. **KDE Plasma (Wayland — Kubuntu, Fedora KDE, Garuda KDE, etc.)**: Open **System Settings** -> **Keyboard** -> **Virtual Keyboard**, choose **Fcitx 5**, and click **Apply**.
+4. **NixOS (Declarative)**: Copy the generated snippet (for example, [`scripts/nixos/nixos-gnome.nix`](scripts/nixos/nixos-gnome.nix)) into `/etc/nixos/configuration.nix` and run `sudo nixos-rebuild switch`.
