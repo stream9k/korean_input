@@ -11,6 +11,8 @@ This repository provides an **auto-detecting all-in-one installer (`install.sh`)
 
 ## ⚡ 10-Second Quick Start
 
+> 💡 **For most users, this Step 0 script finishes everything in one shot.** If this succeeds, you do not need to proceed to Step 1.
+
 No `git` required. No `chmod +x` needed. No need to pick your distro manually.
 
 1. Open your terminal (`Ctrl + Alt + T`).

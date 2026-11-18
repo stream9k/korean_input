@@ -128,7 +128,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   <div class="card" style="border-color: rgba(63,185,80,0.45); background: linear-gradient(180deg, rgba(63,185,80,0.06), var(--card));">
     <h2 id="step0Title">⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)</h2>
     <p id="step0Desc" style="color:var(--muted); font-size:0.9rem; margin-bottom:0.75rem;">
-      <code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다.
+      <code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다. <strong style="color:var(--success);">대부분 0단계 스크립트로 한방에 설치가 끝나며, 설치가 완료되면 1단계로 가실 필요가 없습니다.</strong>
     </p>
     <pre><code id="autoOneliner">curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash</code></pre>
     <div class="btn-row">
@@ -3475,7 +3475,7 @@ const I18N = {
     altLinkText: "English Page",
     altLinkHref: "index-en.html",
     step0Title: "⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)",
-    step0Desc: "<code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다.",
+    step0Desc: "<code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다. <strong style=\"color:var(--success);\">대부분 0단계 스크립트로 한방에 설치가 끝나며, 설치가 완료되면 1단계로 가실 필요가 없습니다.</strong>",
     btnCopyAutoOneliner: "📋 원라인 복사",
     btnDownloadAuto: "⬇️ 만능 install.sh 다운로드",
     step0Hint: "💡 파일로 직접 받으신 경우 권한 변경(<code>chmod +x</code>) 없이 <code>sudo bash ~/Downloads/install.sh</code> 로 바로 실행할 수 있습니다.",
@@ -3532,7 +3532,7 @@ const I18N = {
     altLinkText: "한국어 페이지",
     altLinkHref: "index.html",
     step0Title: "⚡ Step 0: One-Line Auto-Detect Installer (Recommended)",
-    step0Desc: "No <code>git</code> required, no <code>chmod +x</code> needed. Paste this single command into your terminal to auto-detect your distro (Garuda, Arch, Mint, Ubuntu, Fedora, etc.) and install Korean input + Noto CJK fonts.",
+    step0Desc: "No <code>git</code> required, no <code>chmod +x</code> needed. Paste this single command into your terminal to auto-detect your distro (Garuda, Arch, Mint, Ubuntu, Fedora, etc.) and install Korean input + Noto CJK fonts. <strong style=\"color:var(--success);\">For most users, this Step 0 script finishes everything in one shot — if it succeeds, you do not need to proceed to Step 1.</strong>",
     btnCopyAutoOneliner: "📋 Copy One-Liner",
     btnDownloadAuto: "⬇️ Download install.sh",
     step0Hint: "💡 If you downloaded the file manually, run <code>sudo bash ~/Downloads/install.sh</code> directly without <code>chmod +x</code>.",
