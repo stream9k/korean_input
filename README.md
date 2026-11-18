@@ -7,6 +7,21 @@
 
 ---
 
+## ⚡ 10초 요약: 가장 간단한 설치법
+
+`git` 설치도, 실행 권한(`chmod +x`) 변경도, 배포판을 고를 필요도 없습니다.
+
+1. 터미널(`Ctrl + Alt + T`)을 엽니다.
+2. 아래 **한 줄**을 복사해 붙여넣고 `Enter` → 비밀번호를 입력합니다.
+   ```bash
+   curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
+   ```
+3. 설치가 끝나면 **로그아웃 후 다시 로그인(또는 재부팅)** 한 뒤 `한/영` 키나 `Ctrl+Space`로 한글 입력을 시작하세요!
+   - *(KDE Plasma 사용자는 재로그인 전/후 `시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5` 선택 필요)*
+   - *(웹에서 배포판을 직접 고르고 싶다면 [웹 생성기](https://stream9k.github.io/korean_input/)를 열어보세요)*
+
+---
+
 ## 📌 이 도구가 자동으로 처리해 주는 작업
 
 배포판별로 차이가 있지만, 일반적으로 아래 과정을 한 번에 자동으로 구성합니다.
@@ -87,14 +102,18 @@ sudo bash ~/Downloads/garuda-kde.sh
 
 ### 방법 4: 단일 바이너리 실행 파일(`hangul-installer`) 사용
 
-외부 의존성 없이 `install.sh`가 내장된 단일 Go 바이너리([`cmd/hangul-installer/main.go`](cmd/hangul-installer/main.go))가 GitHub Actions를 통해 `linux/amd64`, `linux/arm64`용으로 자동 빌드됩니다.
+외부 의존성 없이 `install.sh`가 내장된 단일 Go 바이너리([`cmd/hangul-installer/main.go`](cmd/hangul-installer/main.go))가 [GitHub Releases 최신 버전](https://github.com/stream9k/korean_input/releases/latest)에 미리 빌드되어 있습니다.
 
-1. GitHub 저장소의 **Actions → Build Linux Binaries** 아티팩트(또는 태그 릴리스 **Releases**)에서 `hangul-installer-linux-amd64` 파일을 내려받습니다.
-2. 리눅스에서는 바이너리도 브라우저 다운로드 시 실행 비트가 제거되므로 최초 1회 실행 권한을 부여한 뒤 실행합니다(실행 시 root가 아니면 자동으로 `sudo` 권한을 요청합니다):
-   ```bash
-   chmod +x ~/Downloads/hangul-installer-linux-amd64
-   ~/Downloads/hangul-installer-linux-amd64
-   ```
+- **Intel / AMD 64비트 (일반 PC·노트북)**: [`hangul-installer-linux-amd64`](https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-amd64)
+- **ARM64 (Raspberry Pi·ARM 노트북 등)**: [`hangul-installer-linux-arm64`](https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-arm64)
+
+리눅스에서는 바이너리 파일도 다운로드 시 실행 비트가 제거되므로 최초 1회 실행 권한을 부여한 뒤 실행하세요(실행 시 root가 아니면 자동으로 `sudo` 권한을 요청합니다):
+
+```bash
+curl -fsSLO https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-amd64
+chmod +x hangul-installer-linux-amd64
+./hangul-installer-linux-amd64
+```
 
 <details>
 <summary>🛠️ (개발자/기여자 참고) 전체 저장소 클론 후 실행하기 (git 설치 환경)</summary>
