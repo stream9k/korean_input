@@ -1,6 +1,6 @@
 # Linux Korean Input Method Auto-Installer (`fcitx5-hangul` / `kime`)
 
-🌐 [🇰🇷 한국어 (README.md)](README.md) | **🇺🇸 English** | [Web Generator (KO/EN Auto)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
+🌐 [🇰🇷 한국어 (README.md)](README.md) | **🇺🇸 English** | [Web Generator (Short: is.gd/korean_input)](https://is.gd/korean_input) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
 
 Installed Linux in English (`en_US`) and struggling to type or render Korean characters?  
 This repository provides an **auto-detecting all-in-one installer (`install.sh`)**, a **web script generator**, and **168 distro/edition-specific scripts across 18 Linux families** to set up Korean input (`fcitx5-hangul` / `kime` / `ibus-hangul`) and **Noto CJK Korean fonts** in one step.
@@ -20,7 +20,7 @@ No `git` required. No `chmod +x` needed. No need to pick your distro manually.
    ```
 3. **Log out and log back in** (or reboot) when finished, then press `Hangul`, `Ctrl + Space`, or `Shift + Space` to type Korean!
    - *(KDE Plasma users: select **Fcitx 5** in `System Settings → Input Devices → Virtual Keyboard`)*
-   - *(Prefer selecting your distro manually? Open the [English Web Generator](https://stream9k.github.io/korean_input/index-en.html))*
+   - *(Prefer selecting your distro manually? Open the [Web Generator (is.gd/korean_input)](https://is.gd/korean_input))*
 
 ---
 

@@ -1,8 +1,6 @@
 # 리눅스 한글 입력기 자동 설치 스크립트 (`fcitx5-hangul` / `kime`)
 
-🌐 **🇰🇷 한국어** | [🇺🇸 English Guide Below ↓](#english-guide) | [English Docs (README.en.md)](README.en.md) | [웹 생성기 (한/영 자동 인식)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
-
-🌐 **🇰🇷 한국어** | [🇺🇸 English Guide Below ↓](#english-guide) | [English Docs (README.en.md)](README.en.md) | [웹 생성기 (한/영 자동 인식)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
+🌐 **🇰🇷 한국어** | [🇺🇸 English Guide Below ↓](#english-guide) | [English Docs (README.en.md)](README.en.md) | [웹 생성기 (단축: is.gd/korean_input)](https://is.gd/korean_input) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
 
 리눅스를 처음 설치한 뒤 복잡한 한글 입력기 설정 때문에 고생하고 계신가요?  
 이 프로젝트는 사용 중인 **리눅스 배포판과 데스크톱 환경(Cinnamon, GNOME, KDE Plasma, Xfce 등)을 선택**하면, 해당 환경에 맞는 **`fcitx5-hangul` 또는 `kime` 자동 설치 스크립트**를 바로 생성하고 실행할 수 있는 도구입니다.
@@ -22,7 +20,7 @@
    ```
 3. 설치가 끝나면 **로그아웃 후 다시 로그인(또는 재부팅)** 한 뒤 `한/영` 키나 `Ctrl+Space`로 한글 입력을 시작하세요!
    - *(KDE Plasma 사용자는 재로그인 전/후 `시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5` 선택 필요)*
-   - *(웹에서 배포판을 직접 고르고 싶다면 [웹 생성기](https://stream9k.github.io/korean_input/)를 열어보세요)*
+   - *(웹에서 배포판을 직접 고르고 싶다면 [웹 생성기 (단축: is.gd/korean_input)](https://is.gd/korean_input)를 열어보세요)*
 
 ---
 
@@ -387,7 +385,7 @@ sudo bash ~/Downloads/install.sh
 
 Prefer picking your exact distribution and desktop environment? Use the interactive Web Generator (auto-detects your browser language, or open the English page directly):
 
-- **Web Generator (Auto-Detect)**: [https://stream9k.github.io/korean_input/](https://stream9k.github.io/korean_input/)
+- **Web Generator (Short URL)**: [https://is.gd/korean_input](https://is.gd/korean_input) (or [https://stream9k.github.io/korean_input/](https://stream9k.github.io/korean_input/))
 - **English Web Page**: [https://stream9k.github.io/korean_input/index-en.html](https://stream9k.github.io/korean_input/index-en.html)
 
 Representative distro-specific one-liners (168 scripts covering 18 distro families in [`scripts/`](scripts/)):
