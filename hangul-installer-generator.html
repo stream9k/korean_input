@@ -399,6 +399,16 @@ const DISTRO_DATA = {
     },
     defaultEdition: "cinnamon"
   },
+  lmde: {
+    name: "LMDE (Linux Mint Debian Edition)",
+    base: "Debian",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      cinnamon: { label: "Cinnamon (단일 에디션)", status: "verified", script: "lmde" }
+    },
+    defaultEdition: "cinnamon"
+  },
   ubuntu: {
     name: "Ubuntu",
     base: "Debian",
@@ -432,16 +442,6 @@ const DISTRO_DATA = {
       lxqt: { label: "LXQt", status: "beta", script: "debian-gnome" }
     },
     defaultEdition: "gnome"
-  },
-  lmde: {
-    name: "LMDE (Linux Mint Debian Edition)",
-    base: "Debian",
-    pkgMgr: "apt",
-    imConfig: "im-config",
-    editions: {
-      cinnamon: { label: "Cinnamon (단일 에디션)", status: "verified", script: "lmde" }
-    },
-    defaultEdition: "cinnamon"
   },
   fedora: {
     name: "Fedora Linux",
