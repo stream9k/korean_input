@@ -92,6 +92,21 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     <p class="subtitle">배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.</p>
   </header>
 
+  <div class="card" style="border-color: rgba(63,185,80,0.45); background: linear-gradient(180deg, rgba(63,185,80,0.06), var(--card));">
+    <h2>⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)</h2>
+    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:0.75rem;">
+      <code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다.
+    </p>
+    <pre><code id="autoOneliner">curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash</code></pre>
+    <div class="btn-row">
+      <button onclick="copyAutoOneliner()">📋 원라인 복사</button>
+      <button class="secondary" onclick="downloadAutoInstaller()">⬇️ 만능 install.sh 다운로드</button>
+    </div>
+    <p style="color:var(--muted); font-size:0.82rem; margin-top:0.75rem;">
+      💡 파일로 직접 받으신 경우 권한 변경(<code>chmod +x</code>) 없이 <code>sudo bash ~/Downloads/install.sh</code> 로 바로 실행할 수 있습니다.
+    </p>
+  </div>
+
   <div class="card">
     <h2>📋 1단계: 배포판 선택</h2>
     <div class="select-row">
@@ -155,8 +170,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     <pre id="scriptContent"><code></code></pre>
     <div class="info-grid" id="scriptInfo"></div>
     <div style="margin-top:1rem; padding:1rem; background:rgba(88,166,255,0.08); border:1px solid rgba(88,166,255,0.2); border-radius:8px;">
-      <strong id="onelinerLabel">원라인 설치 명령어:</strong>
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <strong id="onelinerLabel">원라인 설치 명령어:</strong>
+        <button class="secondary" style="padding:0.35rem 0.75rem; font-size:0.8rem;" onclick="copyOneliner()">📋 원라인 명령어 복사</button>
+      </div>
       <pre style="margin-top:0.5rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
+      <div id="localRunHint" style="margin-top:0.65rem; font-size:0.82rem; color:var(--muted);"></div>
     </div>
   </div>
 
@@ -3226,16 +3245,55 @@ function generateScript() {
 
   // 원라인 명령어 (GitHub Raw URL) 또는 NixOS 적용 안내
   const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/${templateFamily}/${scriptFileName}`;
+  const localRunHint = document.getElementById("localRunHint");
   if (distroKey === "nixos") {
     onelinerLabel.textContent = "NixOS 적용 방법 (/etc/nixos/configuration.nix 병합):";
     oneliner.textContent = `# 1. 설정 파일 다운로드 또는 위 내용을 복사해 /etc/nixos/configuration.nix 에 병합\ncurl -sL ${rawUrl} -o ${scriptFileName}\n\n# 2. 시스템 재빌드 및 적용\nsudo nixos-rebuild switch`;
+    localRunHint.innerHTML = `💡 <code>.nix</code> 파일은 실행 스크립트가 아니며 <code>/etc/nixos/configuration.nix</code> 에 병합해 적용합니다.`;
   } else {
-    onelinerLabel.textContent = "원라인 설치 명령어:";
-    oneliner.textContent = `curl -sL ${rawUrl} | sudo bash`;
+    const shellCmd = distroKey === "alpine" ? "sh" : "bash";
+    onelinerLabel.textContent = "원라인 설치 명령어 (git·chmod 불필요):";
+    oneliner.textContent = `curl -sL ${rawUrl} | sudo ${shellCmd}`;
+    localRunHint.innerHTML = `💡 파일로 다운로드했다면 <code>chmod +x</code> 없이 <code>sudo ${shellCmd} ~/Downloads/${scriptFileName}</code> 로 바로 실행하세요.`;
   }
 
   scriptCard.style.display = "block";
   verifyCard.style.display = "block";
+}
+
+function copyAutoOneliner() {
+  const cmd = document.getElementById("autoOneliner").textContent;
+  navigator.clipboard.writeText(cmd).then(() => {
+    showToast("만능 자동 설치 명령어가 복사되었습니다");
+  }).catch(() => showToast("복사 실패", "error"));
+}
+
+function downloadAutoInstaller() {
+  const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh`;
+  fetch("install.sh").then(res => {
+    if (!res.ok) throw new Error("fetch failed");
+    return res.blob();
+  }).then(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "install.sh";
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("install.sh 다운로드 완료 (sudo bash ~/Downloads/install.sh 로 실행)");
+  }).catch(() => {
+    const a = document.createElement("a");
+    a.href = location.protocol === "file:" ? "install.sh" : rawUrl;
+    a.download = "install.sh";
+    a.click();
+    showToast("install.sh 다운로드 요청됨 (sudo bash ~/Downloads/install.sh 로 실행)");
+  });
+}
+
+function copyOneliner() {
+  navigator.clipboard.writeText(oneliner.textContent).then(() => {
+    showToast("원라인 명령어가 복사되었습니다");
+  }).catch(() => showToast("복사 실패", "error"));
 }
 
 function copyScript() {

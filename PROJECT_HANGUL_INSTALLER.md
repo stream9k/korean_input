@@ -115,7 +115,12 @@ hangul-installer-scripts/
 ## 📊 DistroWatch Top 200 커버리지 및 제외 목록 (2026-11-18 기준)
 
 - **전체 커버리지**: DistroWatch Top 200 중 **160종 지원 (80.0%)** / 비리눅스 및 서버·NAS·특수목적 OS(40종) 제외한 **일반 리눅스 데스크톱 176종 중 160종 지원 (90.9%)**
-- **생성 스크립트**: 총 **18개 패밀리, 168개 스크립트/설정 파일**
+- **생성 스크립트**: 총 **18개 패밀리, 168개 스크립트/설정 파일** + 만능 자동 감지 스크립트(`install.sh`)
+- **추가 실행 편의 구성**:
+  - `install.sh`: `git` 미설치 환경 및 배포판 미선택 사용자를 위한 18개 패밀리 자동 감지 올인원 설치 스크립트
+  - `cmd/hangul-installer/main.go` + `embed.go`: `install.sh`를 내장(`go:embed`)하고 실행 시 자동 `sudo` 승격을 처리하는 Go 단일 실행 바이너리 소스
+  - `.github/workflows/build-binary.yml`: Linux `amd64`/`arm64` 정적 바이너리 자동 빌드 GitHub Actions 워크플로
+  - 전체 `.sh` 파일 Git 실행 권한(`100755`) 부여 및 웹 UI 0단계 자동 설치 카드/원라인 복사 버튼 추가
 - **제외(미지원) 대상 40종 및 사유**:
   - **비리눅스 (12종)**: FreeBSD, GhostBSD, NetBSD, OpenBSD, MidnightBSD, SmartOS, OpenIndiana, ChromeOS, FydeOS, ReactOS, Haiku, CalyxOS
   - **특수 목적/서버/NAS/유틸리티 리눅스 (12종)**: Talos, ZimaOS, Tails, HAOS(Home Assistant OS), umbrelOS, StartOS, TrueNAS, ShredOS, Clonezilla, Flatcar, Univention, Koozali

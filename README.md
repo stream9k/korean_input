@@ -23,27 +23,50 @@
 
 ## 🚀 빠른 시작 (Quick Start)
 
-본인에게 가장 편한 방법 한 가지를 선택해 진행하세요.
+`git`이 설치되어 있지 않아도, 파일 실행 권한(`chmod +x`)을 따로 주지 않아도 바로 설치할 수 있습니다.
 
-### 방법 1: 웹 생성기(`index.html`)로 내 환경 맞춤 스크립트 만들기 (가장 추천)
+### 방법 1: 배포판 선택 없이 한 줄 자동 설치 (가장 추천 — `git`·`chmod` 불필요)
 
-- **온라인 웹 생성기**: `https://stream9k.github.io/korean_input_method_installer/` *(GitHub Pages 배포 후 접속)*
-- **오프라인 / 로컬 실행**: 이 저장소의 [`index.html`](index.html) 파일을 웹 브라우저로 직접 열면 인터넷 없이도 스크립트를 바로 생성·복사·다운로드할 수 있습니다.
+터미널(`Ctrl + Alt + T`)을 열고 아래 **한 줄**을 복사해 붙여넣으세요. Garuda, Arch, Linux Mint, Ubuntu, Fedora 등 실행 중인 리눅스를 **자동으로 감지**해 알맞은 입력기를 설치합니다.
 
-1. **배포판**을 선택합니다. (예: `Linux Mint`, `Ubuntu`, `Fedora`, `Arch Linux` 등)
-2. **에디션 / 데스크톱**을 선택합니다. (예: `Cinnamon`, `GNOME`, `KDE Plasma`, `Xfce` 등)
-3. 화면에 표시된 **원라인 설치 명령어**를 복사해 터미널에 붙여넣거나, `.sh` 파일을 다운로드해 실행합니다.
+```bash
+# curl 사용 (대부분의 배포판 기본 포함)
+curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash
+```
+
+> `curl`이 없는 환경이라면 `wget`을 사용하세요:
+> ```bash
+> wget -qO- https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh | sudo bash
+> ```
 
 ---
 
-### 방법 2: 주요 배포판 터미널 원라인 설치 (한 줄 복사 & 실행)
+### 방법 2: 스크립트 파일을 직접 받아서 실행 (`chmod +x` 없이 실행하기)
 
-터미널(`Ctrl + Alt + T`)을 열고 본인의 배포판과 데스크톱 환경에 맞는 명령어 한 줄을 붙여넣은 뒤, 비밀번호(sudo)를 입력하면 설치가 진행됩니다.
+웹 브라우저나 [`index.html`](index.html) 생성기에서 `.sh` 파일을 직접 다운로드한 경우, 리눅스 보안 정책상 다운로드 폴더의 파일에는 실행 권한이 없습니다. 이때 `./파일명.sh`로 실행하면 권한 오류가 나지만, 아래처럼 **`sudo bash`로 실행하면 `chmod +x` 없이 바로 실행**됩니다.
 
-> ⚠️ **안내**: 원라인 명령어는 GitHub 저장소(`stream9k/korean_input_method_installer`)에 파일이 업로드되어 있을 때 동작합니다. 아직 저장소를 클론해서 로컬로 쓰시려면 아래 **방법 3**을 이용하세요.
+```bash
+# 예시 1: 만능 자동 감지 스크립트 다운로드 후 바로 실행
+curl -fsSLO https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/install.sh
+sudo bash install.sh
+
+# 예시 2: 브라우저로 다운로드 폴더에 받은 경우
+sudo bash ~/Downloads/install.sh
+# 또는 특정 배포판 스크립트를 받은 경우:
+sudo bash ~/Downloads/garuda-kde.sh
+```
+
+- **웹 생성기 활용**: 온라인 웹 생성기(`https://stream9k.github.io/korean_input_method_installer/`) 또는 로컬의 [`index.html`](index.html)을 브라우저로 열면 원하는 배포판·에디션별 스크립트를 확인하고 다운로드할 수 있습니다.
+
+---
+
+### 방법 3: 주요 배포판별 직접 원라인 설치
+
+자동 감지 대신 본인 배포판에 맞는 전용 스크립트를 바로 실행하고 싶다면 아래 명령어를 사용하세요.
 
 | 배포판 | 데스크톱 / 에디션 | 원라인 설치 명령어 |
 |---|---|---|
+| **Garuda Linux** | KDE Plasma (Dragonized) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/arch-family/garuda-kde.sh \| sudo bash` |
 | **Linux Mint** | Cinnamon (기본) | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-cinnamon.sh \| sudo bash` |
 | **Linux Mint** | Xfce | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-xfce.sh \| sudo bash` |
 | **Linux Mint** | MATE | `curl -sL https://raw.githubusercontent.com/stream9k/korean_input_method_installer/main/scripts/debian-family/mint-mate.sh \| sudo bash` |
@@ -62,26 +85,33 @@
 
 ---
 
-### 방법 3: 저장소 다운로드 후 로컬에서 직접 실행
+### 방법 4: 단일 바이너리 실행 파일(`hangul-installer`) 사용
 
-인터넷에서 바로 파이프(`| sudo bash`)로 실행하기보다 스크립트 내용을 먼저 읽어보고 직접 실행하고 싶다면 아래처럼 진행하세요.
+외부 의존성 없이 `install.sh`가 내장된 단일 Go 바이너리([`cmd/hangul-installer/main.go`](cmd/hangul-installer/main.go))가 GitHub Actions를 통해 `linux/amd64`, `linux/arm64`용으로 자동 빌드됩니다.
+
+1. GitHub 저장소의 **Actions → Build Linux Binaries** 아티팩트(또는 태그 릴리스 **Releases**)에서 `hangul-installer-linux-amd64` 파일을 내려받습니다.
+2. 리눅스에서는 바이너리도 브라우저 다운로드 시 실행 비트가 제거되므로 최초 1회 실행 권한을 부여한 뒤 실행합니다(실행 시 root가 아니면 자동으로 `sudo` 권한을 요청합니다):
+   ```bash
+   chmod +x ~/Downloads/hangul-installer-linux-amd64
+   ~/Downloads/hangul-installer-linux-amd64
+   ```
+
+<details>
+<summary>🛠️ (개발자/기여자 참고) 전체 저장소 클론 후 실행하기 (git 설치 환경)</summary>
+
+모든 `.sh` 파일에는 Git 실행 권한(`100755`)이 부여되어 있으므로 `git clone` 후 별도 `chmod +x` 없이 바로 `./` 실행이 가능합니다.
 
 ```bash
-# 1. 저장소 클론
 git clone https://github.com/stream9k/korean_input_method_installer.git
 cd korean_input_method_installer
-
-# 2. 실행할 스크립트 내용 확인 (예: Linux Mint Cinnamon)
-less scripts/debian-family/mint-cinnamon.sh
-
-# 3. 스크립트 실행
-sudo bash scripts/debian-family/mint-cinnamon.sh
+sudo ./install.sh
+# 또는 개별 스크립트 직접 실행:
+sudo ./scripts/arch-family/garuda-kde.sh
+# Linux Mint 통합 PoC (백업 기능 포함):
+sudo ./install-hangul-mint.sh
 ```
 
-> 💡 **Linux Mint 사용자 참고**: 백업 기능(`BACKUP_DIR`)이 포함된 통합 PoC 스크립트 [`install-hangul-mint.sh`](install-hangul-mint.sh)를 직접 실행할 수도 있습니다.
-> ```bash
-> sudo bash install-hangul-mint.sh
-> ```
+</details>
 
 ---
 
