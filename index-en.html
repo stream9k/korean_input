@@ -239,7 +239,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         </div>
         <button id="btnCopyOneliner" style="padding:0.45rem 0.9rem; font-size:0.85rem;" onclick="copyOneliner()">📋 원라인 명령어 복사</button>
       </div>
-      <pre style="margin-top:0.75rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
+      <div id="onelinerLabel" style="font-size:0.82rem; font-weight:600; color:var(--muted); margin-top:0.75rem;">One-Line Install Command (No git / chmod needed):</div>
+      <pre style="margin-top:0.35rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
     </div>
 
     <!-- 구분선 (또는 / OR) -->
@@ -4000,12 +4001,12 @@ function generateScript() {
   const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/${templateFamily}/${scriptFileName}`;
   const localRunHint = document.getElementById("localRunHint");
   if (distroKey === "nixos") {
-    onelinerLabel.textContent = t.nixOnelinerLabel;
+    if (onelinerLabel) onelinerLabel.textContent = t.nixOnelinerLabel;
     oneliner.textContent = t.nixOnelinerBody(rawUrl, scriptFileName);
     localRunHint.innerHTML = t.nixHint;
   } else {
     const shellCmd = distroKey === "alpine" ? "sh" : "bash";
-    onelinerLabel.textContent = t.shOnelinerLabel;
+    if (onelinerLabel) onelinerLabel.textContent = t.shOnelinerLabel;
     oneliner.textContent = `curl -sL ${rawUrl} | sudo ${shellCmd}`;
     localRunHint.innerHTML = t.shHint(shellCmd, scriptFileName);
   }
