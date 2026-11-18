@@ -261,8 +261,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
           </p>
         </div>
         <div class="script-actions" style="display:flex; gap:0.5rem;">
-          <button id="downloadBtn" onclick="downloadScript()">⬇️ 파일 다운로드 (.sh)</button>
-          <button id="btnCopyScript" class="secondary" onclick="copyScript()">📋 전체 코드 복사</button>
+          <button id="btnCopyScript" onclick="copyScript()">📋 전체 코드 복사</button>
+          <button id="downloadBtn" class="secondary" onclick="downloadScript()">⬇️ 파일 다운로드 (.sh)</button>
         </div>
       </div>
       <div id="localRunHint" style="padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border-radius:6px; font-size:0.83rem; color:var(--fg); margin-bottom:0.85rem; border:1px solid var(--border);"></div>
