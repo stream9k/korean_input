@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>리눅스 한글 입력기 자동 설치 스크립트 생성기</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --fg: #e6edf3;
+  --muted: #8b949e;
+  --accent: #58a6ff;
+  --accent-hover: #79b8ff;
+  --card: #161b22;
+  --border: #30363d;
+  --success: #3fb950;
+  --warning: #d29922;
+  --danger: #f85149;
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+  --mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--fg); line-height: 1.6; min-height: 100vh; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); text-decoration: underline; }
+code { font-family: var(--mono); background: rgba(88,166,255,0.1); padding: 0.15em 0.35em; border-radius: 4px; font-size: 0.9em; }
+pre { font-family: var(--mono); background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow: auto; max-height: 500px; }
+.container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+header { text-align: center; margin-bottom: 2.5rem; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; }
+.subtitle { color: var(--muted); margin-top: 0.5rem; font-size: 1.1rem; }
+.card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+.card h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.select-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+@media (max-width: 600px) { .select-row { grid-template-columns: 1fr; } }
+.select-group { display: flex; flex-direction: column; gap: 0.4rem; }
+label { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+select { background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 0.7rem 1rem; color: var(--fg); font-size: 1rem; font-family: inherit; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; }
+select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(88,166,255,0.15); }
+select:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-row { display: flex; gap: 0.75rem; flex-wrap: wrap; margin-top: 1rem; }
+button { background: var(--accent); border: none; border-radius: 8px; padding: 0.7rem 1.25rem; color: #0d1117; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: background 0.15s, transform 0.05s; font-family: inherit; }
+button:hover { background: var(--accent-hover); }
+button:active { transform: scale(0.98); }
+button.secondary { background: var(--border); color: var(--fg); }
+button.secondary:hover { background: #3d444d; }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.script-display { display: none; margin-top: 1.5rem; animation: fadeIn 0.2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+.script-display.visible { display: block; }
+.script-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+.script-title { font-weight: 600; font-size: 1rem; }
+.script-actions { display: flex; gap: 0.5rem; }
+.badge { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.7rem; font-weight: 600; padding: 0.2rem 0.5rem; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.05em; }
+.badge-verified { background: rgba(63,185,80,0.15); color: var(--success); border: 1px solid rgba(63,185,80,0.3); }
+.badge-beta { background: rgba(210,153,34,0.15); color: var(--warning); border: 1px solid rgba(210,153,34,0.3); }
+.badge-experimental { background: rgba(248,81,73,0.15); color: var(--danger); border: 1px solid rgba(248,81,73,0.3); }
+.badge-community { background: rgba(139,148,158,0.15); color: var(--muted); border: 1px solid rgba(139,148,158,0.3); }
+.info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.info-item { display: flex; flex-direction: column; gap: 0.2rem; }
+.info-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.info-value { font-family: var(--mono); font-size: 0.85rem; }
+.edition-list { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
+.edition-tag { background: rgba(88,166,255,0.1); border: 1px solid rgba(88,166,255,0.2); color: var(--accent); padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+.edition-tag:hover { background: rgba(88,166,255,0.2); }
+.edition-tag.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+.edition-tag.disabled { opacity: 0.4; cursor: not-allowed; }
+.footer { max-width: 900px; margin: 3rem auto 2rem; padding: 1.5rem 1.5rem 0; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
+.footer-note { text-align: center; margin-bottom: 1rem; color: var(--fg); }
+.footer-meta { text-align: center; margin-top: 1.25rem; color: var(--muted); }
+.ref-table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+.ref-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.82rem; }
+.ref-table th, .ref-table td { padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.ref-table thead th { color: var(--fg); font-weight: 600; background: rgba(255,255,255,0.03); white-space: nowrap; }
+.ref-table tbody tr:last-child td { border-bottom: none; }
+.ref-table td:first-child { font-weight: 600; color: var(--fg); white-space: nowrap; }
+.ref-table td:nth-child(3) { white-space: nowrap; }
+.footer a { color: var(--accent); }
+.footer a:hover { color: var(--accent-hover); }
+.toast { position: fixed; bottom: 1.5rem; right: 1.5rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: translateY(100px); opacity: 0; transition: all 0.3s ease; z-index: 100; }
+.toast.show { transform: translateY(0); opacity: 1; }
+.toast.success { border-left: 4px solid var(--success); }
+.toast.error { border-left: 4px solid var(--danger); }
+.distro-card { display: none; }
+.distro-card.active { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>한글 입력기 자동 설치 스크립트</h1>
+    <p class="subtitle">배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.</p>
+  </header>
+
+  <div class="card">
+    <h2>📋 1단계: 배포판 선택</h2>
+    <div class="select-row">
+      <div class="select-group">
+        <label for="distroSelect">배포판</label>
+        <select id="distroSelect" onchange="onDistroChange()">
+          <option value="">-- 배포판 선택 --</option>
+          <option value="mint">Linux Mint (21.x / 22.x)</option>
+          <option value="ubuntu">Ubuntu (22.04 / 24.04 / 24.10)</option>
+          <option value="debian">Debian (12 Bookworm / 13 Trixie)</option>
+          <option value="lmde">LMDE (6 / 7)</option>
+          <option value="fedora">Fedora (40 / 41 / 42)</option>
+          <option value="arch">Arch Linux</option>
+          <option value="manjaro">Manjaro</option>
+          <option value="opensuse">openSUSE (Leap 15.5+ / Tumbleweed)</option>
+          <option value="pop">Pop!_OS (22.04 / 24.04)</option>
+          <option value="elementary">elementary OS (7 / 8)</option>
+          <option value="zorin">Zorin OS (16 / 17)</option>
+          <option value="kde-neon">KDE Neon</option>
+          <option value="endeavour">EndeavourOS</option>
+          <option value="garuda">Garuda Linux</option>
+          <option value="nixos">NixOS</option>
+          <option value="kime">kime (Rust 기반 대안 입력기)</option>
+        </select>
+      </div>
+      <div class="select-group">
+        <label for="editionSelect">에디션 / 데스크톱</label>
+        <select id="editionSelect" disabled onchange="selectEdition(this.value)">
+          <option value="">-- 먼저 배포판 선택 --</option>
+        </select>
+      </div>
+    </div>
+    <div id="editionTags" class="edition-list" style="display:none;"></div>
+  </div>
+
+  <div class="card" id="scriptCard" style="display:none;">
+    <h2>📄 2단계: 생성된 스크립트</h2>
+    <div class="script-header">
+      <span class="script-title" id="scriptTitle">스크립트 제목</span>
+      <div class="script-actions">
+        <button class="secondary" onclick="copyScript()">📋 복사</button>
+        <button id="downloadBtn" onclick="downloadScript()">⬇️ 다운로드 (.sh)</button>
+      </div>
+    </div>
+    <div id="badges" style="margin-bottom:0.5rem;"></div>
+    <pre id="scriptContent"><code></code></pre>
+    <div class="info-grid" id="scriptInfo"></div>
+    <div style="margin-top:1rem; padding:1rem; background:rgba(88,166,255,0.08); border:1px solid rgba(88,166,255,0.2); border-radius:8px;">
+      <strong id="onelinerLabel">원라인 설치 명령어:</strong>
+      <pre style="margin-top:0.5rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
+    </div>
+  </div>
+
+  <div class="card" id="verifyCard" style="display:none;">
+    <h2>✅ 3단계: 설치 후 검증</h2>
+    <pre><code># 재로그인 후 실행
+fcitx5-diagnose
+
+# 환경변수 확인
+env | grep -i im_module
+
+# 프로세스 확인
+pgrep -af fcitx5
+
+# 설정 확인
+cat ~/.config/fcitx5/profile
+cat ~/.config/fcitx5/config
+
+# 강제 재시작
+fcitx5 -r</code></pre>
+  </div>
+
+  <div class="card">
+    <h2>📚 지원 현황</h2>
+    <div id="supportMatrix"></div>
+  </div>
+</div>
+
+<footer class="footer">
+  <p class="footer-note">이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.</p>
+  <div class="ref-table-wrap">
+    <table class="ref-table">
+      <thead>
+        <tr>
+          <th>프로젝트</th>
+          <th>용도</th>
+          <th>라이선스</th>
+          <th>출처</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>linuxmint-fcitx5-cjk-fix</td>
+          <td>Linux Mint Cinnamon fcitx5 완전 마이그레이션 (가장 완성도 높음)</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/kylechoidev/linuxmint-fcitx5-cjk-fix" target="_blank" rel="noopener noreferrer">https://github.com/kylechoidev/linuxmint-fcitx5-cjk-fix</a></td>
+        </tr>
+        <tr>
+          <td>linux-hangul-input-setup</td>
+          <td>LMDE 7 / 데비안 계열 fcitx5 설치 스크립트 모음</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/ppugend/linux-hangul-input-setup" target="_blank" rel="noopener noreferrer">https://github.com/ppugend/linux-hangul-input-setup</a></td>
+        </tr>
+        <tr>
+          <td>fedora42-fcitx5-guide</td>
+          <td>Fedora 42 KDE Plasma fcitx5 설정 가이드 + install-fcitx5.sh</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/StrKare/fedora42-fcitx5-guide" target="_blank" rel="noopener noreferrer">https://github.com/StrKare/fedora42-fcitx5-guide</a></td>
+        </tr>
+        <tr>
+          <td>Hangul-fixer</td>
+          <td>크로스 디스트로 치트시트 + kime 대안 소개</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/kernalix7/Hangul-fixer" target="_blank" rel="noopener noreferrer">https://github.com/kernalix7/Hangul-fixer</a></td>
+        </tr>
+        <tr>
+          <td>ArchWiki Localization/Korean</td>
+          <td>fcitx5-hangul 공식 설정 문서 (환경변수, 프로필, 핫키)</td>
+          <td>CC BY-SA 4.0</td>
+          <td><a href="https://wiki.archlinux.org/title/Localization/Korean" target="_blank" rel="noopener noreferrer">https://wiki.archlinux.org/title/Localization/Korean</a></td>
+        </tr>
+        <tr>
+          <td>Fedora Wiki I18N/Fcitx5</td>
+          <td>Fedora 공식 패키지 목록 및 alternatives 설정 방식</td>
+          <td>CC BY-SA 4.0</td>
+          <td><a href="https://fedoraproject.org/wiki/I18N/Fcitx5" target="_blank" rel="noopener noreferrer">https://fedoraproject.org/wiki/I18N/Fcitx5</a></td>
+        </tr>
+        <tr>
+          <td>Omarchy PR #11719</td>
+          <td>omarchy-setup-input-hangul - D-Bus로 fcitx5 엔진 동적 추가 방식</td>
+          <td>MIT</td>
+          <td><a href="https://github.com/omacom/omarchy/pull/11719" target="_blank" rel="noopener noreferrer">https://github.com/omacom/omarchy/pull/11719</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="footer-meta">MIT License · 커뮤니티 기여 환영</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GITHUB_REPO = "stream9k/korean_input_method_installer";
+
+// ──────────────────────────────────────────────────────────────
+// 데이터: 배포판별 에디션/스크립트 매핑
+// ──────────────────────────────────────────────────────────────
+const DISTRO_DATA = {
+  mint: {
+    name: "Linux Mint",
+    base: "Ubuntu LTS / Debian (LMDE)",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      cinnamon: { label: "Cinnamon (기본)", status: "verified", script: "mint-cinnamon" },
+      xfce: { label: "Xfce", status: "verified", script: "mint-xfce" },
+      mate: { label: "MATE", status: "verified", script: "mint-mate" },
+      lmde: { label: "LMDE (Debian 베이스)", status: "verified", script: "lmde" },
+      edge: { label: "Edge (신규 하드웨어 커널)", status: "beta", script: "mint-cinnamon" }
+    },
+    defaultEdition: "cinnamon"
+  },
+  ubuntu: {
+    name: "Ubuntu",
+    base: "Debian",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      gnome: { label: "GNOME (기본)", status: "verified", script: "ubuntu-gnome" },
+      kde: { label: "Kubuntu (KDE Plasma)", status: "verified", script: "ubuntu-kde" },
+      xfce: { label: "Xubuntu (Xfce)", status: "verified", script: "ubuntu-xfce" },
+      mate: { label: "Ubuntu MATE", status: "verified", script: "ubuntu-mate" },
+      budgie: { label: "Ubuntu Budgie", status: "beta", script: "ubuntu-gnome" },
+      cinnamon: { label: "Ubuntu Cinnamon", status: "beta", script: "ubuntu-gnome" },
+      lxqt: { label: "Lubuntu (LXQt)", status: "beta", script: "ubuntu-gnome" },
+      studio: { label: "Ubuntu Studio", status: "beta", script: "ubuntu-kde" }
+    },
+    defaultEdition: "gnome"
+  },
+  debian: {
+    name: "Debian",
+    base: "Debian",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      gnome: { label: "GNOME (기본)", status: "verified", script: "debian-gnome" },
+      kde: { label: "KDE Plasma", status: "verified", script: "debian-kde" },
+      xfce: { label: "Xfce", status: "verified", script: "debian-xfce" },
+      mate: { label: "MATE", status: "verified", script: "debian-mate" },
+      cinnamon: { label: "Cinnamon", status: "beta", script: "debian-gnome" },
+      lxqt: { label: "LXQt", status: "beta", script: "debian-gnome" }
+    },
+    defaultEdition: "gnome"
+  },
+  lmde: {
+    name: "LMDE (Linux Mint Debian Edition)",
+    base: "Debian",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      cinnamon: { label: "Cinnamon (단일 에디션)", status: "verified", script: "lmde" }
+    },
+    defaultEdition: "cinnamon"
+  },
+  fedora: {
+    name: "Fedora Linux",
+    base: "Independent (RHEL 업스트림)",
+    pkgMgr: "dnf",
+    imConfig: "alternatives + imsettings",
+    editions: {
+      kde: { label: "KDE Plasma (기본 권장)", status: "verified", script: "fedora-kde" },
+      gnome: { label: "GNOME (Workstation)", status: "verified", script: "fedora-gnome" },
+      xfce: { label: "Xfce Spin", status: "beta", script: "fedora-gnome" },
+      mate: { label: "MATE Spin", status: "beta", script: "fedora-gnome" },
+      cinnamon: { label: "Cinnamon Spin", status: "beta", script: "fedora-gnome" },
+      lxqt: { label: "LXQt Spin", status: "beta", script: "fedora-gnome" },
+      i3: { label: "i3 Spin", status: "experimental", script: "fedora-gnome" },
+      sway: { label: "Sway Spin", status: "experimental", script: "fedora-gnome" }
+    },
+    defaultEdition: "kde"
+  },
+  arch: {
+    name: "Arch Linux",
+    base: "Independent (Rolling)",
+    pkgMgr: "pacman",
+    imConfig: "수동 (환경변수 + autostart)",
+    editions: {
+      base: { label: "베이스 (직접 구성)", status: "verified", script: "arch-base" },
+      endeavour: { label: "EndeavourOS (사전 구성)", status: "verified", script: "arch-endeavour" },
+      manjaro: { label: "Manjaro (별도 항목 참조)", status: "community", script: "arch-manjaro" },
+      garuda: { label: "Garuda Linux (별도 항목 참조)", status: "community", script: "arch-garuda" },
+      cachyos: { label: "CachyOS", status: "community", script: "arch-base" }
+    },
+    defaultEdition: "base"
+  },
+  manjaro: {
+    name: "Manjaro Linux",
+    base: "Arch (Rolling, Held-back)",
+    pkgMgr: "pacman",
+    imConfig: "수동 (Manjaro Settings Manager 연동)",
+    editions: {
+      kde: { label: "KDE Plasma (기본)", status: "verified", script: "manjaro-kde" },
+      gnome: { label: "GNOME", status: "verified", script: "manjaro-gnome" },
+      xfce: { label: "Xfce", status: "verified", script: "manjaro-xfce" },
+      cinnamon: { label: "Cinnamon", status: "beta", script: "manjaro-gnome" },
+      mate: { label: "MATE", status: "beta", script: "manjaro-gnome" },
+      i3: { label: "i3WM", status: "experimental", script: "manjaro-base" },
+      sway: { label: "Sway", status: "experimental", script: "manjaro-base" }
+    },
+    defaultEdition: "kde"
+  },
+  opensuse: {
+    name: "openSUSE",
+    base: "Independent (SLE 업스트림)",
+    pkgMgr: "zypper",
+    imConfig: "YaST / alternatives",
+    editions: {
+      tumbleweed_kde: { label: "Tumbleweed KDE Plasma", status: "verified", script: "opensuse-tumbleweed-kde" },
+      tumbleweed_gnome: { label: "Tumbleweed GNOME", status: "verified", script: "opensuse-tumbleweed-gnome" },
+      leap_kde: { label: "Leap 15.5+ KDE Plasma", status: "verified", script: "opensuse-leap-kde" },
+      leap_gnome: { label: "Leap 15.5+ GNOME", status: "verified", script: "opensuse-leap-gnome" },
+      microos: { label: "MicroOS (Transactional)", status: "experimental", script: "opensuse-microos" },
+      slowroll: { label: "Slowroll", status: "beta", script: "opensuse-tumbleweed-kde" }
+    },
+    defaultEdition: "tumbleweed_kde"
+  },
+  pop: {
+    name: "Pop!_OS",
+    base: "Ubuntu LTS",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      gnome: { label: "GNOME (COSMIC 곧 전환)", status: "verified", script: "pop-gnome" },
+      nvidia: { label: "NVIDIA ISO (동일)", status: "verified", script: "pop-gnome" }
+    },
+    defaultEdition: "gnome"
+  },
+  elementary: {
+    name: "elementary OS",
+    base: "Ubuntu LTS",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      pantheon: { label: "Pantheon (단일)", status: "verified", script: "elementary-pantheon" }
+    },
+    defaultEdition: "pantheon"
+  },
+  zorin: {
+    name: "Zorin OS",
+    base: "Ubuntu LTS",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      core: { label: "Core (GNOME)", status: "verified", script: "zorin-core" },
+      pro: { label: "Pro (레이아웃 선택 가능)", status: "verified", script: "zorin-core" },
+      lite: { label: "Lite (Xfce)", status: "verified", script: "zorin-lite" },
+      education: { label: "Education", status: "beta", script: "zorin-core" }
+    },
+    defaultEdition: "core"
+  },
+  "kde-neon": {
+    name: "KDE Neon",
+    base: "Ubuntu LTS",
+    pkgMgr: "apt",
+    imConfig: "im-config",
+    editions: {
+      user: { label: "User Edition (기본)", status: "verified", script: "kde-neon-user" },
+      testing: { label: "Testing", status: "beta", script: "kde-neon-user" },
+      unstable: { label: "Unstable", status: "experimental", script: "kde-neon-user" }
+    },
+    defaultEdition: "user"
+  },
+  endeavour: {
+    name: "EndeavourOS",
+    base: "Arch (Rolling, 온라인 인스톨러)",
+    pkgMgr: "pacman",
+    imConfig: "수동",
+    editions: {
+      kde: { label: "KDE Plasma (온라인 선택)", status: "verified", script: "endeavour-kde" },
+      gnome: { label: "GNOME", status: "verified", script: "endeavour-gnome" },
+      xfce: { label: "Xfce", status: "verified", script: "endeavour-xfce" },
+      i3wm: { label: "i3WM", status: "beta", script: "endeavour-base" },
+      sway: { label: "Sway", status: "beta", script: "endeavour-base" },
+      bspwm: { label: "BSPWM", status: "experimental", script: "endeavour-base" }
+    },
+    defaultEdition: "kde"
+  },
+  garuda: {
+    name: "Garuda Linux",
+    base: "Arch (Rolling, 사전 구성 많음)",
+    pkgMgr: "pacman",
+    imConfig: "Garuda Assistant 연동",
+    editions: {
+      kde: { label: "KDE Plasma 'Dragonized' (기본)", status: "verified", script: "garuda-kde" },
+      gnome: { label: "GNOME", status: "verified", script: "garuda-gnome" },
+      xfce: { label: "Xfce", status: "verified", script: "garuda-xfce" },
+      wayfire: { label: "Wayfire", status: "beta", script: "garuda-base" },
+      hyprland: { label: "Hyprland", status: "beta", script: "garuda-base" },
+      qtile: { label: "Qtile", status: "experimental", script: "garuda-base" }
+    },
+    defaultEdition: "kde"
+  },
+  nixos: {
+    name: "NixOS",
+    base: "Independent (함수형, 설정 파일 기반)",
+    pkgMgr: "nix (configuration.nix / flake)",
+    imConfig: "configuration.nix 에서 선언적 설정",
+    editions: {
+      gnome: { label: "GNOME (configuration.nix)", status: "verified", script: "nixos-gnome" },
+      kde: { label: "KDE Plasma", status: "verified", script: "nixos-kde" },
+      hyprland: { label: "Hyprland", status: "beta", script: "nixos-hyprland" },
+      sway: { label: "Sway", status: "beta", script: "nixos-sway" },
+      minimal: { label: "Minimal (서버/헤드리스)", status: "experimental", script: "nixos-minimal" }
+    },
+    defaultEdition: "gnome"
+  },
+  kime: {
+    name: "kime (Rust 기반 경량 입력기)",
+    base: "Wayland 네이티브 대안 입력기",
+    pkgMgr: "AUR / COPR / zypper / .deb",
+    imConfig: "수동 (environment.d + autostart)",
+    editions: {
+      debian: { label: "Debian / Ubuntu / Mint (.deb)", status: "beta", script: "kime-debian" },
+      fedora: { label: "Fedora (COPR)", status: "beta", script: "kime-fedora" },
+      arch: { label: "Arch / Manjaro / Endeavour (AUR)", status: "beta", script: "kime-arch" },
+      opensuse: { label: "openSUSE (zypper)", status: "beta", script: "kime-opensuse" }
+    },
+    defaultEdition: "debian"
+  }
+};
+
+// ──────────────────────────────────────────────────────────────
+// 스크립트 템플릿 (배포판별 핵심 로직)
+// ──────────────────────────────────────────────────────────────
+const SCRIPT_TEMPLATES = {
+  // ─── Debian/Ubuntu/Mint/Pop/Zorin/elementary/KDE Neon ───
+  "debian-family": (params) => `#!/usr/bin/env bash
+# ${params.distroName} ${params.editionLabel} - 한글 입력기(fcitx5-hangul) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/debian-family/${params.scriptId}.sh | sudo bash
+#       또는: sudo bash ${params.scriptId}.sh
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.0.0"
+LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
+BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
+
+log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
+err() { log "❌ $*"; exit 1; }
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="\${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  err "대상 사용자 탐지 실패. SUDO_USER로 실행하세요."
+}
+
+detect_desktop() {
+  local user="$1"
+  local d="\${XDG_CURRENT_DESKTOP:-}"
+  [[ -n "$d" ]] && { echo "$d"; return; }
+  d=$(su - "$user" -c 'echo \${XDG_CURRENT_DESKTOP:-}' 2>/dev/null || true)
+  [[ -n "$d" ]] && { echo "$d"; return; }
+  d=$(su - "$user" -c 'echo \${DESKTOP_SESSION:-}' 2>/dev/null || true)
+  [[ -n "$d" ]] && { echo "$d"; return; }
+  echo "unknown"
+}
+
+main() {
+  require_root
+  mkdir -p "$(dirname "$LOG_FILE")"
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 시작 (v$SCRIPT_VERSION) ==="
+
+  local USER TARGET_HOME TARGET_UID DESKTOP
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  DESKTOP=$(detect_desktop "$USER")
+
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱: $DESKTOP"
+
+  # 1. 레거시 제거 & 업데이트
+  log "[1/7] 레거시 fcitx4 제거 및 패키지 업데이트..."
+  export DEBIAN_FRONTEND=noninteractive
+  apt-get update -qq
+  apt-get purge -y -qq fcitx fcitx-bin fcitx-data fcitx-hangul fcitx-config-gtk \\
+    fcitx-frontend-all fcitx-frontend-gtk2 fcitx-frontend-gtk3 fcitx-frontend-qt5 2>/dev/null || true
+  apt-get autoremove --purge -y -qq
+  ok "정리 완료"
+
+  # 2. fcitx5 스택 설치
+  log "[2/7] fcitx5 + 한글 엔진 + 프론트엔드 설치..."
+  apt-get install -y -qq \\
+    fcitx5 fcitx5-hangul fcitx5-config-qt fcitx5-configtool \\
+    fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \\
+    fcitx5-frontend-qt5 fcitx5-frontend-qt6
+  ok "설치 완료"
+
+  # 3. 입력 프레임워크 전환
+  log "[3/7] 입력 프레임워크를 fcitx5로 설정 (im-config)..."
+  su - "$USER" -c "im-config -n fcitx5" 2>/dev/null || warn "im-config 실패 (수동 실행 필요)"
+  ok "프레임워크 설정 완료"
+
+  # 4. Fcitx5 프로필/핫키
+  log "[4/7] Fcitx5 프로필·핫키 구성..."
+  local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
+  mkdir -p "$FCITX5_DIR"
+  cat > "$FCITX5_DIR/profile" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+[GroupOrder]
+0=Default
+EOF
+  cat > "$FCITX5_DIR/config" <<'EOF'
+[Hotkey]
+EnumerateWithTriggerKeys=True
+SkipFirst=False
+[Hotkey/TriggerKeys]
+0=Hangul
+1=Control+space
+2=Shift+space
+EOF
+  chown -R "$USER:$USER" "$FCITX5_DIR"
+  ok "설정 파일 생성"
+
+  # 5. 데스크톱 단축키 충돌 해제
+  log "[5/7] 데스크톱 단축키 충돌 해제 ($DESKTOP)..."
+  local cmds=()
+  case "$DESKTOP" in
+    *CINNAMON*|*cinnamon*)
+      cmds=(
+        "org.cinnamon.desktop.keybindings.wm switch-input-source []"
+        "org.cinnamon.desktop.keybindings.wm switch-input-source-backward []"
+        "org.gnome.desktop.wm.keybindings switch-input-source []"
+        "org.gnome.desktop.wm.keybindings switch-input-source-backward []"
+      );;
+    *GNOME*|*gnome*|*UNITY*|*unity*|*PANTHEON*|*pantheon*|*BUDGIE*|*budgie*|*COSMIC*|*cosmic*)
+      cmds=(
+        "org.gnome.desktop.wm.keybindings switch-input-source []"
+        "org.gnome.desktop.wm.keybindings switch-input-source-backward []"
+      );;
+    *XFCE*|*xfce*)
+      cmds=(
+        "org.xfce.keyboard-shortcuts.commands.custom '<Super>space' ''"
+        "org.xfce.keyboard-shortcuts.commands.custom '<Shift><Super>space' ''"
+      );;
+    *MATE*|*mate*)
+      cmds=(
+        "org.mate.Marco.global-keybindings switch-input-source ''"
+        "org.mate.Marco.global-keybindings switch-input-source-backward ''"
+        "org.gnome.desktop.wm.keybindings switch-input-source []"
+        "org.gnome.desktop.wm.keybindings switch-input-source-backward []"
+      );;
+    *KDE*|*kde*|*PLASMA*|*plasma*)
+      # KDE는 보통 Virtual Keyboard 방식으로 처리, gsettings 불필요
+      cmds=();;
+    *) cmds=(
+        "org.gnome.desktop.wm.keybindings switch-input-source []"
+        "org.gnome.desktop.wm.keybindings switch-input-source-backward []"
+      );;
+  esac
+
+  if [ -S "/run/user/$TARGET_UID/bus" ]; then
+    local bus="unix:path=/run/user/$TARGET_UID/bus"
+    for c in "\${cmds[@]}"; do sudo -u "$USER" DBUS_SESSION_BUS_ADDRESS="$bus" gsettings set $c 2>/dev/null || true; done
+  else
+    for c in "\${cmds[@]}"; do su - "$USER" -c "gsettings set $c 2>/dev/null || true"; done
+  fi
+  ok "단축키 해제 완료"
+
+  # 6. Wayland 환경변수
+  log "[6/7] Wayland 환경변수 설정..."
+  local ENV_FILE="$TARGET_HOME/.config/environment.d/fcitx5.conf"
+  mkdir -p "$(dirname "$ENV_FILE")"
+  cat > "$ENV_FILE" <<'EOF'
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+EOF
+  chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
+  ok "환경변수 파일 생성"
+
+  # 7. 자동시작
+  log "[7/7] 자동시작 등록..."
+  local ADIR="$TARGET_HOME/.config/autostart"
+  mkdir -p "$ADIR"
+  cat > "$ADIR/fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+  chown -R "$USER:$USER" "$ADIR"
+  ok "자동시작 등록"
+
+  echo
+  echo "============================================================"
+  echo " 🎉 설치 완료! 로그아웃 후 다시 로그인하세요."
+  echo " 한/영 키, Ctrl+Space, Shift+Space 로 전환"
+  echo " 설정: fcitx5-configtool"
+  echo " 로그: $LOG_FILE"
+  echo "============================================================"
+}
+main "$@"
+`,
+
+  // ─── Fedora ───
+  "fedora": (params) => `#!/usr/bin/env bash
+# ${params.distroName} ${params.editionLabel} - 한글 입력기(fcitx5-hangul) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/fedora/${params.scriptId}.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.0.0"
+LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
+
+log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
+err() { log "❌ $*"; exit 1; }
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="\${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  err "대상 사용자 탐지 실패";
+}
+
+main() {
+  require_root
+  mkdir -p "$(dirname "$LOG_FILE")"
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+
+  local USER TARGET_HOME TARGET_UID
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  info "사용자: $USER (UID=$TARGET_UID)"
+
+  # 1. 패키지 설치
+  log "[1/5] fcitx5 패키지 설치 (dnf)..."
+  dnf install -y -q \\
+    fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt \\
+    fcitx5-autostart
+  ok "패키지 설치 완료"
+
+  # 2. 시스템 입력기 등록 (alternatives)
+  log "[2/5] 시스템 입력기를 fcitx5로 등록..."
+  alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+  # Wayland 지원 활성화
+  sed -i 's/IMSETTINGS_IGNORE_SESSION=\\*-wayland/#IMSETTINGS_IGNORE_SESSION=*-wayland/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+  sed -i 's/XIM=fcitx5/XIM=fcitx/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+  ok "시스템 입력기 설정 완료"
+
+  # 3. ibus 자동시작 비활성화 (충돌 방지)
+  log "[3/5] ibus 자동시작 비활성화..."
+  su - "$USER" -c "systemctl --user disable ibus 2>/dev/null || true" || true
+  ok "ibus 비활성화"
+
+  # 4. 사용자 설정 (프로필/핫키/환경변수)
+  log "[4/5] 사용자 설정 구성..."
+  local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
+  mkdir -p "$FCITX5_DIR"
+  cat > "$FCITX5_DIR/profile" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+[GroupOrder]
+0=Default
+EOF
+  cat > "$FCITX5_DIR/config" <<'EOF'
+[Hotkey]
+EnumerateWithTriggerKeys=True
+SkipFirst=False
+[Hotkey/TriggerKeys]
+0=Hangul
+1=Control+space
+2=Shift+space
+EOF
+  # 환경변수 (~/.bash_profile 또는 ~/.profile)
+  local PROFILE_FILE="$TARGET_HOME/.bash_profile"
+  [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+  grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null || cat >> "$PROFILE_FILE" <<'EOF'
+
+# fcitx5 환경변수
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+  chown -R "$USER:$USER" "$FCITX5_DIR" "$PROFILE_FILE"
+  ok "사용자 설정 완료"
+
+  # 5. KDE Plasma면 Virtual Keyboard 설정 안내
+  log "[5/5] 데스크톱별 마무리..."
+  local DESKTOP="\${XDG_CURRENT_DESKTOP:-}"
+  if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    info "KDE Plasma 감지: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택 후 재로그인"
+  fi
+
+  echo
+  echo "============================================================"
+  echo " 🎉 설치 완료! 재부팅 또는 재로그인 필요"
+  echo " KDE: 시스템설정 → 입력장치 → 가상키보드 → Fcitx 5"
+  echo " GNOME: 자동 적용 (환경변수 로드 후)"
+  echo " 전환: 한/영 키, Ctrl+Space"
+  echo " 설정: fcitx5-configtool"
+  echo " 진단: fcitx5-diagnose"
+  echo "============================================================"
+}
+main "$@"
+`,
+
+  // ─── Arch/Manjaro/Endeavour/Garuda ───
+  "arch-family": (params) => `#!/usr/bin/env bash
+# ${params.distroName} ${params.editionLabel} - 한글 입력기(fcitx5-hangul) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/arch-family/${params.scriptId}.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.0.0"
+LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
+
+log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
+err() { log "❌ $*"; exit 1; }
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="\${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  err "대상 사용자 탐지 실패";
+}
+
+main() {
+  require_root
+  mkdir -p "$(dirname "$LOG_FILE")"
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+
+  local USER TARGET_HOME TARGET_UID
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  info "사용자: $USER (UID=$TARGET_UID)"
+
+  # 1. 패키지 설치 (pacman)
+  log "[1/5] fcitx5 패키지 설치 (pacman)..."
+  pacman -Sy --needed --noconfirm \\
+    fcitx5-im fcitx5-hangul fcitx5-configtool \\
+    fcitx5-gtk fcitx5-qt
+  ok "패키지 설치 완료"
+
+  # 2. 환경변수 시스템 와이드 (/etc/environment)
+  log "[2/5] 시스템 환경변수 설정 (/etc/environment)..."
+  grep -q "GTK_IM_MODULE=fcitx" /etc/environment 2>/dev/null || cat >> /etc/environment <<'EOF'
+
+# fcitx5 환경변수
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+EOF
+  ok "시스템 환경변수 추가"
+
+  # 3. 사용자 설정 (프로필/핫키)
+  log "[3/5] 사용자 Fcitx5 설정..."
+  local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
+  mkdir -p "$FCITX5_DIR"
+  cat > "$FCITX5_DIR/profile" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+[GroupOrder]
+0=Default
+EOF
+  cat > "$FCITX5_DIR/config" <<'EOF'
+[Hotkey]
+EnumerateWithTriggerKeys=True
+SkipFirst=False
+[Hotkey/TriggerKeys]
+0=Hangul
+1=Control+space
+2=Shift+space
+EOF
+  chown -R "$USER:$USER" "$FCITX5_DIR"
+  ok "사용자 설정 완료"
+
+  # 4. 자동시작 (systemd user 또는 데스크톱 autostart)
+  log "[4/5] 자동시작 등록..."
+  local ADIR="$TARGET_HOME/.config/autostart"
+  mkdir -p "$ADIR"
+  cat > "$ADIR/fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+  chown -R "$USER:$USER" "$ADIR"
+
+  # systemd user 서비스도 활성화 (Wayland 세션용)
+  su - "$USER" -c "systemctl --user enable fcitx5 2>/dev/null || true" || true
+  ok "자동시작 등록"
+
+  # 5. KDE Plasma 특화 안내
+  log "[5/5] 데스크톱별 안내..."
+  local DESKTOP="\${XDG_CURRENT_DESKTOP:-}"
+  if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    info "KDE Plasma: 시스템설정 → 입력장치 → 가상키보드 → Fcitx 5 선택 후 재로그인"
+  elif [[ "$DESKTOP" =~ [Gg][Nn][Oo][Mm][Ee] ]]; then
+    info "GNOME: 재로그인 후 자동 적용 (환경변수 상속)"
+  else
+    info "타 WM/DE: ~/.xprofile 또는 ~/.xinitrc 에 환경변수 추가 후 재시작"
+  fi
+
+  echo
+  echo "============================================================"
+  echo " 🎉 설치 완료! 재로그인 또는 재부팅 필요"
+  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 설정: fcitx5-configtool"
+  echo " 진단: fcitx5-diagnose"
+  echo "============================================================"
+}
+main "$@"
+`,
+
+  // ─── openSUSE ───
+  "opensuse": (params) => `#!/usr/bin/env bash
+# ${params.distroName} ${params.editionLabel} - 한글 입력기(fcitx5-hangul) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/opensuse/${params.scriptId}.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.0.0"
+LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
+
+log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
+err() { log "❌ $*"; exit 1; }
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="\${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  err "대상 사용자 탐지 실패";
+}
+
+main() {
+  require_root
+  mkdir -p "$(dirname "$LOG_FILE")"
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+
+  local USER TARGET_HOME TARGET_UID
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  info "사용자: $USER (UID=$TARGET_UID)"
+
+  # 1. 패키지 설치 (zypper)
+  log "[1/5] fcitx5 패키지 설치 (zypper)..."
+  zypper --non-interactive install -y \\
+    fcitx5 fcitx5-hangul fcitx5-configtool \\
+    fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \\
+    fcitx5-autostart
+  ok "패키지 설치 완료"
+
+  # 2. 시스템 입력기 설정 (alternatives)
+  log "[2/5] 시스템 입력기 등록..."
+  alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+  sed -i 's/IMSETTINGS_IGNORE_SESSION=\\*-wayland/#IMSETTINGS_IGNORE_SESSION=*-wayland/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+  sed -i 's/XIM=fcitx5/XIM=fcitx/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+  ok "시스템 입력기 설정"
+
+  # 3. ibus 비활성화
+  log "[3/5] ibus 자동시작 비활성화..."
+  su - "$USER" -c "systemctl --user disable ibus 2>/dev/null || true" || true
+  ok "ibus 비활성화"
+
+  # 4. 사용자 설정
+  log "[4/5] 사용자 Fcitx5 설정..."
+  local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
+  mkdir -p "$FCITX5_DIR"
+  cat > "$FCITX5_DIR/profile" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+[GroupOrder]
+0=Default
+EOF
+  cat > "$FCITX5_DIR/config" <<'EOF'
+[Hotkey]
+EnumerateWithTriggerKeys=True
+SkipFirst=False
+[Hotkey/TriggerKeys]
+0=Hangul
+1=Control+space
+2=Shift+space
+EOF
+  # 환경변수
+  local PROFILE_FILE="$TARGET_HOME/.bash_profile"
+  [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+  grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null || cat >> "$PROFILE_FILE" <<'EOF'
+
+# fcitx5 환경변수
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+  chown -R "$USER:$USER" "$FCITX5_DIR" "$PROFILE_FILE"
+  ok "사용자 설정 완료"
+
+  # 5. KDE Plasma Virtual Keyboard 안내
+  log "[5/5] 마무리..."
+  local DESKTOP="\${XDG_CURRENT_DESKTOP:-}"
+  if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    info "KDE Plasma: 시스템설정 → 입력장치 → 가상키보드 → Fcitx 5 선택 후 재로그인"
+  fi
+
+  echo
+  echo "============================================================"
+  echo " 🎉 설치 완료! 재부팅 또는 재로그인"
+  echo " 전환: 한/영 키, Ctrl+Space"
+  echo " 설정: fcitx5-configtool"
+  echo " 진단: fcitx5-diagnose"
+  echo "============================================================"
+}
+main "$@"
+`,
+
+  // ─── NixOS ───
+  "nixos": (params) => `# ${params.distroName} ${params.editionLabel} - 한글 입력기 설정 (configuration.nix)
+# 이 스크립트는 실행 파일이 아닙니다. configuration.nix 에 병합하세요.
+
+# 1. fcitx5 패키지 및 한글 엔진 추가
+{ config, pkgs, ... }:
+
+{
+  # fcitx5 활성화
+  i18n.inputMethod = {
+    enabled = "fcitx5";
+    fcitx5 = {
+      enable = true;
+      engines = with pkgs; [ fcitx5-hangul ];  # 한국어
+      # engines = with pkgs; [ fcitx5-hangul fcitx5-mozc fcitx5-chinese-addons ]; # 다국어
+    };
+  };
+
+  # 2. 환경변수 (Wayland/X11 공통)
+  environment.sessionVariables = {
+    GTK_IM_MODULE = "fcitx";
+    QT_IM_MODULE = "fcitx";
+    XMODIFIERS = "@im=fcitx";
+  };
+
+  # 3. 자동시작 (플라즈마/그놈 등에서 자동 처리됨)
+  # Wayland 세션용 추가 환경변수
+  wayland = {
+    enable = true;
+    windowManager.fcitx5 = {
+      enable = true;
+    };
+  };
+
+  # 4. 사용자별 Fcitx5 설정 (홈 매니저 사용 시)
+  # home-manager 옵션 예시:
+  # programs.fcitx5 = {
+  #   enable = true;
+  #   engines = with pkgs; [ fcitx5-hangul ];
+  #   configFile = {
+  #     "profile" = ''
+  #       [Groups/0]
+  #       Name=Default
+  #       Default Layout=us
+  #       DefaultIM=keyboard-us
+  #       [Groups/0/Items/0]
+  #       Name=keyboard-us
+  #       Layout=
+  #       [Groups/0/Items/1]
+  #       Name=hangul
+  #       Layout=
+  #       [GroupOrder]
+  #       0=Default
+  #     '';
+  #     "config" = ''
+  #       [Hotkey]
+  #       EnumerateWithTriggerKeys=True
+  #       SkipFirst=False
+  #       [Hotkey/TriggerKeys]
+  #       0=Hangul
+  #       1=Control+space
+  #       2=Shift+space
+  #     '';
+  #   };
+  # };
+
+  # 5. 폰트 (한글 렌더링)
+  fonts.packages = with pkgs; [ noto-fonts-cjk noto-fonts-emoji ];
+}
+
+# ─── 적용 방법 ───
+# 1. 위 내용을 /etc/nixos/configuration.nix 에 병합
+# 2. sudo nixos-rebuild switch
+# 3. 재부팅 또는 재로그인
+# 4. fcitx5-configtool 로 엔진 순서/핫키 확인
+`,
+
+  // ─── kime (대안) ───
+  "kime": (params) => `#!/usr/bin/env bash
+# ${params.distroName} ${params.editionLabel} - kime (Rust 기반 경량 한글 입력기) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/kime/${params.scriptId}.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.0.0"
+LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
+
+log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
+err() { log "❌ $*"; exit 1; }
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="\${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  err "대상 사용자 탐지 실패";
+}
+
+main() {
+  require_root
+  mkdir -p "$(dirname "$LOG_FILE")"
+  log "=== ${params.distroName} ${params.editionLabel} kime 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+
+  local USER TARGET_HOME TARGET_UID
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  info "사용자: $USER"
+
+  # 배포판별 설치
+  . /etc/os-release
+  case "$ID" in
+    arch|manjaro|endeavouros|garuda)
+      log "[1/3] kime 설치 (pacman/AUR)..."
+      if command -v yay &>/dev/null; then
+        su - "$USER" -c "yay -S --noconfirm kime"
+      elif command -v paru &>/dev/null; then
+        su - "$USER" -c "paru -S --noconfirm kime"
+      else
+        warn "AUR 헬퍼 없음. 수동 설치 필요: https://github.com/kime-ime/kime"
+        exit 1
+      fi
+      ;;
+    fedora)
+      log "[1/3] kime 설치 (COPR)..."
+      dnf copr enable -y toroidalfox/kime
+      dnf install -y kime
+      ;;
+    opensuse*)
+      log "[1/3] kime 설치 (zypper)..."
+      zypper --non-interactive install -y kime
+      ;;
+    ubuntu|debian|linuxmint|pop|zorin|elementary|neon)
+      log "[1/3] kime 설치 (.deb 다운로드)..."
+      cd /tmp
+      wget -q "https://github.com/kime-ime/kime/releases/latest/download/kime-$(uname -m).deb"
+      apt-get install -y ./kime-*.deb
+      ;;
+    *)
+      err "지원하지 않는 배포판: $ID. 수동 설치: https://github.com/kime-ime/kime"
+      ;;
+  esac
+  ok "kime 설치 완료"
+
+  # 2. 환경변수
+  log "[2/3] 환경변수 설정..."
+  local ENV_FILE="$TARGET_HOME/.config/environment.d/kime.conf"
+  mkdir -p "$(dirname "$ENV_FILE")"
+  cat > "$ENV_FILE" <<'EOF'
+GTK_IM_MODULE=kime
+QT_IM_MODULE=kime
+XMODIFIERS=@im=kime
+EOF
+  chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
+  ok "환경변수 설정"
+
+  # 3. 자동시작
+  log "[3/3] 자동시작 등록..."
+  local ADIR="$TARGET_HOME/.config/autostart"
+  mkdir -p "$ADIR"
+  cat > "$ADIR/kime.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Kime
+Exec=kime-daemon
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+  chown -R "$USER:$USER" "$ADIR"
+  ok "자동시작 등록"
+
+  echo
+  echo "============================================================"
+  echo " 🎉 kime 설치 완료! 재로그인 필요"
+  echo " KDE: 시스템설정 → 입력장치 → 가상키보드 → Kime 선택"
+  echo " GNOME: 설정 → 키보드 → 입력 소스 → 한국어 (Kime) 추가"
+  echo " 전환: 한/영 키 (우측 Alt), Shift+Space"
+  echo " 설정: kime-config (GUI) 또는 ~/.config/kime/config.toml"
+  echo "============================================================"
+}
+main "$@"
+`
+};
+
+// ──────────────────────────────────────────────────────────────
+// 에디션별 스크립트 ID 매핑
+// ──────────────────────────────────────────────────────────────
+function getScriptId(distroKey, editionKey) {
+  const map = {
+    mint: {
+      cinnamon: "mint-cinnamon",
+      xfce: "mint-xfce",
+      mate: "mint-mate",
+      lmde: "lmde-cinnamon",
+      edge: "mint-edge"
+    },
+    ubuntu: {
+      gnome: "ubuntu-gnome",
+      kde: "ubuntu-kde",
+      xfce: "ubuntu-xfce",
+      mate: "ubuntu-mate",
+      budgie: "ubuntu-budgie",
+      cinnamon: "ubuntu-cinnamon",
+      lxqt: "ubuntu-lxqt",
+      studio: "ubuntu-studio"
+    },
+    debian: {
+      gnome: "debian-gnome",
+      kde: "debian-kde",
+      xfce: "debian-xfce",
+      mate: "debian-mate",
+      cinnamon: "debian-cinnamon",
+      lxqt: "debian-lxqt"
+    },
+    lmde: { cinnamon: "lmde-cinnamon" },
+    fedora: {
+      kde: "fedora-kde",
+      gnome: "fedora-gnome",
+      xfce: "fedora-xfce",
+      mate: "fedora-mate",
+      cinnamon: "fedora-cinnamon",
+      lxqt: "fedora-lxqt",
+      i3: "fedora-i3",
+      sway: "fedora-sway"
+    },
+    arch: {
+      base: "arch-base",
+      endeavour: "arch-endeavour",
+      manjaro: "arch-manjaro",
+      garuda: "arch-garuda",
+      cachyos: "arch-cachyos"
+    },
+    manjaro: {
+      kde: "manjaro-kde",
+      gnome: "manjaro-gnome",
+      xfce: "manjaro-xfce",
+      cinnamon: "manjaro-cinnamon",
+      mate: "manjaro-mate",
+      i3: "manjaro-i3",
+      sway: "manjaro-sway"
+    },
+    opensuse: {
+      tumbleweed_kde: "opensuse-tumbleweed-kde",
+      tumbleweed_gnome: "opensuse-tumbleweed-gnome",
+      leap_kde: "opensuse-leap-kde",
+      leap_gnome: "opensuse-leap-gnome",
+      microos: "opensuse-microos",
+      slowroll: "opensuse-slowroll"
+    },
+    pop: { gnome: "pop-gnome", nvidia: "pop-nvidia" },
+    elementary: { pantheon: "elementary-pantheon" },
+    zorin: { core: "zorin-core", pro: "zorin-pro", lite: "zorin-lite", education: "zorin-education" },
+    "kde-neon": { user: "kde-neon-user", testing: "kde-neon-testing", unstable: "kde-neon-unstable" },
+    endeavour: {
+      kde: "endeavour-kde",
+      gnome: "endeavour-gnome",
+      xfce: "endeavour-xfce",
+      i3wm: "endeavour-i3wm",
+      sway: "endeavour-sway",
+      bspwm: "endeavour-bspwm"
+    },
+    garuda: {
+      kde: "garuda-kde",
+      gnome: "garuda-gnome",
+      xfce: "garuda-xfce",
+      wayfire: "garuda-wayfire",
+      hyprland: "garuda-hyprland",
+      qtile: "garuda-qtile"
+    },
+    nixos: {
+      gnome: "nixos-gnome",
+      kde: "nixos-kde",
+      hyprland: "nixos-hyprland",
+      sway: "nixos-sway",
+      minimal: "nixos-minimal"
+    },
+    kime: {
+      debian: "kime-debian",
+      fedora: "kime-fedora",
+      arch: "kime-arch",
+      opensuse: "kime-opensuse"
+    }
+  };
+  return map[distroKey]?.[editionKey] || `${distroKey}-${editionKey}`;
+}
+
+function getTemplateFamily(distroKey) {
+  const families = {
+    mint: "debian-family",
+    ubuntu: "debian-family",
+    debian: "debian-family",
+    lmde: "debian-family",
+    pop: "debian-family",
+    elementary: "debian-family",
+    zorin: "debian-family",
+    "kde-neon": "debian-family",
+    fedora: "fedora",
+    arch: "arch-family",
+    manjaro: "arch-family",
+    endeavour: "arch-family",
+    garuda: "arch-family",
+    opensuse: "opensuse",
+    nixos: "nixos",
+    kime: "kime"
+  };
+  return families[distroKey] || "debian-family";
+}
+
+// ──────────────────────────────────────────────────────────────
+// UI 로직
+// ──────────────────────────────────────────────────────────────
+const distroSelect = document.getElementById("distroSelect");
+const editionSelect = document.getElementById("editionSelect");
+const editionTags = document.getElementById("editionTags");
+const scriptCard = document.getElementById("scriptCard");
+const verifyCard = document.getElementById("verifyCard");
+const scriptTitle = document.getElementById("scriptTitle");
+const scriptContent = document.querySelector("#scriptContent code");
+const downloadBtn = document.getElementById("downloadBtn");
+const badgesEl = document.getElementById("badges");
+const scriptInfo = document.getElementById("scriptInfo");
+const onelinerLabel = document.getElementById("onelinerLabel");
+const oneliner = document.getElementById("oneliner");
+const supportMatrix = document.getElementById("supportMatrix");
+const toast = document.getElementById("toast");
+
+let currentDistro = null;
+let currentEdition = null;
+
+function showToast(msg, type = "success") {
+  toast.textContent = msg;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => toast.classList.remove("show"), 3000);
+}
+
+function onDistroChange() {
+  const key = distroSelect.value;
+  editionSelect.innerHTML = '<option value="">-- 에디션 선택 --</option>';
+  editionTags.innerHTML = "";
+  editionTags.style.display = "none";
+  scriptCard.style.display = "none";
+  verifyCard.style.display = "none";
+
+  if (!key) {
+    editionSelect.disabled = true;
+    currentDistro = null;
+    return;
+  }
+
+  currentDistro = DISTRO_DATA[key];
+  editionSelect.disabled = false;
+
+  // 셀렉트 옵션 채우기
+  Object.entries(currentDistro.editions).forEach(([edKey, ed]) => {
+    const opt = document.createElement("option");
+    opt.value = edKey;
+    opt.textContent = ed.label;
+    editionSelect.appendChild(opt);
+  });
+
+  // 태그 버튼도 생성
+  Object.entries(currentDistro.editions).forEach(([edKey, ed]) => {
+    const tag = document.createElement("button");
+    tag.type = "button";
+    tag.className = "edition-tag" + (edKey === currentDistro.defaultEdition ? " selected" : "");
+    tag.textContent = ed.label;
+    tag.dataset.edition = edKey;
+    tag.onclick = () => selectEditionTag(edKey);
+    if (ed.status === "experimental") tag.classList.add("disabled");
+    editionTags.appendChild(tag);
+  });
+  editionTags.style.display = "flex";
+
+  // 기본 에디션 자동 선택
+  selectEdition(currentDistro.defaultEdition);
+}
+
+function selectEditionTag(edKey) {
+  editionSelect.value = edKey;
+  selectEdition(edKey);
+}
+
+function selectEdition(edKey) {
+  if (!currentDistro || !currentDistro.editions[edKey]) return;
+  currentEdition = edKey;
+  editionSelect.value = edKey;
+
+  // 태그 업데이트
+  editionTags.querySelectorAll(".edition-tag").forEach(t => {
+    t.classList.toggle("selected", t.dataset.edition === edKey);
+  });
+
+  // 스크립트 생성
+  generateScript();
+}
+
+function generateScript() {
+  if (!currentDistro || !currentEdition) return;
+  const distroKey = distroSelect.value;
+  const ed = currentDistro.editions[currentEdition];
+  const scriptId = getScriptId(distroKey, currentEdition);
+  const templateFamily = getTemplateFamily(distroKey);
+  const templateFn = SCRIPT_TEMPLATES[templateFamily] || SCRIPT_TEMPLATES["debian-family"];
+  const ext = distroKey === "nixos" ? "nix" : "sh";
+  const scriptFileName = `${scriptId}.${ext}`;
+
+  const params = {
+    distroName: currentDistro.name,
+    editionLabel: ed.label,
+    scriptId: scriptId,
+    distroKey: distroKey,
+    editionKey: currentEdition
+  };
+
+  const script = templateFn(params);
+
+  // UI 업데이트
+  scriptTitle.textContent = `${currentDistro.name} ${ed.label} - ${scriptFileName}`;
+  downloadBtn.textContent = `⬇️ 다운로드 (.${ext})`;
+  scriptContent.className = distroKey === "nixos" ? "language-none" : "language-bash";
+  scriptContent.textContent = script;
+  if (typeof Prism !== "undefined" && Prism.highlightAll) {
+    Prism.highlightAll();
+  }
+
+  // 배지
+  const statusMap = {
+    verified: { class: "badge-verified", text: "검증됨 ✅" },
+    beta: { class: "badge-beta", text: "베타 ⚠️" },
+    experimental: { class: "badge-experimental", text: "실험적 🧪" },
+    community: { class: "badge-community", text: "커뮤니티 👥" }
+  };
+  const s = statusMap[ed.status] || statusMap.verified;
+  badgesEl.innerHTML = `<span class="badge ${s.class}">${s.text}</span>`;
+
+  // 정보 그리드
+  scriptInfo.innerHTML = `
+    <div class="info-item"><span class="info-label">배포판</span><span class="info-value">${currentDistro.name}</span></div>
+    <div class="info-item"><span class="info-label">베이스</span><span class="info-value">${currentDistro.base}</span></div>
+    <div class="info-item"><span class="info-label">패키지 관리자</span><span class="info-value">${currentDistro.pkgMgr}</span></div>
+    <div class="info-item"><span class="info-label">입력기 설정</span><span class="info-value">${currentDistro.imConfig}</span></div>
+    <div class="info-item"><span class="info-label">에디션</span><span class="info-value">${ed.label}</span></div>
+    <div class="info-item"><span class="info-label">스크립트 ID</span><span class="info-value">${scriptId}</span></div>
+  `;
+
+  // 원라인 명령어 (GitHub Raw URL) 또는 NixOS 적용 안내
+  const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/${templateFamily}/${scriptFileName}`;
+  if (distroKey === "nixos") {
+    onelinerLabel.textContent = "NixOS 적용 방법 (/etc/nixos/configuration.nix 병합):";
+    oneliner.textContent = `# 1. 설정 파일 다운로드 또는 위 내용을 복사해 /etc/nixos/configuration.nix 에 병합\ncurl -sL ${rawUrl} -o ${scriptFileName}\n\n# 2. 시스템 재빌드 및 적용\nsudo nixos-rebuild switch`;
+  } else {
+    onelinerLabel.textContent = "원라인 설치 명령어:";
+    oneliner.textContent = `curl -sL ${rawUrl} | sudo bash`;
+  }
+
+  scriptCard.style.display = "block";
+  verifyCard.style.display = "block";
+}
+
+function copyScript() {
+  navigator.clipboard.writeText(scriptContent.textContent).then(() => {
+    showToast("스크립트가 클립보드에 복사되었습니다");
+  }).catch(() => showToast("복사 실패", "error"));
+}
+
+function downloadScript() {
+  if (!currentDistro || !currentEdition) return;
+  const distroKey = distroSelect.value;
+  const scriptId = getScriptId(distroKey, currentEdition);
+  const ext = distroKey === "nixos" ? "nix" : "sh";
+  const scriptFileName = `${scriptId}.${ext}`;
+  const mime = distroKey === "nixos" ? "text/plain" : "text/x-sh";
+  const blob = new Blob([scriptContent.textContent], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = scriptFileName;
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(`${scriptFileName} 다운로드 완료`);
+}
+
+// ──────────────────────────────────────────────────────────────
+// 지원 매트릭스 렌더링
+// ──────────────────────────────────────────────────────────────
+function renderSupportMatrix() {
+  let html = "";
+  Object.entries(DISTRO_DATA).forEach(([key, d]) => {
+    const verified = Object.values(d.editions).filter(e => e.status === "verified").length;
+    const beta = Object.values(d.editions).filter(e => e.status === "beta").length;
+    const exp = Object.values(d.editions).filter(e => e.status === "experimental").length;
+    const comm = Object.values(d.editions).filter(e => e.status === "community").length;
+    html += `
+      <details style="margin-bottom:0.5rem; border:1px solid var(--border); border-radius:8px; padding:0.75rem; background:var(--card);">
+        <summary style="cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center;">
+          <span>${d.name}</span>
+          <span style="font-size:0.8rem; color:var(--muted);">${d.base} · ${d.pkgMgr}</span>
+        </summary>
+        <div style="margin-top:0.5rem; display:flex; flex-wrap:wrap; gap:0.4rem;">
+          ${Object.entries(d.editions).map(([ek, e]) => `
+            <span class="badge ${({
+              verified: "badge-verified",
+              beta: "badge-beta",
+              experimental: "badge-experimental",
+              community: "badge-community"
+            })[e.status]}" style="font-size:0.7rem;">${e.label}</span>
+          `).join("")}
+        </div>
+        <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--muted);">
+          검증: ${verified} · 베타: ${beta} · 실험적: ${exp} · 커뮤니티: ${comm}
+        </div>
+      </details>
+    `;
+  });
+  supportMatrix.innerHTML = html;
+}
+
+// ──────────────────────────────────────────────────────────────
+// 초기화
+// ──────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  renderSupportMatrix();
+  // URL 해시로 프리셋 지원 (예: #mint/cinnamon)
+  if (location.hash) {
+    const [distro, edition] = location.hash.slice(1).split("/");
+    if (DISTRO_DATA[distro]) {
+      distroSelect.value = distro;
+      onDistroChange();
+      if (edition && DISTRO_DATA[distro].editions[edition]) {
+        setTimeout(() => selectEdition(edition), 50);
+      }
+    }
+  }
+});
+
+// 해시 변경 감지
+window.addEventListener("hashchange", () => {
+  const [distro, edition] = location.hash.slice(1).split("/");
+  if (DISTRO_DATA[distro]) {
+    distroSelect.value = distro;
+    onDistroChange();
+    if (edition && DISTRO_DATA[distro].editions[edition]) {
+      setTimeout(() => selectEdition(edition), 50);
+    }
+  }
+});
+
+// 해시 업데이트 함수 (선택 시 URL 공유 가능)
+function updateHash() {
+  if (currentDistro && currentEdition) {
+    const distroKey = distroSelect.value;
+    location.hash = `${distroKey}/${currentEdition}`;
+  }
+}
+// selectEdition에서 호출하도록 패치
+const origSelectEdition = selectEdition;
+selectEdition = function(edKey) {
+  origSelectEdition(edKey);
+  updateHash();
+};
+</script>
+<!-- Prism.js for syntax highlighting (lightweight) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+</body>
+</html>
