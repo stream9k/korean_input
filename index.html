@@ -70,7 +70,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .edition-tag { background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.25); color: var(--fg); padding: 0.5rem 0.95rem; border-radius: 8px; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease; display: inline-flex; align-items: center; gap: 0.35rem; }
 .edition-tag:hover { background: rgba(88,166,255,0.18); border-color: var(--accent); color: var(--accent-hover); transform: translateY(-1px); }
 .edition-tag.selected { background: var(--accent); color: #0d1117; border-color: var(--accent); font-weight: 700; box-shadow: 0 0 12px rgba(88,166,255,0.35); }
-.edition-tag.disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+.edition-tag.experimental { border-color: rgba(248,81,73,0.45); background: rgba(248,81,73,0.08); color: #ff7b72; }
+.edition-tag.experimental:hover { background: rgba(248,81,73,0.18); border-color: var(--danger); color: #ffa198; transform: translateY(-1px); }
+.edition-tag.experimental.selected { background: var(--danger); color: #fff; border-color: var(--danger); font-weight: 700; box-shadow: 0 0 12px rgba(248,81,73,0.35); }
 .search-wrap { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
 .search-box { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: stretch; }
 .search-box input[type="search"] { flex: 1 1 240px; background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 0.65rem 1rem; color: var(--fg); font-size: 0.95rem; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; }
@@ -293,6 +295,25 @@ fcitx5 -r</code></pre>
 
   <div class="card">
     <h2 id="step4Title">📚 지원 현황</h2>
+    <div class="legend-bar" style="display:flex; flex-wrap:wrap; gap:0.5rem 0.75rem; align-items:center; margin-bottom:1rem; padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border:1px solid var(--border); border-radius:8px; font-size:0.8rem;">
+      <span id="legendTitle" style="font-weight:600; color:var(--muted);">색상 / 상태 구분:</span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-verified">검증됨 ✅</span>
+        <span id="legendVerifiedDesc" style="color:var(--muted); font-size:0.75rem;">가장 안정적인 권장 환경</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-beta">베타 ⚠️</span>
+        <span id="legendBetaDesc" style="color:var(--muted); font-size:0.75rem;">표준 신뢰 단계</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-experimental">실험적 🧪</span>
+        <span id="legendExpDesc" style="color:var(--muted); font-size:0.75rem;">수동 설정/특수 환경</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-community">커뮤니티 👥</span>
+        <span id="legendCommDesc" style="color:var(--muted); font-size:0.75rem;">별도 전용 항목</span>
+      </span>
+    </div>
     <div id="supportMatrix"></div>
   </div>
 </div>
@@ -3799,6 +3820,16 @@ function applyTranslations() {
   document.getElementById("step3Title").textContent = t.step3Title;
   document.getElementById("verifyCodeBlock").textContent = t.verifyCode;
   document.getElementById("step4Title").textContent = t.step4Title;
+  const legTitle = document.getElementById("legendTitle");
+  if (legTitle) legTitle.textContent = currentLang === "en" ? "Status Legend:" : "색상 / 상태 구분:";
+  const legV = document.getElementById("legendVerifiedDesc");
+  if (legV) legV.textContent = currentLang === "en" ? "Most stable & recommended" : "가장 안정적인 권장 환경";
+  const legB = document.getElementById("legendBetaDesc");
+  if (legB) legB.textContent = currentLang === "en" ? "Standard reliable" : "표준 신뢰 단계";
+  const legE = document.getElementById("legendExpDesc");
+  if (legE) legE.textContent = currentLang === "en" ? "Manual setup / special" : "수동 설정/특수 환경";
+  const legC = document.getElementById("legendCommDesc");
+  if (legC) legC.textContent = currentLang === "en" ? "Dedicated section" : "별도 전용 항목";
 
   document.getElementById("footerNote").textContent = t.footerNote;
   document.getElementById("thProject").textContent = t.thProject;
@@ -3821,7 +3852,9 @@ function applyTranslations() {
     if (savedEd) editionSelect.value = savedEd;
     editionTags.querySelectorAll(".edition-tag").forEach(tag => {
       const ed = currentDistro.editions[tag.dataset.edition];
-      if (ed) tag.textContent = tLabel(ed.label);
+      if (ed) {
+        tag.textContent = tLabel(ed.label) + (ed.status === "experimental" ? " 🧪" : "");
+      }
     });
     if (currentEdition) generateScript();
   }
@@ -3882,10 +3915,13 @@ function onDistroChange() {
     const tag = document.createElement("button");
     tag.type = "button";
     tag.className = "edition-tag" + (edKey === currentDistro.defaultEdition ? " selected" : "");
-    tag.textContent = tLabel(ed.label);
+    tag.textContent = tLabel(ed.label) + (ed.status === "experimental" ? " 🧪" : "");
     tag.dataset.edition = edKey;
     tag.onclick = () => selectEditionTag(edKey);
-    if (ed.status === "experimental") tag.classList.add("disabled");
+    if (ed.status === "experimental") {
+      tag.classList.add("experimental");
+      tag.title = currentLang === "en" ? "Experimental (Manual setup may be needed)" : "실험적 (수동 추가 설정이 필요할 수 있습니다)";
+    }
     editionTags.appendChild(tag);
   });
   editionTags.style.display = "flex";
