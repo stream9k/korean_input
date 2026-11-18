@@ -214,24 +214,56 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   </div>
 
   <div class="card" id="scriptCard" style="display:none;">
-    <h2 id="step2Title">📄 2단계: 생성된 스크립트</h2>
-    <div class="script-header">
-      <span class="script-title" id="scriptTitle">스크립트 제목</span>
-      <div class="script-actions">
-        <button id="btnCopyScript" class="secondary" onclick="copyScript()">📋 복사</button>
-        <button id="downloadBtn" onclick="downloadScript()">⬇️ 다운로드 (.sh)</button>
-      </div>
-    </div>
-    <div id="badges" style="margin-bottom:0.5rem;"></div>
-    <pre id="scriptContent"><code></code></pre>
-    <div class="info-grid" id="scriptInfo"></div>
-    <div style="margin-top:1rem; padding:1rem; background:rgba(88,166,255,0.08); border:1px solid rgba(88,166,255,0.2); border-radius:8px;">
+    <h2 id="step2Title">📄 2단계: 설치 방법 선택 (방법 A 또는 방법 B 중 하나만 실행하세요)</h2>
+    <p id="step2Intro" style="color:var(--muted); font-size:0.9rem; margin-bottom:1.25rem;">
+      아래 <strong>방법 A</strong>(원라인 명령어로 터미널에서 즉시 실행)와 <strong>방법 B</strong>(파일로 다운로드하거나 복사해서 실행) 중 <strong>편한 방식 하나만 선택</strong>하여 실행하세요. (둘 다 하실 필요가 없습니다!)
+    </p>
+
+    <!-- 옵션 A: 터미널 한 줄 실행 (가장 추천) -->
+    <div style="padding:1.25rem; background:rgba(63,185,80,0.06); border:1px solid rgba(63,185,80,0.3); border-radius:10px; margin-bottom:1.25rem;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-        <strong id="onelinerLabel">원라인 설치 명령어:</strong>
-        <button id="btnCopyOneliner" class="secondary" style="padding:0.35rem 0.75rem; font-size:0.8rem;" onclick="copyOneliner()">📋 원라인 명령어 복사</button>
+        <div>
+          <h3 id="methodATitle" style="font-size:1.05rem; font-weight:700; color:var(--success); display:flex; align-items:center; gap:0.4rem;">
+            ⚡ 방법 A: 터미널 한 줄 실행 (가장 추천 — 다운로드 불필요)
+          </h3>
+          <p id="methodADesc" style="font-size:0.85rem; color:var(--muted); margin-top:0.25rem;">
+            터미널(Ctrl+Alt+T)을 열고 아래 명령어를 복사해 붙여넣으면 즉시 설치됩니다.
+          </p>
+        </div>
+        <button id="btnCopyOneliner" style="padding:0.45rem 0.9rem; font-size:0.85rem;" onclick="copyOneliner()">📋 원라인 명령어 복사</button>
       </div>
-      <pre style="margin-top:0.5rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
-      <div id="localRunHint" style="margin-top:0.65rem; font-size:0.82rem; color:var(--muted);"></div>
+      <pre style="margin-top:0.75rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
+    </div>
+
+    <!-- 구분선 (또는 / OR) -->
+    <div style="text-align:center; position:relative; margin:1.5rem 0;">
+      <hr style="border:none; border-top:1px dashed var(--border);">
+      <span id="orDivider" style="position:absolute; top:-0.7em; left:50%; transform:translateX(-50%); background:var(--card); padding:0 0.85rem; color:var(--muted); font-size:0.82rem; font-weight:700;">또는 (OR)</span>
+    </div>
+
+    <!-- 옵션 B: 스크립트 파일 직접 실행 / 코드 검토 -->
+    <div style="padding:1.25rem; background:rgba(88,166,255,0.05); border:1px solid rgba(88,166,255,0.25); border-radius:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-bottom:0.75rem;">
+        <div>
+          <h3 id="methodBTitle" style="font-size:1.05rem; font-weight:700; color:var(--accent);">
+            💾 방법 B: 스크립트 파일 직접 다운로드 / 코드 검토
+          </h3>
+          <p id="methodBDesc" style="font-size:0.85rem; color:var(--muted); margin-top:0.25rem;">
+            스크립트 코드를 직접 검토하거나, 다운로드 폴더에서 파일로 직접 실행할 때 사용합니다.
+          </p>
+        </div>
+        <div class="script-actions" style="display:flex; gap:0.5rem;">
+          <button id="downloadBtn" onclick="downloadScript()">⬇️ 파일 다운로드 (.sh)</button>
+          <button id="btnCopyScript" class="secondary" onclick="copyScript()">📋 전체 코드 복사</button>
+        </div>
+      </div>
+      <div id="localRunHint" style="padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border-radius:6px; font-size:0.83rem; color:var(--fg); margin-bottom:0.85rem; border:1px solid var(--border);"></div>
+      <div class="script-header" style="margin-bottom:0.5rem;">
+        <span class="script-title" id="scriptTitle">스크립트 제목</span>
+        <div id="badges"></div>
+      </div>
+      <pre id="scriptContent"><code></code></pre>
+      <div class="info-grid" id="scriptInfo"></div>
     </div>
   </div>
 
@@ -895,6 +927,53 @@ const DISTRO_DATA = {
 // ──────────────────────────────────────────────────────────────
 // 스크립트 템플릿 (배포판별 핵심 로직)
 // ──────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────
+// 재부팅/재로그인 후 1회성 안내 팝업 자폭 스크립트 스니펫
+// ──────────────────────────────────────────────────────────────
+const POST_LOGIN_GUIDE_SNIPPET = (distroName, isKde = false) => `
+  # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
+  local GUIDE_DIR="$TARGET_HOME/.local/bin"
+  local GUIDE_BIN="$GUIDE_DIR/hangul-first-login-guide.sh"
+  local GUIDE_DESK="$TARGET_HOME/.config/autostart/hangul-first-login-guide.desktop"
+  mkdir -p "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  cat > "$GUIDE_BIN" <<'GUIDE_EOF'
+#!/usr/bin/env bash
+sleep 2
+TITLE="리눅스 한글 입력기 안내"
+MSG="🎉 ${distroName} 한글 입력기 설정이 완료되었습니다!
+
+${isKde ? "🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택\n\n" : ""}⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
+💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
+⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
+📝 로그: $LOG_FILE
+
+(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
+
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "$TITLE" --msgbox "$MSG" 2>/dev/null
+elif command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="$TITLE" --text="$MSG" --width=480 2>/dev/null
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send -u critical -t 20000 "$TITLE" "$MSG" 2>/dev/null
+fi
+rm -f "$HOME/.config/autostart/hangul-first-login-guide.desktop"
+rm -f "$0"
+GUIDE_EOF
+  chmod +x "$GUIDE_BIN"
+
+  cat > "$GUIDE_DESK" <<GUIDE_DSK_EOF
+[Desktop Entry]
+Type=Application
+Name=Hangul First Login Guide
+Exec=$GUIDE_BIN
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+GUIDE_DSK_EOF
+  chown -R "$USER:$USER" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+`;
+
 const SCRIPT_TEMPLATES = {
   // ─── Debian/Ubuntu/Mint/Pop/Zorin/elementary/KDE Neon ───
   "debian-family": (params) => `#!/usr/bin/env bash
@@ -1092,7 +1171,7 @@ NoDisplay=false
 EOF
   chown -R "$USER:$USER" "$ADIR"
   ok "자동시작 등록"
-
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 로그아웃 후 다시 로그인하세요."
@@ -1341,6 +1420,7 @@ EOF
     info "타 WM/DE: ~/.xprofile 또는 ~/.xinitrc 에 환경변수 추가 후 재시작"
   fi
 
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재로그인 또는 재부팅 필요"
@@ -1656,7 +1736,7 @@ NoDisplay=false
 EOF
   chown -R "$USER:$USER" "$ADIR"
   ok "자동시작 등록"
-
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 kime 설치 완료! 재로그인 필요"
@@ -2084,6 +2164,7 @@ EOF
   chown -R "$USER:$USER" "$ADIR"
   ok "자동시작 등록 완료"
 
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 Void Linux 설치 완료! 재로그인 필요"
@@ -2201,6 +2282,7 @@ EOF
   chown -R "$USER:$USER" "$ADIR"
   ok "자동시작 등록 완료"
 
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 Alpine Linux 설치 완료! 재로그인 필요"
@@ -2317,6 +2399,7 @@ EOF
   chown -R "$USER:$USER" "$ADIR"
   ok "자동시작 등록 완료"
 
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 Solus 설치 완료! 재로그인 필요"
@@ -2436,6 +2519,7 @@ EOF
   chown -R "$USER:$USER" "$ADIR"
   ok "자동시작 등록 완료"
 
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 Gentoo 설치 완료! 재로그인 필요"
@@ -3489,7 +3573,13 @@ const I18N = {
     editionLabel: "에디션 / 데스크톱",
     editionPlaceholderFirst: "-- 먼저 배포판 선택 --",
     editionPlaceholder: "-- 에디션 선택 --",
-    step2Title: "📄 2단계: 생성된 스크립트",
+    step2Title: "📄 2단계: 설치 방법 선택 (방법 A 또는 방법 B 중 하나만 실행하세요)",
+    step2Intro: "아래 <strong>방법 A</strong>(원라인 명령어로 터미널에서 즉시 실행)와 <strong>방법 B</strong>(파일로 다운로드하거나 복사해서 실행) 중 <strong>편한 방식 하나만 선택</strong>하여 실행하세요. (둘 다 하실 필요가 없습니다!)",
+    methodATitle: "⚡ 방법 A: 터미널 한 줄 실행 (가장 추천 — 다운로드 불필요)",
+    methodADesc: "터미널(Ctrl+Alt+T)을 열고 아래 명령어를 복사해 붙여넣으면 즉시 설치됩니다.",
+    orDivider: "또는 (OR)",
+    methodBTitle: "💾 방법 B: 스크립트 파일 직접 다운로드 / 코드 검토",
+    methodBDesc: "스크립트 코드를 직접 검토하거나, 다운로드 폴더에서 파일로 직접 실행할 때 사용합니다.",
     btnCopyScript: "📋 복사",
     btnCopyOneliner: "📋 원라인 명령어 복사",
     downloadLabel: (ext) => `⬇️ 다운로드 (.${ext})`,
@@ -3546,7 +3636,13 @@ const I18N = {
     editionLabel: "Edition / Desktop",
     editionPlaceholderFirst: "-- Select Distribution First --",
     editionPlaceholder: "-- Select Edition --",
-    step2Title: "📄 Step 2: Generated Script",
+    step2Title: "📄 Step 2: Choose Installation Method (Choose Option A OR Option B)",
+    step2Intro: "Choose <strong>Option A</strong> (One-liner directly in terminal) or <strong>Option B</strong> (Download/copy script file) — <strong>execute only one of them</strong>.",
+    methodATitle: "⚡ Option A: Terminal One-Liner (Recommended — No Download Needed)",
+    methodADesc: "Open terminal (Ctrl+Alt+T) and paste this single command to install immediately.",
+    orDivider: "OR",
+    methodBTitle: "💾 Option B: Run Downloaded Script File / Inspect Code",
+    methodBDesc: "Use this if you prefer inspecting the shell code or running the script from a downloaded file.",
     btnCopyScript: "📋 Copy",
     btnCopyOneliner: "📋 Copy One-Liner",
     downloadLabel: (ext) => `⬇️ Download (.${ext})`,
@@ -3685,6 +3781,12 @@ function applyTranslations() {
   });
 
   document.getElementById("step2Title").textContent = t.step2Title;
+  document.getElementById("step2Intro").innerHTML = t.step2Intro;
+  document.getElementById("methodATitle").textContent = t.methodATitle;
+  document.getElementById("methodADesc").textContent = t.methodADesc;
+  document.getElementById("orDivider").textContent = t.orDivider;
+  document.getElementById("methodBTitle").textContent = t.methodBTitle;
+  document.getElementById("methodBDesc").textContent = t.methodBDesc;
   document.getElementById("btnCopyScript").textContent = t.btnCopyScript;
   document.getElementById("btnCopyOneliner").textContent = t.btnCopyOneliner;
   document.getElementById("step3Title").textContent = t.step3Title;

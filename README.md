@@ -37,6 +37,7 @@
 5. **데스크톱 단축키 충돌 해제**: Cinnamon, GNOME, Xfce, MATE의 기본 `Super+Space` 등 입력 소스 전환 충돌 해제 (`gsettings`)
 6. **X11 / Wayland 환경변수 구성**: `~/.config/environment.d/fcitx5.conf`, `/etc/environment`, 또는 `~/.bash_profile` 설정
 7. **자동시작 등록**: 로그인 시 `fcitx5`가 자동으로 실행되도록 `~/.config/autostart/`(및 필요한 경우 `systemd --user`) 등록
+8. **재부팅 후 1회성 안내 팝업**: 설치 후 첫 재부팅 시 KDE Plasma, GNOME, Cinnamon, Xfce 등 데스크톱에 맞춰 단축키와 필수 설정(KDE 가상키보드 등) 안내 창을 딱 1회 띄우고 스스로 자폭(삭제)합니다.
 
 ---
 
@@ -77,7 +78,7 @@ sudo bash ~/Downloads/install.sh
 sudo bash ~/Downloads/garuda-kde.sh
 ```
 
-- **웹 생성기 활용**: 온라인 웹 생성기(`https://stream9k.github.io/korean_input/`) 또는 로컬의 [`index.html`](index.html)을 브라우저로 열면 원하는 배포판·에디션별 스크립트를 확인하고 다운로드할 수 있습니다.
+- **웹 생성기 활용 ([단축: is.gd/korean_input](https://is.gd/korean_input))**: 온라인 웹 생성기 또는 로컬의 [`index.html`](index.html)을 열어 배포판을 선택하면, **방법 A(원라인 명령어 바로 실행)**와 **방법 B(스크립트 파일 다운로드/복사)** 중 **하나만 선택**하여 바로 설치할 수 있습니다.
 
 ---
 

@@ -35,6 +35,7 @@ No `git` required. No `chmod +x` needed. No need to pick your distro manually.
 5. **Clears desktop shortcut conflicts**: Unbinds `Super+Space` input-source switching on Cinnamon, GNOME, Xfce, and MATE via `gsettings`.
 6. **Sets X11 / Wayland environment variables**: Configures `~/.config/environment.d/fcitx5.conf`, `/etc/environment`, and `~/.xsessionrc` / `~/.bash_profile` / `~/.xprofile`.
 7. **Registers autostart**: Adds `~/.config/autostart/fcitx5.desktop` (and `systemd --user` where applicable).
+8. **One-shot post-reboot notification**: Shows a welcome popup on your next login with hotkeys and tips (e.g. KDE Virtual Keyboard), then self-deletes automatically.
 
 ---
 

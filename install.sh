@@ -198,6 +198,93 @@ EOF
   ok "$(msg "Fcitx5 자동시작 등록 완료" "Registered Fcitx5 autostart entry")"
 }
 
+register_first_login_guide() {
+  local target_home="$1"
+  local target_uid="$2"
+  local target_gid="$3"
+  local is_ko="$4"
+  local family="$5"
+  local desktop="$6"
+
+  local autostart_dir="$target_home/.config/autostart"
+  local bin_dir="$target_home/.local/bin"
+  local guide_bin="$bin_dir/hangul-first-login-guide.sh"
+  local desktop_file="$autostart_dir/hangul-first-login-guide.desktop"
+
+  mkdir -p "$autostart_dir" "$bin_dir"
+
+  local title msg
+  if [[ "$is_ko" == "true" ]]; then
+    title="리눅스 한글 입력기 안내"
+    msg="🎉 리눅스 한글 입력기 설정이 완료되었습니다!\n\n"
+    if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+      msg+="🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택\n"
+    fi
+    if [[ "$family" == "rhel-family" ]]; then
+      msg+="⌨️  전환 단축키: Super+Space 또는 한/영 키\n"
+      msg+="⚙️  설정: ibus-setup\n"
+    else
+      msg+="⌨️  전환 단축키: 한/영 키, Ctrl+Space, Shift+Space\n"
+      msg+="💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\n"
+      msg+="⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\n"
+    fi
+    msg+="📝 로그: $LOG_FILE\n\n"
+    msg+="(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
+  else
+    title="Linux Korean Input Guide"
+    msg="🎉 Korean Input Method setup complete!\n\n"
+    if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+      msg+="🖥️  KDE Plasma Extra Step: System Settings -> Input Devices -> Virtual Keyboard -> Select Fcitx 5\n"
+    fi
+    if [[ "$family" == "rhel-family" ]]; then
+      msg+="⌨️  Toggle: Super+Space or Hangul key\n"
+      msg+="⚙️  Config: ibus-setup\n"
+    else
+      msg+="⌨️  Toggle keys: Hangul key, Ctrl+Space, Shift+Space\n"
+      msg+="💡 US Keyboard tip: You can bind Right Alt (Alt_R) in fcitx5-configtool\n"
+      msg+="⚙️  Config: fcitx5-configtool | Diagnose: fcitx5-diagnose\n"
+    fi
+    msg+="📝 Log: $LOG_FILE\n\n"
+    msg+="(💡 This notification is shown only once upon reboot and self-deletes.)"
+  fi
+
+  cat > "$guide_bin" <<EOF
+#!/usr/bin/env bash
+# One-shot first-login welcome notification (self-deleting)
+sleep 2
+
+TITLE="$title"
+MSG=\$(printf "%b" "$msg")
+
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "\$TITLE" --msgbox "\$MSG" 2>/dev/null
+elif command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="\$TITLE" --text="\$MSG" --width=480 2>/dev/null
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send -u critical -t 20000 "\$TITLE" "\$MSG" 2>/dev/null
+fi
+
+# Self-delete
+rm -f "$desktop_file"
+rm -f "$guide_bin"
+EOF
+
+  chmod +x "$guide_bin"
+
+  cat > "$desktop_file" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Hangul First Login Guide
+Exec=$guide_bin
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+EOF
+
+  chown -R "$target_uid:$target_gid" "$autostart_dir" "$bin_dir"
+  ok "$(msg "재부팅 후 1회성 안내 팝업 등록 완료 (다음 로그인 시 1회 표시 후 자폭)" "Registered one-shot first-login welcome notification (self-deletes after display)")"
+}
+
 write_env_etc_and_envd() {
   local target_home="$1"
   local uid="$2"
@@ -674,6 +761,9 @@ EOF
       err "$(msg "지원되지 않는 패밀리입니다: $FAMILY" "Unsupported family: $FAMILY")"
       ;;
   esac
+
+  # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록
+  register_first_login_guide "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$IS_KO" "$FAMILY" "$DESKTOP" 
 
   echo
   echo "============================================================"

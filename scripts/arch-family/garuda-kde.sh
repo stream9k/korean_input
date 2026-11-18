@@ -114,6 +114,51 @@ EOF
     info "타 WM/DE: ~/.xprofile 또는 ~/.xinitrc 에 환경변수 추가 후 재시작"
   fi
 
+
+  # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
+  local GUIDE_DIR="$TARGET_HOME/.local/bin"
+  local GUIDE_BIN="$GUIDE_DIR/hangul-first-login-guide.sh"
+  local GUIDE_DESK="$TARGET_HOME/.config/autostart/hangul-first-login-guide.desktop"
+  mkdir -p "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  cat > "$GUIDE_BIN" <<'GUIDE_EOF'
+#!/usr/bin/env bash
+sleep 2
+TITLE="리눅스 한글 입력기 안내"
+MSG="🎉 Garuda Linux 한글 입력기 설정이 완료되었습니다!
+
+🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택
+
+⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
+💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
+⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
+📝 로그: $LOG_FILE
+
+(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
+
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "$TITLE" --msgbox "$MSG" 2>/dev/null
+elif command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="$TITLE" --text="$MSG" --width=480 2>/dev/null
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send -u critical -t 20000 "$TITLE" "$MSG" 2>/dev/null
+fi
+rm -f "$HOME/.config/autostart/hangul-first-login-guide.desktop"
+rm -f "$0"
+GUIDE_EOF
+  chmod +x "$GUIDE_BIN"
+
+  cat > "$GUIDE_DESK" <<GUIDE_DSK_EOF
+[Desktop Entry]
+Type=Application
+Name=Hangul First Login Guide
+Exec=$GUIDE_BIN
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+GUIDE_DSK_EOF
+  chown -R "$USER:$USER" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재로그인 또는 재부팅 필요"
