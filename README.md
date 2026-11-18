@@ -2,6 +2,8 @@
 
 🌐 **🇰🇷 한국어** | [🇺🇸 English Guide Below ↓](#english-guide) | [English Docs (README.en.md)](README.en.md) | [웹 생성기 (한/영 자동 인식)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
 
+🌐 **🇰🇷 한국어** | [🇺🇸 English Guide Below ↓](#english-guide) | [English Docs (README.en.md)](README.en.md) | [웹 생성기 (한/영 자동 인식)](https://stream9k.github.io/korean_input/) | [English Web Page](https://stream9k.github.io/korean_input/index-en.html)
+
 리눅스를 처음 설치한 뒤 복잡한 한글 입력기 설정 때문에 고생하고 계신가요?  
 이 프로젝트는 사용 중인 **리눅스 배포판과 데스크톱 환경(Cinnamon, GNOME, KDE Plasma, Xfce 등)을 선택**하면, 해당 환경에 맞는 **`fcitx5-hangul` 또는 `kime` 자동 설치 스크립트**를 바로 생성하고 실행할 수 있는 도구입니다.
 
