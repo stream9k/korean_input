@@ -46,7 +46,7 @@ main() {
   pacman-key --init
   pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
   pacman -Sy --needed --noconfirm \
-    fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt
+    fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 시스템 환경변수

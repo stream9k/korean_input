@@ -37,18 +37,19 @@ main() {
   info "사용자: $USER (UID=$TARGET_UID)"
 
   # 1. 패키지 설치 (transactional-update / zypper)
-  log "[1/5] fcitx5 패키지 설치..."
+  log "[1/5] fcitx5 및 한글 폰트 패키지 설치..."
   if command -v transactional-update >/dev/null 2>&1; then
     transactional-update --non-interactive pkg install \
       fcitx5 fcitx5-hangul fcitx5-configtool \
       fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
-      fcitx5-autostart
+      fcitx5-autostart google-noto-sans-cjk-fonts
     info "Aeon / MicroOS 감지: transactional-update 적용을 위해 설치 후 재부팅이 필요합니다."
   else
     zypper --non-interactive install -y \
       fcitx5 fcitx5-hangul fcitx5-configtool \
       fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
       fcitx5-autostart
+    zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
   fi
   ok "패키지 설치 완료"
 

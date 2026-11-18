@@ -61,12 +61,13 @@ main() {
   apt-get autoremove --purge -y -qq
   ok "정리 완료"
 
-  # 2. fcitx5 스택 설치
-  log "[2/7] fcitx5 + 한글 엔진 + 프론트엔드 설치..."
+  # 2. fcitx5 스택 + 한글 폰트 설치
+  log "[2/7] fcitx5 + 한글 엔진 + 프론트엔드 + 한글 폰트 설치..."
   apt-get install -y -qq \
     fcitx5 fcitx5-hangul fcitx5-config-qt fcitx5-configtool \
     fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \
-    fcitx5-frontend-qt5 fcitx5-frontend-qt6
+    fcitx5-frontend-qt5 fcitx5-frontend-qt6 \
+    fonts-noto-cjk
   ok "설치 완료"
 
   # 3. 입력 프레임워크 전환

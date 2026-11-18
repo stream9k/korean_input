@@ -26,7 +26,13 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 code { font-family: var(--mono); background: rgba(88,166,255,0.1); padding: 0.15em 0.35em; border-radius: 4px; font-size: 0.9em; }
 pre { font-family: var(--mono); background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow: auto; max-height: 500px; }
 .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
-header { text-align: center; margin-bottom: 2.5rem; }
+header { text-align: center; margin-bottom: 2.5rem; position: relative; }
+.lang-bar { display: flex; justify-content: flex-end; align-items: center; gap: 0.45rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.lang-btn { background: var(--card); border: 1px solid var(--border); color: var(--muted); padding: 0.35rem 0.75rem; font-size: 0.82rem; border-radius: 999px; font-weight: 600; cursor: pointer; }
+.lang-btn:hover { color: var(--fg); background: var(--border); }
+.lang-btn.active { background: var(--accent); color: #0d1117; border-color: var(--accent); }
+.lang-sep { color: var(--muted); font-size: 0.8rem; margin: 0 0.15rem; }
+.lang-link { font-size: 0.8rem; color: var(--muted); }
 h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); font-weight: 700; letter-spacing: -0.02em; }
 .subtitle { color: var(--muted); margin-top: 0.5rem; font-size: 1.1rem; }
 .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
@@ -98,41 +104,47 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 <body>
 <div class="container">
   <header>
-    <h1>한글 입력기 자동 설치 스크립트</h1>
-    <p class="subtitle">배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.</p>
+    <div class="lang-bar">
+      <button type="button" class="lang-btn" id="btnLangKo" onclick="setLang('ko')">🇰🇷 한국어</button>
+      <button type="button" class="lang-btn" id="btnLangEn" onclick="setLang('en')">🇺🇸 English</button>
+      <span class="lang-sep">·</span>
+      <a class="lang-link" id="langAltLink" href="index-en.html">English Page</a>
+    </div>
+    <h1 id="heroTitle">한글 입력기 자동 설치 스크립트</h1>
+    <p class="subtitle" id="heroSubtitle">배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.</p>
   </header>
 
   <div class="card" style="border-color: rgba(63,185,80,0.45); background: linear-gradient(180deg, rgba(63,185,80,0.06), var(--card));">
-    <h2>⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)</h2>
-    <p style="color:var(--muted); font-size:0.9rem; margin-bottom:0.75rem;">
+    <h2 id="step0Title">⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)</h2>
+    <p id="step0Desc" style="color:var(--muted); font-size:0.9rem; margin-bottom:0.75rem;">
       <code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다.
     </p>
     <pre><code id="autoOneliner">curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash</code></pre>
     <div class="btn-row">
-      <button onclick="copyAutoOneliner()">📋 원라인 복사</button>
-      <button class="secondary" onclick="downloadAutoInstaller()">⬇️ 만능 install.sh 다운로드</button>
+      <button id="btnCopyAutoOneliner" onclick="copyAutoOneliner()">📋 원라인 복사</button>
+      <button id="btnDownloadAuto" class="secondary" onclick="downloadAutoInstaller()">⬇️ 만능 install.sh 다운로드</button>
     </div>
-    <p style="color:var(--muted); font-size:0.82rem; margin-top:0.75rem;">
+    <p id="step0Hint" style="color:var(--muted); font-size:0.82rem; margin-top:0.75rem;">
       💡 파일로 직접 받으신 경우 권한 변경(<code>chmod +x</code>) 없이 <code>sudo bash ~/Downloads/install.sh</code> 로 바로 실행할 수 있습니다.
     </p>
   </div>
 
   <div class="card">
-    <h2>📋 1단계: 배포판 선택</h2>
+    <h2 id="step1Title">📋 1단계: 배포판 선택</h2>
     <div class="search-wrap">
-      <label for="distroSearchInput" style="display:block; margin-bottom:0.4rem;">배포판·데스크톱 빠른 검색</label>
+      <label id="searchLabel" for="distroSearchInput" style="display:block; margin-bottom:0.4rem;">배포판·데스크톱 빠른 검색</label>
       <div class="search-box">
         <input type="search" id="distroSearchInput" placeholder="배포판 또는 데스크톱 검색 (예: garuda, 가루다, mint, 민트, bazzite, kde...)" oninput="runDistroSearch(false)" onkeydown="if(event.key==='Enter'){event.preventDefault();runDistroSearch(true);}">
-        <button type="button" onclick="runDistroSearch(true)">🔍 검색</button>
+        <button id="btnSearch" type="button" onclick="runDistroSearch(true)">🔍 검색</button>
         <button type="button" class="secondary" id="clearSearchBtn" style="display:none;" onclick="clearDistroSearch()">✕ 초기화</button>
       </div>
       <div id="searchResults" class="search-results" style="display:none;"></div>
     </div>
     <div class="select-row">
       <div class="select-group">
-        <label for="distroSelect">배포판</label>
+        <label id="distroLabel" for="distroSelect">배포판</label>
         <select id="distroSelect" onchange="onDistroChange()">
-          <option value="">-- 배포판 선택 --</option>
+          <option id="distroPlaceholderOpt" value="">-- 배포판 선택 --</option>
           <option value="mint">Linux Mint (21.x / 22.x)</option>
           <option value="ubuntu">Ubuntu (22.04 / 24.04 / 24.10)</option>
           <option value="debian">Debian (12 Bookworm / 13 Trixie)</option>
@@ -167,9 +179,9 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
         </select>
       </div>
       <div class="select-group">
-        <label for="editionSelect">에디션 / 데스크톱</label>
+        <label id="editionLabel" for="editionSelect">에디션 / 데스크톱</label>
         <select id="editionSelect" disabled onchange="selectEdition(this.value)">
-          <option value="">-- 먼저 배포판 선택 --</option>
+          <option id="editionPlaceholderOpt" value="">-- 먼저 배포판 선택 --</option>
         </select>
       </div>
     </div>
@@ -177,11 +189,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   </div>
 
   <div class="card" id="scriptCard" style="display:none;">
-    <h2>📄 2단계: 생성된 스크립트</h2>
+    <h2 id="step2Title">📄 2단계: 생성된 스크립트</h2>
     <div class="script-header">
       <span class="script-title" id="scriptTitle">스크립트 제목</span>
       <div class="script-actions">
-        <button class="secondary" onclick="copyScript()">📋 복사</button>
+        <button id="btnCopyScript" class="secondary" onclick="copyScript()">📋 복사</button>
         <button id="downloadBtn" onclick="downloadScript()">⬇️ 다운로드 (.sh)</button>
       </div>
     </div>
@@ -191,7 +203,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
     <div style="margin-top:1rem; padding:1rem; background:rgba(88,166,255,0.08); border:1px solid rgba(88,166,255,0.2); border-radius:8px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
         <strong id="onelinerLabel">원라인 설치 명령어:</strong>
-        <button class="secondary" style="padding:0.35rem 0.75rem; font-size:0.8rem;" onclick="copyOneliner()">📋 원라인 명령어 복사</button>
+        <button id="btnCopyOneliner" class="secondary" style="padding:0.35rem 0.75rem; font-size:0.8rem;" onclick="copyOneliner()">📋 원라인 명령어 복사</button>
       </div>
       <pre style="margin-top:0.5rem;"><code id="oneliner">curl -sL ... | sudo bash</code></pre>
       <div id="localRunHint" style="margin-top:0.65rem; font-size:0.82rem; color:var(--muted);"></div>
@@ -199,8 +211,8 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
   </div>
 
   <div class="card" id="verifyCard" style="display:none;">
-    <h2>✅ 3단계: 설치 후 검증</h2>
-    <pre><code># 재로그인 후 실행
+    <h2 id="step3Title">✅ 3단계: 설치 후 검증</h2>
+    <pre><code id="verifyCodeBlock"># 재로그인 후 실행
 fcitx5-diagnose
 
 # 환경변수 확인
@@ -218,21 +230,21 @@ fcitx5 -r</code></pre>
   </div>
 
   <div class="card">
-    <h2>📚 지원 현황</h2>
+    <h2 id="step4Title">📚 지원 현황</h2>
     <div id="supportMatrix"></div>
   </div>
 </div>
 
 <footer class="footer">
-  <p class="footer-note">이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.</p>
+  <p id="footerNote" class="footer-note">이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.</p>
   <div class="ref-table-wrap">
     <table class="ref-table">
       <thead>
         <tr>
-          <th>프로젝트</th>
-          <th>용도</th>
-          <th>라이선스</th>
-          <th>출처</th>
+          <th id="thProject">프로젝트</th>
+          <th id="thPurpose">용도</th>
+          <th id="thLicense">라이선스</th>
+          <th id="thSource">출처</th>
         </tr>
       </thead>
       <tbody>
@@ -281,7 +293,7 @@ fcitx5 -r</code></pre>
       </tbody>
     </table>
   </div>
-  <p class="footer-meta">MIT License · 커뮤니티 기여 환영</p>
+  <p id="footerMeta" class="footer-meta">MIT License · 커뮤니티 기여 환영</p>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -811,12 +823,13 @@ main() {
   apt-get autoremove --purge -y -qq
   ok "정리 완료"
 
-  # 2. fcitx5 스택 설치
-  log "[2/7] fcitx5 + 한글 엔진 + 프론트엔드 설치..."
+  # 2. fcitx5 스택 + 한글 폰트 설치
+  log "[2/7] fcitx5 + 한글 엔진 + 프론트엔드 + 한글 폰트 설치..."
   apt-get install -y -qq \\
     fcitx5 fcitx5-hangul fcitx5-config-qt fcitx5-configtool \\
     fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \\
-    fcitx5-frontend-qt5 fcitx5-frontend-qt6
+    fcitx5-frontend-qt5 fcitx5-frontend-qt6 \\
+    fonts-noto-cjk
   ok "설치 완료"
 
   # 3. 입력 프레임워크 전환
@@ -994,10 +1007,11 @@ main() {
   info "사용자: $USER (UID=$TARGET_UID)"
 
   # 1. 패키지 설치
-  log "[1/5] fcitx5 패키지 설치 (dnf)..."
+  log "[1/5] fcitx5 및 한글 폰트 패키지 설치 (dnf)..."
   dnf install -y -q \\
     fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt \\
     fcitx5-autostart
+  dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
   ok "패키지 설치 완료"
 
   # 2. 시스템 입력기 등록 (alternatives)
@@ -1113,10 +1127,10 @@ main() {
   info "사용자: $USER (UID=$TARGET_UID)"
 
   # 1. 패키지 설치 (pacman)
-  log "[1/5] fcitx5 패키지 설치 (pacman)..."
+  log "[1/5] fcitx5 및 한글 폰트 패키지 설치 (pacman)..."
   pacman -Sy --needed --noconfirm \\
     fcitx5-im fcitx5-hangul fcitx5-configtool \\
-    fcitx5-gtk fcitx5-qt
+    fcitx5-gtk fcitx5-qt noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 환경변수 시스템 와이드 (/etc/environment)
@@ -1241,18 +1255,19 @@ main() {
   info "사용자: $USER (UID=$TARGET_UID)"
 
   # 1. 패키지 설치 (transactional-update / zypper)
-  log "[1/5] fcitx5 패키지 설치..."
+  log "[1/5] fcitx5 및 한글 폰트 패키지 설치..."
   if command -v transactional-update >/dev/null 2>&1; then
     transactional-update --non-interactive pkg install \\
       fcitx5 fcitx5-hangul fcitx5-configtool \\
       fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \\
-      fcitx5-autostart
+      fcitx5-autostart google-noto-sans-cjk-fonts
     info "Aeon / MicroOS 감지: transactional-update 적용을 위해 설치 후 재부팅이 필요합니다."
   else
     zypper --non-interactive install -y \\
       fcitx5 fcitx5-hangul fcitx5-configtool \\
       fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \\
       fcitx5-autostart
+    zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
   fi
   ok "패키지 설치 완료"
 
@@ -1556,9 +1571,10 @@ main() {
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
   # 1. rpm-ostree 패키지 레이어링
-  log "[1/3] fcitx5 패키지 설치 (rpm-ostree)..."
+  log "[1/3] fcitx5 및 한글 폰트 패키지 설치 (rpm-ostree)..."
   rpm-ostree install --idempotent --allow-inactive \\
-    fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart
+    fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart \\
+    google-noto-sans-cjk-ttc-fonts
   ok "패키지 레이어링 요청 완료"
 
   # 2. Fcitx5 프로필/핫키 구성
@@ -1662,7 +1678,7 @@ main() {
   pacman-key --init
   pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
   pacman -Sy --needed --noconfirm \\
-    fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt
+    fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 시스템 환경변수
@@ -1773,9 +1789,10 @@ main() {
   TARGET_UID=$(id -u "$USER")
   info "사용자: $USER (UID=$TARGET_UID)"
 
-  # 1. ibus-hangul 설치 (RHEL 계열 기본 공식 저장소)
-  log "[1/3] ibus-hangul 패키지 설치 (dnf)..."
+  # 1. ibus-hangul + 한글 폰트 설치 (RHEL 계열 기본 공식 저장소)
+  log "[1/3] ibus-hangul 및 한글 폰트 패키지 설치 (dnf)..."
   dnf install -y -q ibus-hangul ibus-setup
+  dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
   ok "패키지 설치 완료"
 
   # 2. GNOME 입력 소스 자동 등록
@@ -1861,8 +1878,8 @@ main() {
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
   # 1. 패키지 설치 (xbps)
-  log "[1/4] fcitx5 패키지 설치 (xbps-install)..."
-  xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool
+  log "[1/4] fcitx5 및 한글 폰트 패키지 설치 (xbps-install)..."
+  xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 시스템 및 사용자 환경변수
@@ -2455,8 +2472,8 @@ main() {
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
   # 1. pacman 패키지 설치 (KaOS Qt/KDE 전용 패키지 구성)
-  log "[1/4] fcitx5 패키지 설치 (pacman)..."
-  pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool
+  log "[1/4] fcitx5 및 한글 폰트 패키지 설치 (pacman)..."
+  pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 환경변수 설정
@@ -3145,6 +3162,271 @@ const toast = document.getElementById("toast");
 
 let currentDistro = null;
 let currentEdition = null;
+let currentLang = "ko";
+
+const I18N = {
+  ko: {
+    pageTitle: "리눅스 한글 입력기 자동 설치 스크립트 생성기",
+    heroTitle: "한글 입력기 자동 설치 스크립트",
+    heroSubtitle: "배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.",
+    altLinkText: "English Page",
+    altLinkHref: "index-en.html",
+    step0Title: "⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)",
+    step0Desc: "<code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다.",
+    btnCopyAutoOneliner: "📋 원라인 복사",
+    btnDownloadAuto: "⬇️ 만능 install.sh 다운로드",
+    step0Hint: "💡 파일로 직접 받으신 경우 권한 변경(<code>chmod +x</code>) 없이 <code>sudo bash ~/Downloads/install.sh</code> 로 바로 실행할 수 있습니다.",
+    step1Title: "📋 1단계: 배포판 선택",
+    searchLabel: "배포판·데스크톱 빠른 검색",
+    searchPlaceholder: "배포판 또는 데스크톱 검색 (예: garuda, 가루다, mint, 민트, bazzite, kde...)",
+    btnSearch: "🔍 검색",
+    clearSearchBtn: "✕ 초기화",
+    distroLabel: "배포판",
+    distroPlaceholder: "-- 배포판 선택 --",
+    editionLabel: "에디션 / 데스크톱",
+    editionPlaceholderFirst: "-- 먼저 배포판 선택 --",
+    editionPlaceholder: "-- 에디션 선택 --",
+    step2Title: "📄 2단계: 생성된 스크립트",
+    btnCopyScript: "📋 복사",
+    btnCopyOneliner: "📋 원라인 명령어 복사",
+    downloadLabel: (ext) => `⬇️ 다운로드 (.${ext})`,
+    step3Title: "✅ 3단계: 설치 후 검증",
+    verifyCode: `# 재로그인 후 실행\nfcitx5-diagnose\n\n# 환경변수 확인\nenv | grep -i im_module\n\n# 프로세스 확인\npgrep -af fcitx5\n\n# 설정 확인\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# 강제 재시작\nfcitx5 -r`,
+    step4Title: "📚 지원 현황",
+    footerNote: "이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.",
+    thProject: "프로젝트",
+    thPurpose: "용도",
+    thLicense: "라이선스",
+    thSource: "출처",
+    footerMeta: "MIT License · 커뮤니티 기여 환영",
+    badges: { verified: "검증됨 ✅", beta: "베타 ⚠️", experimental: "실험적 🧪", community: "커뮤니티 👥" },
+    infoLabels: { distro: "배포판", base: "베이스", pkgMgr: "패키지 관리자", imConfig: "입력기 설정", edition: "에디션", scriptId: "스크립트 ID" },
+    nixOnelinerLabel: "NixOS 적용 방법 (/etc/nixos/configuration.nix 병합):",
+    nixOnelinerBody: (rawUrl, file) => `# 1. 설정 파일 다운로드 또는 위 내용을 복사해 /etc/nixos/configuration.nix 에 병합\ncurl -sL ${rawUrl} -o ${file}\n\n# 2. 시스템 재빌드 및 적용\nsudo nixos-rebuild switch`,
+    nixHint: "💡 <code>.nix</code> 파일은 실행 스크립트가 아니며 <code>/etc/nixos/configuration.nix</code> 에 병합해 적용합니다.",
+    shOnelinerLabel: "원라인 설치 명령어 (git·chmod 불필요):",
+    shHint: (shellCmd, file) => `💡 파일로 다운로드했다면 <code>chmod +x</code> 없이 <code>sudo ${shellCmd} ~/Downloads/${file}</code> 로 바로 실행하세요.`,
+    matrixSummary: (v, b, e, c) => `검증: ${v} · 베타: ${b} · 실험적: ${e} · 커뮤니티: ${c}`,
+    matrixBadgeTitle: "클릭해서 바로 선택",
+    searchNeedQuery: "검색어를 입력해 주세요",
+    searchNoMatch: (q) => `'${q}'에 일치하는 배포판/에디션이 없습니다. 상단 0단계 만능 install.sh 를 사용하거나 다른 키워드로 검색해 보세요.`,
+    searchNoMatchToast: "검색 결과가 없습니다",
+    searchCountTop: (n) => `검색 결과 ${n}개 중 상위 30개 표시 (클릭하면 바로 스크립트 생성)`,
+    searchCountAll: (n) => `검색 결과 ${n}개 (클릭하면 바로 스크립트 생성)`,
+    toastSelected: (d, e) => `${d} · ${e} 선택됨`,
+    toastAutoCopied: "만능 자동 설치 명령어가 복사되었습니다",
+    toastOnelinerCopied: "원라인 명령어가 복사되었습니다",
+    toastScriptCopied: "스크립트가 클립보드에 복사되었습니다",
+    toastCopyFail: "복사 실패",
+    toastAutoDownloaded: "install.sh 다운로드 완료 (sudo bash ~/Downloads/install.sh 로 실행)",
+    toastAutoRequested: "install.sh 다운로드 요청됨 (sudo bash ~/Downloads/install.sh 로 실행)",
+    toastScriptDownloaded: (f) => `${f} 다운로드 완료`
+  },
+  en: {
+    pageTitle: "Linux Korean Input Method Auto-Installer Generator",
+    heroTitle: "Linux Korean Input Method Installer",
+    heroSubtitle: "Select your Linux distribution and edition to generate a tailored fcitx5-hangul or kime setup script.",
+    altLinkText: "한국어 페이지",
+    altLinkHref: "index.html",
+    step0Title: "⚡ Step 0: One-Line Auto-Detect Installer (Recommended)",
+    step0Desc: "No <code>git</code> required, no <code>chmod +x</code> needed. Paste this single command into your terminal to auto-detect your distro (Garuda, Arch, Mint, Ubuntu, Fedora, etc.) and install Korean input + Noto CJK fonts.",
+    btnCopyAutoOneliner: "📋 Copy One-Liner",
+    btnDownloadAuto: "⬇️ Download install.sh",
+    step0Hint: "💡 If you downloaded the file manually, run <code>sudo bash ~/Downloads/install.sh</code> directly without <code>chmod +x</code>.",
+    step1Title: "📋 Step 1: Select Distribution",
+    searchLabel: "Quick Search (Distro / Desktop)",
+    searchPlaceholder: "Search distro or desktop (e.g. garuda, mint, bazzite, kde, 가루다...)",
+    btnSearch: "🔍 Search",
+    clearSearchBtn: "✕ Clear",
+    distroLabel: "Distribution",
+    distroPlaceholder: "-- Select Distribution --",
+    editionLabel: "Edition / Desktop",
+    editionPlaceholderFirst: "-- Select Distribution First --",
+    editionPlaceholder: "-- Select Edition --",
+    step2Title: "📄 Step 2: Generated Script",
+    btnCopyScript: "📋 Copy",
+    btnCopyOneliner: "📋 Copy One-Liner",
+    downloadLabel: (ext) => `⬇️ Download (.${ext})`,
+    step3Title: "✅ Step 3: Post-Install Verification",
+    verifyCode: `# Run after re-login\nfcitx5-diagnose\n\n# Check environment variables\nenv | grep -i im_module\n\n# Check running process\npgrep -af fcitx5\n\n# Inspect config files\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# Force restart\nfcitx5 -r`,
+    step4Title: "📚 Supported Matrix",
+    footerNote: "Templates were created by referencing package setups, configuration order, and edge-case handling from these projects.",
+    thProject: "Project",
+    thPurpose: "Purpose",
+    thLicense: "License",
+    thSource: "Source",
+    footerMeta: "MIT License · Community Contributions Welcome",
+    badges: { verified: "Verified ✅", beta: "Beta ⚠️", experimental: "Experimental 🧪", community: "Community 👥" },
+    infoLabels: { distro: "Distro", base: "Base", pkgMgr: "Package Manager", imConfig: "IM Config", edition: "Edition", scriptId: "Script ID" },
+    nixOnelinerLabel: "NixOS Setup (Merge into /etc/nixos/configuration.nix):",
+    nixOnelinerBody: (rawUrl, file) => `# 1. Download snippet or copy above into /etc/nixos/configuration.nix\ncurl -sL ${rawUrl} -o ${file}\n\n# 2. Rebuild and switch\nsudo nixos-rebuild switch`,
+    nixHint: "💡 <code>.nix</code> is declarative configuration, not a shell script. Merge it into <code>/etc/nixos/configuration.nix</code>.",
+    shOnelinerLabel: "One-Line Install Command (No git / chmod needed):",
+    shHint: (shellCmd, file) => `💡 If downloaded locally, run <code>sudo ${shellCmd} ~/Downloads/${file}</code> without <code>chmod +x</code>.`,
+    matrixSummary: (v, b, e, c) => `Verified: ${v} · Beta: ${b} · Experimental: ${e} · Community: ${c}`,
+    matrixBadgeTitle: "Click to select this edition",
+    searchNeedQuery: "Please enter a search keyword",
+    searchNoMatch: (q) => `No distributions or editions matched '${q}'. Try the Step 0 universal install.sh above or another keyword.`,
+    searchNoMatchToast: "No matching results",
+    searchCountTop: (n) => `Showing top 30 of ${n} matches (click to generate script)`,
+    searchCountAll: (n) => `${n} match(es) found (click to generate script)`,
+    toastSelected: (d, e) => `Selected ${d} · ${e}`,
+    toastAutoCopied: "Auto-detect one-liner copied to clipboard",
+    toastOnelinerCopied: "One-liner command copied to clipboard",
+    toastScriptCopied: "Script copied to clipboard",
+    toastCopyFail: "Copy failed",
+    toastAutoDownloaded: "Downloaded install.sh (run: sudo bash ~/Downloads/install.sh)",
+    toastAutoRequested: "Download started for install.sh (run: sudo bash ~/Downloads/install.sh)",
+    toastScriptDownloaded: (f) => `Downloaded ${f}`
+  }
+};
+
+function tLabel(str) {
+  if (currentLang !== "en" || typeof str !== "string") return str;
+  return str
+    .replace("(기본 권장)", "(Recommended Default)")
+    .replace("(기본)", "(Default)")
+    .replace("(단일 에디션)", "(Single Edition)")
+    .replace("(단일)", "(Single)")
+    .replace("(직접 구성)", "(Manual Setup)")
+    .replace("(사전 구성 많음)", "(Rich Pre-config)")
+    .replace("(사전 구성)", "(Pre-configured)")
+    .replace("(별도 항목 참조)", "(See dedicated entry)")
+    .replace("(온라인 선택)", "(Online Installer)")
+    .replace("(온라인 인스톨러)", "(Online Installer)")
+    .replace("(신규 하드웨어 커널)", "(HWE Kernel)")
+    .replace("(COSMIC 곧 전환)", "(COSMIC upcoming)")
+    .replace("(동일)", "(Same as GNOME)")
+    .replace("(레이아웃 선택 가능)", "(Layout options)")
+    .replace("(서버/헤드리스)", "(Server/Headless)")
+    .replace("(불변 GNOME)", "(Immutable GNOME)")
+    .replace("(불변 Debian)", "(Immutable Debian)")
+    .replace("(불변 OS)", "(Immutable OS)")
+    .replace("(함수형, 설정 파일 기반)", "(Functional, Declarative)")
+    .replace("(GNU 함수형)", "(GNU Functional)")
+    .replace("(소스 기반)", "(Source-based)")
+    .replace("(Portage 기반)", "(Portage-based)")
+    .replace("(KDE/Qt 전용)", "(KDE/Qt only)")
+    .replace("(Non-systemd / SysVinit 지원)", "(Non-systemd / SysVinit supported)")
+    .replace("(Non-systemd 포함)", "(incl. Non-systemd)")
+    .replace("(Bluefin 기반)", "(Bluefin-based)")
+    .replace("(Alma 기반 데스크톱)", "(Alma-based Desktop)")
+    .replace("(Alpine 기반)", "(Alpine-based)")
+    .replace("(Rust 기반 대안 입력기)", "(Rust Alternative IME)")
+    .replace("kime (Rust 기반 경량 입력기)", "kime (Lightweight Rust IME)")
+    .replace("Wayland 네이티브 대안 입력기", "Wayland-native Alternative IME")
+    .replace("Ubuntu/Debian 주요 파생", "Ubuntu/Debian Derivatives")
+    .replace("Ubuntu / Debian 주요 파생", "Ubuntu / Debian Derivatives")
+    .replace("보안 데비안", "Security Debian")
+    .replace("파생", "Derivatives")
+    .replace("베이스", "Base")
+    .replace("계열", "Family")
+    .replace("업스트림", "Upstream")
+    .replace("수동", "Manual")
+    .replace("환경변수", "env vars")
+    .replace("에서 선언적 설정", "declarative config")
+    .replace("연동", "integration")
+    .replace("해제", "unlock")
+    .replace("등", "etc.");
+}
+
+function detectInitialLang() {
+  try {
+    const qp = new URLSearchParams(location.search).get("lang");
+    if (qp === "en" || qp === "ko") return qp;
+  } catch {}
+  const defLang = document.documentElement.dataset.defaultLang;
+  if (defLang === "en" || defLang === "ko") return defLang;
+  try {
+    const saved = localStorage.getItem("hangul_installer_lang");
+    if (saved === "en" || saved === "ko") return saved;
+  } catch {}
+  const navLangs = Array.isArray(navigator.languages) && navigator.languages.length
+    ? navigator.languages
+    : [navigator.language || "ko"];
+  return String(navLangs[0] || "ko").toLowerCase().startsWith("ko") ? "ko" : "en";
+}
+
+function applyTranslations() {
+  const t = I18N[currentLang];
+  document.documentElement.lang = currentLang;
+  document.title = t.pageTitle;
+
+  document.getElementById("btnLangKo").classList.toggle("active", currentLang === "ko");
+  document.getElementById("btnLangEn").classList.toggle("active", currentLang === "en");
+  const altLink = document.getElementById("langAltLink");
+  altLink.textContent = t.altLinkText;
+  altLink.href = t.altLinkHref;
+
+  document.getElementById("heroTitle").textContent = t.heroTitle;
+  document.getElementById("heroSubtitle").textContent = t.heroSubtitle;
+  document.getElementById("step0Title").textContent = t.step0Title;
+  document.getElementById("step0Desc").innerHTML = t.step0Desc;
+  document.getElementById("btnCopyAutoOneliner").textContent = t.btnCopyAutoOneliner;
+  document.getElementById("btnDownloadAuto").textContent = t.btnDownloadAuto;
+  document.getElementById("step0Hint").innerHTML = t.step0Hint;
+
+  document.getElementById("step1Title").textContent = t.step1Title;
+  document.getElementById("searchLabel").textContent = t.searchLabel;
+  document.getElementById("distroSearchInput").placeholder = t.searchPlaceholder;
+  document.getElementById("btnSearch").textContent = t.btnSearch;
+  document.getElementById("clearSearchBtn").textContent = t.clearSearchBtn;
+  document.getElementById("distroLabel").textContent = t.distroLabel;
+  document.getElementById("distroPlaceholderOpt").textContent = t.distroPlaceholder;
+  document.getElementById("editionLabel").textContent = t.editionLabel;
+
+  Array.from(distroSelect.options).forEach(opt => {
+    if (!opt.value) return;
+    if (!opt.dataset.koLabel) opt.dataset.koLabel = opt.textContent;
+    opt.textContent = currentLang === "en" ? tLabel(opt.dataset.koLabel) : opt.dataset.koLabel;
+  });
+
+  document.getElementById("step2Title").textContent = t.step2Title;
+  document.getElementById("btnCopyScript").textContent = t.btnCopyScript;
+  document.getElementById("btnCopyOneliner").textContent = t.btnCopyOneliner;
+  document.getElementById("step3Title").textContent = t.step3Title;
+  document.getElementById("verifyCodeBlock").textContent = t.verifyCode;
+  document.getElementById("step4Title").textContent = t.step4Title;
+
+  document.getElementById("footerNote").textContent = t.footerNote;
+  document.getElementById("thProject").textContent = t.thProject;
+  document.getElementById("thPurpose").textContent = t.thPurpose;
+  document.getElementById("thLicense").textContent = t.thLicense;
+  document.getElementById("thSource").textContent = t.thSource;
+  document.getElementById("footerMeta").textContent = t.footerMeta;
+
+  if (!distroSelect.value) {
+    editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholderFirst}</option>`;
+  } else if (currentDistro) {
+    const savedEd = currentEdition;
+    editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholder}</option>`;
+    Object.entries(currentDistro.editions).forEach(([edKey, ed]) => {
+      const opt = document.createElement("option");
+      opt.value = edKey;
+      opt.textContent = tLabel(ed.label);
+      editionSelect.appendChild(opt);
+    });
+    if (savedEd) editionSelect.value = savedEd;
+    editionTags.querySelectorAll(".edition-tag").forEach(tag => {
+      const ed = currentDistro.editions[tag.dataset.edition];
+      if (ed) tag.textContent = tLabel(ed.label);
+    });
+    if (currentEdition) generateScript();
+  }
+
+  if (document.getElementById("distroSearchInput").value.trim()) {
+    runDistroSearch(false);
+  }
+  renderSupportMatrix();
+}
+
+function setLang(lang, persist = true) {
+  currentLang = lang === "en" ? "en" : "ko";
+  if (persist) {
+    try { localStorage.setItem("hangul_installer_lang", currentLang); } catch {}
+  }
+  applyTranslations();
+}
 
 function showToast(msg, type = "success") {
   toast.textContent = msg;
@@ -3153,8 +3435,9 @@ function showToast(msg, type = "success") {
 }
 
 function onDistroChange() {
+  const t = I18N[currentLang];
   const key = distroSelect.value;
-  editionSelect.innerHTML = '<option value="">-- 에디션 선택 --</option>';
+  editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholder}</option>`;
   editionTags.innerHTML = "";
   editionTags.style.display = "none";
   scriptCard.style.display = "none";
@@ -3162,7 +3445,9 @@ function onDistroChange() {
 
   if (!key) {
     editionSelect.disabled = true;
+    editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholderFirst}</option>`;
     currentDistro = null;
+    currentEdition = null;
     return;
   }
 
@@ -3173,7 +3458,7 @@ function onDistroChange() {
   Object.entries(currentDistro.editions).forEach(([edKey, ed]) => {
     const opt = document.createElement("option");
     opt.value = edKey;
-    opt.textContent = ed.label;
+    opt.textContent = tLabel(ed.label);
     editionSelect.appendChild(opt);
   });
 
@@ -3182,7 +3467,7 @@ function onDistroChange() {
     const tag = document.createElement("button");
     tag.type = "button";
     tag.className = "edition-tag" + (edKey === currentDistro.defaultEdition ? " selected" : "");
-    tag.textContent = ed.label;
+    tag.textContent = tLabel(ed.label);
     tag.dataset.edition = edKey;
     tag.onclick = () => selectEditionTag(edKey);
     if (ed.status === "experimental") tag.classList.add("disabled");
@@ -3215,6 +3500,7 @@ function selectEdition(edKey) {
 
 function generateScript() {
   if (!currentDistro || !currentEdition) return;
+  const t = I18N[currentLang];
   const distroKey = distroSelect.value;
   const ed = currentDistro.editions[currentEdition];
   const scriptId = getScriptId(distroKey, currentEdition);
@@ -3234,8 +3520,8 @@ function generateScript() {
   const script = templateFn(params);
 
   // UI 업데이트
-  scriptTitle.textContent = `${currentDistro.name} ${ed.label} - ${scriptFileName}`;
-  downloadBtn.textContent = `⬇️ 다운로드 (.${ext})`;
+  scriptTitle.textContent = `${tLabel(currentDistro.name)} ${tLabel(ed.label)} - ${scriptFileName}`;
+  downloadBtn.textContent = t.downloadLabel(ext);
   scriptContent.className = distroKey === "nixos" ? "language-none" : "language-bash";
   scriptContent.textContent = script;
   if (typeof Prism !== "undefined" && Prism.highlightAll) {
@@ -3243,37 +3529,38 @@ function generateScript() {
   }
 
   // 배지
-  const statusMap = {
-    verified: { class: "badge-verified", text: "검증됨 ✅" },
-    beta: { class: "badge-beta", text: "베타 ⚠️" },
-    experimental: { class: "badge-experimental", text: "실험적 🧪" },
-    community: { class: "badge-community", text: "커뮤니티 👥" }
+  const badgeClassMap = {
+    verified: "badge-verified",
+    beta: "badge-beta",
+    experimental: "badge-experimental",
+    community: "badge-community"
   };
-  const s = statusMap[ed.status] || statusMap.verified;
-  badgesEl.innerHTML = `<span class="badge ${s.class}">${s.text}</span>`;
+  const badgeCls = badgeClassMap[ed.status] || "badge-verified";
+  const badgeText = t.badges[ed.status] || t.badges.verified;
+  badgesEl.innerHTML = `<span class="badge ${badgeCls}">${badgeText}</span>`;
 
   // 정보 그리드
   scriptInfo.innerHTML = `
-    <div class="info-item"><span class="info-label">배포판</span><span class="info-value">${currentDistro.name}</span></div>
-    <div class="info-item"><span class="info-label">베이스</span><span class="info-value">${currentDistro.base}</span></div>
-    <div class="info-item"><span class="info-label">패키지 관리자</span><span class="info-value">${currentDistro.pkgMgr}</span></div>
-    <div class="info-item"><span class="info-label">입력기 설정</span><span class="info-value">${currentDistro.imConfig}</span></div>
-    <div class="info-item"><span class="info-label">에디션</span><span class="info-value">${ed.label}</span></div>
-    <div class="info-item"><span class="info-label">스크립트 ID</span><span class="info-value">${scriptId}</span></div>
+    <div class="info-item"><span class="info-label">${t.infoLabels.distro}</span><span class="info-value">${tLabel(currentDistro.name)}</span></div>
+    <div class="info-item"><span class="info-label">${t.infoLabels.base}</span><span class="info-value">${tLabel(currentDistro.base)}</span></div>
+    <div class="info-item"><span class="info-label">${t.infoLabels.pkgMgr}</span><span class="info-value">${currentDistro.pkgMgr}</span></div>
+    <div class="info-item"><span class="info-label">${t.infoLabels.imConfig}</span><span class="info-value">${tLabel(currentDistro.imConfig)}</span></div>
+    <div class="info-item"><span class="info-label">${t.infoLabels.edition}</span><span class="info-value">${tLabel(ed.label)}</span></div>
+    <div class="info-item"><span class="info-label">${t.infoLabels.scriptId}</span><span class="info-value">${scriptId}</span></div>
   `;
 
   // 원라인 명령어 (GitHub Raw URL) 또는 NixOS 적용 안내
   const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/${templateFamily}/${scriptFileName}`;
   const localRunHint = document.getElementById("localRunHint");
   if (distroKey === "nixos") {
-    onelinerLabel.textContent = "NixOS 적용 방법 (/etc/nixos/configuration.nix 병합):";
-    oneliner.textContent = `# 1. 설정 파일 다운로드 또는 위 내용을 복사해 /etc/nixos/configuration.nix 에 병합\ncurl -sL ${rawUrl} -o ${scriptFileName}\n\n# 2. 시스템 재빌드 및 적용\nsudo nixos-rebuild switch`;
-    localRunHint.innerHTML = `💡 <code>.nix</code> 파일은 실행 스크립트가 아니며 <code>/etc/nixos/configuration.nix</code> 에 병합해 적용합니다.`;
+    onelinerLabel.textContent = t.nixOnelinerLabel;
+    oneliner.textContent = t.nixOnelinerBody(rawUrl, scriptFileName);
+    localRunHint.innerHTML = t.nixHint;
   } else {
     const shellCmd = distroKey === "alpine" ? "sh" : "bash";
-    onelinerLabel.textContent = "원라인 설치 명령어 (git·chmod 불필요):";
+    onelinerLabel.textContent = t.shOnelinerLabel;
     oneliner.textContent = `curl -sL ${rawUrl} | sudo ${shellCmd}`;
-    localRunHint.innerHTML = `💡 파일로 다운로드했다면 <code>chmod +x</code> 없이 <code>sudo ${shellCmd} ~/Downloads/${scriptFileName}</code> 로 바로 실행하세요.`;
+    localRunHint.innerHTML = t.shHint(shellCmd, scriptFileName);
   }
 
   scriptCard.style.display = "block";
@@ -3281,13 +3568,15 @@ function generateScript() {
 }
 
 function copyAutoOneliner() {
+  const t = I18N[currentLang];
   const cmd = document.getElementById("autoOneliner").textContent;
   navigator.clipboard.writeText(cmd).then(() => {
-    showToast("만능 자동 설치 명령어가 복사되었습니다");
-  }).catch(() => showToast("복사 실패", "error"));
+    showToast(t.toastAutoCopied);
+  }).catch(() => showToast(t.toastCopyFail, "error"));
 }
 
 function downloadAutoInstaller() {
+  const t = I18N[currentLang];
   const rawUrl = `https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh`;
   fetch("install.sh").then(res => {
     if (!res.ok) throw new Error("fetch failed");
@@ -3299,26 +3588,28 @@ function downloadAutoInstaller() {
     a.download = "install.sh";
     a.click();
     URL.revokeObjectURL(url);
-    showToast("install.sh 다운로드 완료 (sudo bash ~/Downloads/install.sh 로 실행)");
+    showToast(t.toastAutoDownloaded);
   }).catch(() => {
     const a = document.createElement("a");
     a.href = location.protocol === "file:" ? "install.sh" : rawUrl;
     a.download = "install.sh";
     a.click();
-    showToast("install.sh 다운로드 요청됨 (sudo bash ~/Downloads/install.sh 로 실행)");
+    showToast(t.toastAutoRequested);
   });
 }
 
 function copyOneliner() {
+  const t = I18N[currentLang];
   navigator.clipboard.writeText(oneliner.textContent).then(() => {
-    showToast("원라인 명령어가 복사되었습니다");
-  }).catch(() => showToast("복사 실패", "error"));
+    showToast(t.toastOnelinerCopied);
+  }).catch(() => showToast(t.toastCopyFail, "error"));
 }
 
 function copyScript() {
+  const t = I18N[currentLang];
   navigator.clipboard.writeText(scriptContent.textContent).then(() => {
-    showToast("스크립트가 클립보드에 복사되었습니다");
-  }).catch(() => showToast("복사 실패", "error"));
+    showToast(t.toastScriptCopied);
+  }).catch(() => showToast(t.toastCopyFail, "error"));
 }
 
 const KOREAN_ALIASES = {
@@ -3377,6 +3668,7 @@ function expandSearchQuery(raw) {
 }
 
 function runDistroSearch(autoSelectFirst = false) {
+  const t = I18N[currentLang];
   const input = document.getElementById("distroSearchInput");
   const resultsEl = document.getElementById("searchResults");
   const clearBtn = document.getElementById("clearSearchBtn");
@@ -3387,7 +3679,7 @@ function runDistroSearch(autoSelectFirst = false) {
     resultsEl.innerHTML = "";
     clearBtn.style.display = "none";
     if (autoSelectFirst) {
-      showToast("검색어를 입력해 주세요", "error");
+      showToast(t.searchNeedQuery, "error");
       input.focus();
     }
     return;
@@ -3407,10 +3699,11 @@ function runDistroSearch(autoSelectFirst = false) {
         distro.pkgMgr,
         edKey,
         ed.label,
+        tLabel(ed.label),
         scriptId
       ].join(" ").toLowerCase();
 
-      if (terms.every(t => haystack.includes(t))) {
+      if (terms.every(term => haystack.includes(term))) {
         matches.push({
           distroKey,
           editionKey: edKey,
@@ -3429,9 +3722,9 @@ function runDistroSearch(autoSelectFirst = false) {
     const empty = document.createElement("div");
     empty.className = "search-meta";
     empty.style.marginBottom = "0";
-    empty.textContent = `'${raw}'에 일치하는 배포판/에디션이 없습니다. 상단 0단계 만능 install.sh 를 사용하거나 다른 키워드로 검색해 보세요.`;
+    empty.textContent = t.searchNoMatch(raw);
     resultsEl.appendChild(empty);
-    if (autoSelectFirst) showToast("검색 결과가 없습니다", "error");
+    if (autoSelectFirst) showToast(t.searchNoMatchToast, "error");
     return;
   }
 
@@ -3439,8 +3732,8 @@ function runDistroSearch(autoSelectFirst = false) {
   meta.className = "search-meta";
   const shown = matches.slice(0, 30);
   meta.textContent = matches.length > 30
-    ? `검색 결과 ${matches.length}개 중 상위 30개 표시 (클릭하면 바로 스크립트 생성)`
-    : `검색 결과 ${matches.length}개 (클릭하면 바로 스크립트 생성)`;
+    ? t.searchCountTop(matches.length)
+    : t.searchCountAll(matches.length);
   resultsEl.appendChild(meta);
 
   const list = document.createElement("div");
@@ -3452,7 +3745,7 @@ function runDistroSearch(autoSelectFirst = false) {
     btn.onclick = () => pickDistroEdition(m.distroKey, m.editionKey);
 
     const mainSpan = document.createElement("span");
-    mainSpan.textContent = `${m.distroName} · ${m.editionLabel}`;
+    mainSpan.textContent = `${tLabel(m.distroName)} · ${tLabel(m.editionLabel)}`;
     const subSpan = document.createElement("span");
     subSpan.className = "search-sub";
     subSpan.textContent = `(${m.scriptId})`;
@@ -3466,7 +3759,7 @@ function runDistroSearch(autoSelectFirst = false) {
   if (autoSelectFirst) {
     const first = matches[0];
     pickDistroEdition(first.distroKey, first.editionKey);
-    showToast(`${first.distroName} · ${first.editionLabel} 선택됨`);
+    showToast(t.toastSelected(tLabel(first.distroName), tLabel(first.editionLabel)));
   }
 }
 
@@ -3493,6 +3786,7 @@ function clearDistroSearch() {
 
 function downloadScript() {
   if (!currentDistro || !currentEdition) return;
+  const t = I18N[currentLang];
   const distroKey = distroSelect.value;
   const scriptId = getScriptId(distroKey, currentEdition);
   const ext = distroKey === "nixos" ? "nix" : "sh";
@@ -3505,13 +3799,14 @@ function downloadScript() {
   a.download = scriptFileName;
   a.click();
   URL.revokeObjectURL(url);
-  showToast(`${scriptFileName} 다운로드 완료`);
+  showToast(t.toastScriptDownloaded(scriptFileName));
 }
 
 // ──────────────────────────────────────────────────────────────
 // 지원 매트릭스 렌더링
 // ──────────────────────────────────────────────────────────────
 function renderSupportMatrix() {
+  const t = I18N[currentLang];
   let html = "";
   Object.entries(DISTRO_DATA).forEach(([key, d]) => {
     const verified = Object.values(d.editions).filter(e => e.status === "verified").length;
@@ -3521,8 +3816,8 @@ function renderSupportMatrix() {
     html += `
       <details style="margin-bottom:0.5rem; border:1px solid var(--border); border-radius:8px; padding:0.75rem; background:var(--card);">
         <summary style="cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center;">
-          <span>${d.name}</span>
-          <span style="font-size:0.8rem; color:var(--muted);">${d.base} · ${d.pkgMgr}</span>
+          <span>${tLabel(d.name)}</span>
+          <span style="font-size:0.8rem; color:var(--muted);">${tLabel(d.base)} · ${d.pkgMgr}</span>
         </summary>
         <div style="margin-top:0.5rem; display:flex; flex-wrap:wrap; gap:0.4rem;">
           ${Object.entries(d.editions).map(([ek, e]) => `
@@ -3531,11 +3826,11 @@ function renderSupportMatrix() {
               beta: "badge-beta",
               experimental: "badge-experimental",
               community: "badge-community"
-            })[e.status]}" style="font-size:0.7rem; cursor:pointer;" onclick="pickDistroEdition('${key}', '${ek}')" title="클릭해서 바로 선택">${e.label}</span>
+            })[e.status]}" style="font-size:0.7rem; cursor:pointer;" onclick="pickDistroEdition('${key}', '${ek}')" title="${t.matrixBadgeTitle}">${tLabel(e.label)}</span>
           `).join("")}
         </div>
         <div style="margin-top:0.5rem; font-size:0.75rem; color:var(--muted);">
-          검증: ${verified} · 베타: ${beta} · 실험적: ${exp} · 커뮤니티: ${comm}
+          ${t.matrixSummary(verified, beta, exp, comm)}
         </div>
       </details>
     `;
@@ -3547,7 +3842,7 @@ function renderSupportMatrix() {
 // 초기화
 // ──────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  renderSupportMatrix();
+  setLang(detectInitialLang(), false);
   // URL 해시로 프리셋 지원 (예: #mint/cinnamon)
   if (location.hash) {
     const [distro, edition] = location.hash.slice(1).split("/");

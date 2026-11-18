@@ -1,14 +1,34 @@
 #!/usr/bin/env bash
-# 리눅스 한글 입력기(fcitx5-hangul / RHEL: ibus-hangul) 배포판 자동 감지 올인원 설치 스크립트
-# 실행 (git·다운로드·chmod 불필요):
+# Linux Korean Input Method (fcitx5-hangul / RHEL: ibus-hangul) Auto-Detect Installer
+# Supports 18 distro families with automatic KO/EN terminal output & Noto CJK Korean font install.
+# Usage (no git / chmod required):
 #   curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
-#   또는 wget: wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
-#   또는 로컬 파일: sudo bash install.sh
+#   or wget: wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
+#   or local: sudo bash install.sh [--lang=ko|--lang=en]
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 LOG_FILE="/var/log/install-hangul-auto.log"
+
+IS_KO=false
+if [[ "${LC_ALL:-${LANG:-}}" == ko* ]]; then
+  IS_KO=true
+fi
+for arg in "$@"; do
+  case "$arg" in
+    --lang=ko) IS_KO=true ;;
+    --lang=en) IS_KO=false ;;
+  esac
+done
+
+msg() {
+  if [[ "$IS_KO" == "true" ]]; then
+    echo "$1"
+  else
+    echo "$2"
+  fi
+}
 
 log()  { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
 err()  { log "❌ $*"; exit 1; }
@@ -17,7 +37,9 @@ ok()   { log "✅ $*"; }
 info() { log "ℹ️  $*"; }
 
 require_root() {
-  [[ $EUID -eq 0 ]] || err "root 권한이 필요합니다. 'sudo bash $0' 또는 '... | sudo bash'로 실행하세요."
+  if [[ $EUID -ne 0 ]]; then
+    err "$(msg "root 권한이 필요합니다. 'sudo bash $0' 또는 '... | sudo bash'로 실행하세요." "Root privileges required. Run with 'sudo bash $0' or '... | sudo bash'.")"
+  fi
 }
 
 detect_user() {
@@ -31,7 +53,7 @@ detect_user() {
     echo "deck"
     return
   fi
-  err "대상 데스크톱 사용자를 자동으로 찾지 못했습니다. 'sudo -E SUDO_USER=<사용자명> bash $0'로 실행하세요."
+  err "$(msg "대상 데스크톱 사용자를 자동으로 찾지 못했습니다. 'sudo -E SUDO_USER=<사용자명> bash $0'로 실행하세요." "Could not detect target desktop user. Run with 'sudo -E SUDO_USER=<username> bash $0'.")"
 }
 
 detect_desktop() {
@@ -117,7 +139,7 @@ detect_family() {
     echo "mandriva-family"; return
   fi
 
-  err "지원되는 리눅스 배포판/패키지 관리자를 감지하지 못했습니다 (ID=$os_id, ID_LIKE=$os_like)."
+  err "$(msg "지원되는 리눅스 배포판/패키지 관리자를 감지하지 못했습니다 (ID=$os_id, ID_LIKE=$os_like)." "Unsupported Linux distro/package manager (ID=$os_id, ID_LIKE=$os_like).")"
 }
 
 write_fcitx5_user_config() {
@@ -154,7 +176,7 @@ SkipFirst=False
 EOF
 
   chown -R "$uid:$gid" "$fcitx5_dir"
-  ok "Fcitx5 프로필 및 한/영 전환 핫키 설정 완료"
+  ok "$(msg "Fcitx5 프로필 및 한/영 전환 핫키 설정 완료" "Configured Fcitx5 profile and Hangul toggle hotkeys")"
 }
 
 write_autostart_fcitx5() {
@@ -173,7 +195,7 @@ Hidden=false
 NoDisplay=false
 EOF
   chown -R "$uid:$gid" "$adir"
-  ok "Fcitx5 자동시작 등록 완료"
+  ok "$(msg "Fcitx5 자동시작 등록 완료" "Registered Fcitx5 autostart entry")"
 }
 
 write_env_etc_and_envd() {
@@ -193,7 +215,7 @@ EOF
   if ! grep -q "GTK_IM_MODULE=fcitx" /etc/environment 2>/dev/null; then
     cat >> /etc/environment <<'EOF'
 
-# fcitx5 환경변수
+# fcitx5 environment variables
 GTK_IM_MODULE=fcitx
 QT_IM_MODULE=fcitx
 XMODIFIERS=@im=fcitx
@@ -209,7 +231,7 @@ append_profile_env() {
   if ! grep -q "GTK_IM_MODULE=$im" "$file" 2>/dev/null; then
     cat >> "$file" <<EOF
 
-# $im 환경변수
+# $im environment variables
 export GTK_IM_MODULE=$im
 export QT_IM_MODULE=$im
 export XMODIFIERS=@im=$im
@@ -278,7 +300,7 @@ clear_desktop_shortcut_conflicts() {
       su - "$user" -c "gsettings set $c 2>/dev/null || true"
     done
   fi
-  ok "데스크톱 단축키 충돌 해제 완료 ($desktop)"
+  ok "$(msg "데스크톱 단축키 충돌 해제 완료 ($desktop)" "Cleared desktop shortcut conflicts ($desktop)")"
 }
 
 steamos_cleanup() {
@@ -290,7 +312,7 @@ steamos_cleanup() {
 main() {
   require_root
   mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== 리눅스 한글 입력기 자동 감지 설치 시작 (v$SCRIPT_VERSION) ==="
+  log "$(msg "=== 리눅스 한글 입력기 자동 감지 설치 시작 (v$SCRIPT_VERSION) ===" "=== Starting Linux Korean Input Method Auto-Installer (v$SCRIPT_VERSION) ===")"
 
   local pretty_name="Unknown Linux"
   if [[ -f /etc/os-release ]]; then
@@ -301,19 +323,29 @@ main() {
 
   local FAMILY
   FAMILY=$(detect_family)
-  info "감지된 배포판: $pretty_name"
-  info "선택된 설치 패밀리: $FAMILY"
+  info "$(msg "감지된 배포판: $pretty_name" "Detected distro: $pretty_name")"
+  info "$(msg "선택된 설치 패밀리: $FAMILY" "Selected family: $FAMILY")"
 
   if [[ "$FAMILY" == "nixos" ]]; then
     echo
     echo "============================================================"
-    echo " ℹ️  NixOS는 선언적 OS이므로 스크립트로 패키지를 직접 설치하지 않습니다."
-    echo " /etc/nixos/configuration.nix 에 아래 설정을 병합하세요:"
+    if [[ "$IS_KO" == "true" ]]; then
+      echo " ℹ️  NixOS는 선언적 OS이므로 스크립트로 패키지를 직접 설치하지 않습니다."
+      echo " /etc/nixos/configuration.nix 에 아래 설정을 병합하세요:"
+    else
+      echo " ℹ️  NixOS uses declarative configuration. Merge the following into /etc/nixos/configuration.nix:"
+    fi
     echo "   i18n.inputMethod.enabled = \"fcitx5\";"
     echo "   i18n.inputMethod.fcitx5.enable = true;"
     echo "   i18n.inputMethod.fcitx5.engines = with pkgs; [ fcitx5-hangul ];"
-    echo " 상세 예시: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
-    echo " 적용: sudo nixos-rebuild switch"
+    echo "   fonts.packages = with pkgs; [ noto-fonts-cjk ];"
+    if [[ "$IS_KO" == "true" ]]; then
+      echo " 상세 예시: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
+      echo " 적용: sudo nixos-rebuild switch"
+    else
+      echo " Examples: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
+      echo " Apply: sudo nixos-rebuild switch"
+    fi
     echo "============================================================"
     exit 0
   fi
@@ -325,14 +357,14 @@ main() {
   TARGET_GID=$(id -g "$TARGET_USER")
   DESKTOP=$(detect_desktop "$TARGET_USER")
 
-  info "대상 사용자: $TARGET_USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
-  info "감지된 데스크톱: $DESKTOP"
+  info "$(msg "대상 사용자: $TARGET_USER (UID=$TARGET_UID, HOME=$TARGET_HOME)" "Target user: $TARGET_USER (UID=$TARGET_UID, HOME=$TARGET_HOME)")"
+  info "$(msg "감지된 데스크톱: $DESKTOP" "Detected desktop: $DESKTOP")"
 
   local need_reboot=false
 
   case "$FAMILY" in
     debian-family)
-      log "[1/5] 레거시 fcitx4 정리 및 fcitx5 설치 (apt-get)..."
+      log "$(msg "[1/5] 레거시 fcitx4 정리, fcitx5 및 한글 폰트 설치 (apt-get)..." "[1/5] Purging legacy fcitx4 and installing fcitx5 + Korean fonts (apt-get)...")"
       export DEBIAN_FRONTEND=noninteractive
       apt-get update -qq
       apt-get purge -y -qq fcitx fcitx-bin fcitx-data fcitx-hangul fcitx-config-gtk \
@@ -341,90 +373,92 @@ main() {
       apt-get install -y -qq \
         fcitx5 fcitx5-hangul fcitx5-config-qt fcitx5-configtool \
         fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \
-        fcitx5-frontend-qt5 fcitx5-frontend-qt6
-      ok "패키지 설치 완료"
+        fcitx5-frontend-qt5 fcitx5-frontend-qt6 \
+        fonts-noto-cjk
+      ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "[2/5] 입력 프레임워크 전환 (im-config)..."
-      su - "$TARGET_USER" -c "im-config -n fcitx5" 2>/dev/null || warn "im-config 실패 (필요시 수동 실행)"
+      log "$(msg "[2/5] 입력 프레임워크 전환 (im-config)..." "[2/5] Switching input framework to fcitx5 (im-config)...")"
+      su - "$TARGET_USER" -c "im-config -n fcitx5" 2>/dev/null || warn "$(msg "im-config 실패 (필요시 수동 실행)" "im-config failed (run manually if needed)")"
 
-      log "[3/5] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/5] Fcitx5 프로필·핫키 구성..." "[3/5] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[4/5] 단축키 충돌 해제 및 환경변수 설정..."
+      log "$(msg "[4/5] 단축키 충돌 해제 및 환경변수 설정..." "[4/5] Clearing shortcut conflicts and setting env vars...")"
       clear_desktop_shortcut_conflicts "$TARGET_USER" "$TARGET_UID" "$DESKTOP"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xsessionrc" "$TARGET_UID" "$TARGET_GID" "fcitx"
 
-      log "[5/5] 자동시작 등록..."
+      log "$(msg "[5/5] 자동시작 등록..." "[5/5] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     arch-family)
-      log "[1/4] fcitx5 패키지 설치 (pacman)..."
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (pacman)..." "[1/4] Installing fcitx5 + Korean fonts (pacman)...")"
       pacman -Sy --needed --noconfirm \
-        fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt
-      ok "패키지 설치 완료"
+        fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk
+      ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[4/4] 자동시작 및 systemd 서비스 등록..."
+      log "$(msg "[4/4] 자동시작 및 systemd 서비스 등록..." "[4/4] Registering autostart and systemd user service...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       su - "$TARGET_USER" -c "XDG_RUNTIME_DIR=/run/user/$TARGET_UID systemctl --user enable fcitx5 2>/dev/null || true" || true
       ;;
 
     kaos)
-      log "[1/4] fcitx5 패키지 설치 (KaOS pacman)..."
-      pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool
-      ok "패키지 설치 완료"
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (KaOS pacman)..." "[1/4] Installing fcitx5 + Korean fonts (KaOS pacman)...")"
+      pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk
+      ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     steamos)
       trap steamos_cleanup EXIT
-      log "[1/4] SteamOS 읽기 전용 해제 및 패키지 설치..."
+      log "$(msg "[1/4] SteamOS 읽기 전용 해제 및 패키지 설치..." "[1/4] Disabling steamos-readonly and installing fcitx5 + Korean fonts...")"
       steamos-readonly disable
       pacman-key --init
       pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
-      pacman -Sy --needed --noconfirm fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt
+      pacman -Sy --needed --noconfirm fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk
 
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[3/4] Fcitx5 설정 및 자동시작 등록..."
+      log "$(msg "[3/4] Fcitx5 설정 및 자동시작 등록..." "[3/4] Configuring Fcitx5 and autostart...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[4/4] SteamOS 읽기 전용 복구..."
+      log "$(msg "[4/4] SteamOS 읽기 전용 복구..." "[4/4] Re-enabling steamos-readonly...")"
       steamos-readonly enable
       ;;
 
     fedora)
-      log "[1/4] fcitx5 패키지 설치 (dnf)..."
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (dnf)..." "[1/4] Installing fcitx5 + Korean fonts (dnf)...")"
       dnf install -y -q fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-autostart
-      ok "패키지 설치 완료"
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "[2/4] 시스템 입력기 설정 및 ibus 비활성화..."
+      log "$(msg "[2/4] 시스템 입력기 설정 및 ibus 비활성화..." "[2/4] Configuring alternatives and disabling ibus...")"
       alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
       sed -i 's/IMSETTINGS_IGNORE_SESSION=\*-wayland/#IMSETTINGS_IGNORE_SESSION=*-wayland/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
       sed -i 's/XIM=fcitx5/XIM=fcitx/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
       su - "$TARGET_USER" -c "XDG_RUNTIME_DIR=/run/user/$TARGET_UID systemctl --user disable ibus 2>/dev/null || true" || true
 
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[4/4] 환경변수 설정..."
+      log "$(msg "[4/4] 환경변수 설정..." "[4/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       local profile_file="$TARGET_HOME/.bash_profile"
       [[ -f "$TARGET_HOME/.profile" && ! -f "$profile_file" ]] && profile_file="$TARGET_HOME/.profile"
@@ -433,15 +467,16 @@ main() {
 
     fedora-atomic)
       need_reboot=true
-      log "[1/3] fcitx5 패키지 레이어링 (rpm-ostree)..."
+      log "$(msg "[1/3] fcitx5 및 한글 폰트 패키지 레이어링 (rpm-ostree)..." "[1/3] Layering fcitx5 + Korean fonts (rpm-ostree)...")"
       rpm-ostree install --idempotent --allow-inactive \
-        fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart
-      ok "패키지 레이어링 완료"
+        fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart \
+        google-noto-sans-cjk-ttc-fonts
+      ok "$(msg "패키지 레이어링 완료" "Package layering complete")"
 
-      log "[2/3] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[2/3] Fcitx5 프로필·핫키 구성..." "[2/3] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[3/3] 환경변수 설정..."
+      log "$(msg "[3/3] 환경변수 설정..." "[3/3] Configuring environment variables...")"
       local env_file="$TARGET_HOME/.config/environment.d/fcitx5.conf"
       mkdir -p "$(dirname "$env_file")"
       cat > "$env_file" <<'EOF'
@@ -454,17 +489,17 @@ EOF
 
     vanilla)
       need_reboot=true
-      log "[1/4] fcitx5 패키지 추가 (abroot)..."
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 추가 (abroot)..." "[1/4] Adding fcitx5 + Korean fonts (abroot)...")"
       abroot pkg add \
         fcitx5 fcitx5-hangul fcitx5-config-qt \
         fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \
-        fcitx5-frontend-qt5 fcitx5-frontend-qt6
-      ok "패키지 추가 완료"
+        fcitx5-frontend-qt5 fcitx5-frontend-qt6 fonts-noto-cjk
+      ok "$(msg "패키지 추가 완료" "Packages added")"
 
-      log "[2/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[2/4] Fcitx5 프로필·핫키 구성..." "[2/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[3/4] 환경변수 설정..."
+      log "$(msg "[3/4] 환경변수 설정..." "[3/4] Configuring environment variables...")"
       local venv_file="$TARGET_HOME/.config/environment.d/fcitx5.conf"
       mkdir -p "$(dirname "$venv_file")"
       cat > "$venv_file" <<'EOF'
@@ -474,45 +509,48 @@ XMODIFIERS=@im=fcitx
 EOF
       chown -R "$TARGET_UID:$TARGET_GID" "$(dirname "$venv_file")"
 
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     opensuse|opensuse-transactional)
-      log "[1/4] fcitx5 패키지 설치 ($FAMILY)..."
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 ($FAMILY)..." "[1/4] Installing fcitx5 + Korean fonts ($FAMILY)...")"
       if [[ "$FAMILY" == "opensuse-transactional" ]]; then
         need_reboot=true
         transactional-update --non-interactive pkg install \
           fcitx5 fcitx5-hangul fcitx5-configtool \
-          fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 fcitx5-autostart
+          fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 fcitx5-autostart \
+          google-noto-sans-cjk-fonts
       else
         zypper --non-interactive install -y \
           fcitx5 fcitx5-hangul fcitx5-configtool \
           fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 fcitx5-autostart
+        zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
       fi
-      ok "패키지 설치 완료"
+      ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "[2/4] 시스템 입력기 등록 및 ibus 비활성화..."
+      log "$(msg "[2/4] 시스템 입력기 등록 및 ibus 비활성화..." "[2/4] Configuring alternatives and disabling ibus...")"
       alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
       sed -i 's/IMSETTINGS_IGNORE_SESSION=\*-wayland/#IMSETTINGS_IGNORE_SESSION=*-wayland/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
       sed -i 's/XIM=fcitx5/XIM=fcitx/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
       su - "$TARGET_USER" -c "XDG_RUNTIME_DIR=/run/user/$TARGET_UID systemctl --user disable ibus 2>/dev/null || true" || true
 
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
 
-      log "[4/4] 환경변수 설정..."
+      log "$(msg "[4/4] 환경변수 설정..." "[4/4] Configuring environment variables...")"
       local oprofile="$TARGET_HOME/.bash_profile"
       [[ -f "$TARGET_HOME/.profile" && ! -f "$oprofile" ]] && oprofile="$TARGET_HOME/.profile"
       append_profile_env "$oprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
       ;;
 
     rhel-family)
-      log "[1/3] ibus-hangul 패키지 설치 (dnf)..."
+      log "$(msg "[1/3] ibus-hangul 및 한글 폰트 패키지 설치 (dnf)..." "[1/3] Installing ibus-hangul + Korean fonts (dnf)...")"
       dnf install -y -q ibus-hangul ibus-setup
-      ok "패키지 설치 완료"
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "[2/3] GNOME 입력 소스에 한국어(Hangul) 등록..."
+      log "$(msg "[2/3] GNOME 입력 소스에 한국어(Hangul) 등록..." "[2/3] Adding Hangul to GNOME input sources...")"
       local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
       if [[ -S "/run/user/$TARGET_UID/bus" ]]; then
         local bus="unix:path=/run/user/$TARGET_UID/bus"
@@ -521,7 +559,7 @@ EOF
         su - "$TARGET_USER" -c "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
       fi
 
-      log "[3/3] ibus 환경변수 설정..."
+      log "$(msg "[3/3] ibus 환경변수 설정..." "[3/3] Configuring ibus environment variables...")"
       local rhel_env="$TARGET_HOME/.config/environment.d/ibus.conf"
       mkdir -p "$(dirname "$rhel_env")"
       cat > "$rhel_env" <<'EOF'
@@ -536,57 +574,57 @@ EOF
       ;;
 
     void)
-      log "[1/4] fcitx5 패키지 설치 (xbps-install)..."
-      xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (xbps-install)..." "[1/4] Installing fcitx5 + Korean fonts (xbps-install)...")"
+      xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool noto-fonts-cjk
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     alpine)
-      log "[1/4] fcitx5 패키지 설치 (apk)..."
+      log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (apk)..." "[1/4] Installing fcitx5 + Korean fonts (apk)...")"
       apk update
       apk add fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-noto-cjk
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.profile" "$TARGET_UID" "$TARGET_GID" "fcitx"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     solus)
-      log "[1/4] fcitx5 패키지 설치 (eopkg)..."
+      log "$(msg "[1/4] fcitx5 패키지 설치 (eopkg)..." "[1/4] Installing fcitx5 (eopkg)...")"
       eopkg install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt5 fcitx5-configtool
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     gentoo)
-      log "[1/4] fcitx5 패키지 설치 (emerge)..."
+      log "$(msg "[1/4] fcitx5 패키지 설치 (emerge)..." "[1/4] Installing fcitx5 (emerge)...")"
       emerge --noreplace \
         app-i18n/fcitx:5 app-i18n/fcitx-hangul:5 \
         app-i18n/fcitx-gtk:5 app-i18n/fcitx-qt:5 app-i18n/fcitx-configtool:5
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     mandriva-family)
-      log "[1/4] fcitx5 패키지 설치 (Mandriva 계열)..."
+      log "$(msg "[1/4] fcitx5 패키지 설치 (Mandriva 계열)..." "[1/4] Installing fcitx5 (Mandriva family)...")"
       if command -v dnf >/dev/null 2>&1; then
         dnf install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
       elif command -v urpmi >/dev/null 2>&1; then
@@ -594,67 +632,88 @@ EOF
       elif command -v apt-get >/dev/null 2>&1; then
         apt-get update && apt-get install -y fcitx5 fcitx5-hangul fcitx5-configtool
       fi
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     alt)
-      log "[1/4] fcitx5 패키지 설치 (ALT Linux apt-rpm)..."
+      log "$(msg "[1/4] fcitx5 패키지 설치 (ALT Linux apt-rpm)..." "[1/4] Installing fcitx5 (ALT Linux apt-rpm)...")"
       apt-get update
       apt-get install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     guix)
-      log "[1/4] fcitx5 패키지 설치 (guix install)..."
+      log "$(msg "[1/4] fcitx5 패키지 설치 (guix install)..." "[1/4] Installing fcitx5 + Korean fonts (guix install)...")"
       su - "$TARGET_USER" -c "guix install fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-google-noto-sans-cjk"
-      log "[2/4] 환경변수 설정..."
+      log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       local gprof="$TARGET_HOME/.bash_profile"
       [[ -f "$TARGET_HOME/.profile" && ! -f "$gprof" ]] && gprof="$TARGET_HOME/.profile"
       if ! grep -q "GUIX_PROFILE=" "$gprof" 2>/dev/null; then
         echo 'export GUIX_PROFILE="$HOME/.guix-profile"' >> "$gprof"
       fi
       append_profile_env "$gprof" "$TARGET_UID" "$TARGET_GID" "fcitx"
-      log "[3/4] Fcitx5 프로필·핫키 구성..."
+      log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
-      log "[4/4] 자동시작 등록..."
+      log "$(msg "[4/4] 자동시작 등록..." "[4/4] Registering autostart...")"
       write_autostart_fcitx5 "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       ;;
 
     *)
-      err "지원되지 않는 패밀리입니다: $FAMILY"
+      err "$(msg "지원되지 않는 패밀리입니다: $FAMILY" "Unsupported family: $FAMILY")"
       ;;
   esac
 
   echo
   echo "============================================================"
-  echo " 🎉 한글 입력기 설치 완료! ($pretty_name / $FAMILY)"
-  if [[ "$need_reboot" == "true" ]]; then
-    echo " ⚠️  불변 OS 감지: 변경 사항 적용을 위해 반드시 재부팅하세요 (systemctl reboot)."
-  else
-    echo " 👉 로그아웃 후 다시 로그인(또는 재부팅)하면 적용됩니다."
-  fi
-  if [[ "$FAMILY" == "rhel-family" ]]; then
-    echo " ⌨️  전환: Super+Space 또는 한/영 키 | 세부 설정: ibus-setup"
-  else
-    if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
-      echo " 🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택"
+  if [[ "$IS_KO" == "true" ]]; then
+    echo " 🎉 한글 입력기 및 한글 폰트 설치 완료! ($pretty_name / $FAMILY)"
+    if [[ "$need_reboot" == "true" ]]; then
+      echo " ⚠️  불변 OS 감지: 변경 사항 적용을 위해 반드시 재부팅하세요 (systemctl reboot)."
+    else
+      echo " 👉 로그아웃 후 다시 로그인(또는 재부팅)하면 적용됩니다."
     fi
-    echo " ⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space"
-    echo " ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose"
+    if [[ "$FAMILY" == "rhel-family" ]]; then
+      echo " ⌨️  전환: Super+Space 또는 한/영 키 | 세부 설정: ibus-setup"
+    else
+      if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+        echo " 🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택"
+      fi
+      echo " ⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space"
+      echo " 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R)를 전환키로 추가할 수 있습니다."
+      echo " ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose"
+    fi
+    echo " 📝 로그: $LOG_FILE"
+  else
+    echo " 🎉 Korean Input Method & Noto CJK Fonts Installed! ($pretty_name / $FAMILY)"
+    if [[ "$need_reboot" == "true" ]]; then
+      echo " ⚠️  Immutable OS detected: REBOOT required to apply changes (systemctl reboot)."
+    else
+      echo " 👉 Please log out and log back in (or reboot) to activate."
+    fi
+    if [[ "$FAMILY" == "rhel-family" ]]; then
+      echo " ⌨️  Toggle: Super+Space or Hangul key | Config: ibus-setup"
+    else
+      if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+        echo " 🖥️  KDE Plasma Extra Step: System Settings -> Input Devices -> Virtual Keyboard -> Select 'Fcitx 5'"
+      fi
+      echo " ⌨️  Toggle keys: Hangul key, Ctrl+Space, Shift+Space"
+      echo " 💡 US Keyboard tip: You can bind Right Alt (Alt_R) in 'fcitx5-configtool' -> Global Options."
+      echo " ⚙️  Config: fcitx5-configtool | Diagnose: fcitx5-diagnose"
+    fi
+    echo " 📝 Log: $LOG_FILE"
   fi
-  echo " 📝 로그: $LOG_FILE"
   echo "============================================================"
 }
 

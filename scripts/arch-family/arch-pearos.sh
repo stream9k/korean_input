@@ -37,10 +37,10 @@ main() {
   info "사용자: $USER (UID=$TARGET_UID)"
 
   # 1. 패키지 설치 (pacman)
-  log "[1/5] fcitx5 패키지 설치 (pacman)..."
+  log "[1/5] fcitx5 및 한글 폰트 패키지 설치 (pacman)..."
   pacman -Sy --needed --noconfirm \
     fcitx5-im fcitx5-hangul fcitx5-configtool \
-    fcitx5-gtk fcitx5-qt
+    fcitx5-gtk fcitx5-qt noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 환경변수 시스템 와이드 (/etc/environment)

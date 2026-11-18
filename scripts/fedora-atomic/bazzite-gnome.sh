@@ -36,9 +36,10 @@ main() {
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
   # 1. rpm-ostree 패키지 레이어링
-  log "[1/3] fcitx5 패키지 설치 (rpm-ostree)..."
+  log "[1/3] fcitx5 및 한글 폰트 패키지 설치 (rpm-ostree)..."
   rpm-ostree install --idempotent --allow-inactive \
-    fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart
+    fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart \
+    google-noto-sans-cjk-ttc-fonts
   ok "패키지 레이어링 요청 완료"
 
   # 2. Fcitx5 프로필/핫키 구성

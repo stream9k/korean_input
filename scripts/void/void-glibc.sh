@@ -36,8 +36,8 @@ main() {
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
   # 1. 패키지 설치 (xbps)
-  log "[1/4] fcitx5 패키지 설치 (xbps-install)..."
-  xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool
+  log "[1/4] fcitx5 및 한글 폰트 패키지 설치 (xbps-install)..."
+  xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 시스템 및 사용자 환경변수

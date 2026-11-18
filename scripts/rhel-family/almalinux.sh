@@ -36,9 +36,10 @@ main() {
   TARGET_UID=$(id -u "$USER")
   info "사용자: $USER (UID=$TARGET_UID)"
 
-  # 1. ibus-hangul 설치 (RHEL 계열 기본 공식 저장소)
-  log "[1/3] ibus-hangul 패키지 설치 (dnf)..."
+  # 1. ibus-hangul + 한글 폰트 설치 (RHEL 계열 기본 공식 저장소)
+  log "[1/3] ibus-hangul 및 한글 폰트 패키지 설치 (dnf)..."
   dnf install -y -q ibus-hangul ibus-setup
+  dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
   ok "패키지 설치 완료"
 
   # 2. GNOME 입력 소스 자동 등록

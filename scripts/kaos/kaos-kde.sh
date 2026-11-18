@@ -35,8 +35,8 @@ main() {
   info "사용자: $USER (HOME=$TARGET_HOME)"
 
   # 1. pacman 패키지 설치 (KaOS Qt/KDE 전용 패키지 구성)
-  log "[1/4] fcitx5 패키지 설치 (pacman)..."
-  pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool
+  log "[1/4] fcitx5 및 한글 폰트 패키지 설치 (pacman)..."
+  pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk
   ok "패키지 설치 완료"
 
   # 2. 환경변수 설정

@@ -37,10 +37,11 @@ main() {
   info "사용자: $USER (UID=$TARGET_UID)"
 
   # 1. 패키지 설치
-  log "[1/5] fcitx5 패키지 설치 (dnf)..."
+  log "[1/5] fcitx5 및 한글 폰트 패키지 설치 (dnf)..."
   dnf install -y -q \
     fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt \
     fcitx5-autostart
+  dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
   ok "패키지 설치 완료"
 
   # 2. 시스템 입력기 등록 (alternatives)
