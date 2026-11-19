@@ -685,13 +685,26 @@ EOF
       dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
       ok "$(msg "패키지 설치 완료" "Packages installed")"
 
-      log "$(msg "[2/3] GNOME 입력 소스에 한국어(Hangul) 등록..." "[2/3] Adding Hangul to GNOME input sources...")"
+      log "$(msg "[2/3] 입력 소스 및 ibus 엔진 캐시 등록 (Hangul)..." "[2/3] Registering Hangul input source and refreshing ibus cache...")"
+      ibus write-cache --system 2>/dev/null || true
       local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
+      local preload="['xkb:us::eng', 'hangul']"
       if [[ -S "/run/user/$TARGET_UID/bus" ]]; then
         local bus="unix:path=/run/user/$TARGET_UID/bus"
-        sudo -u "$TARGET_USER" DBUS_SESSION_BUS_ADDRESS="$bus" gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
+        sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+          gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
+        sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+          gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
+        sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+          ibus write-cache 2>/dev/null || true
+        if pgrep -u "$TARGET_UID" -x ibus-daemon >/dev/null 2>&1; then
+          sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+            ibus restart 2>/dev/null || true
+        fi
       else
         su - "$TARGET_USER" -c "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
+        su - "$TARGET_USER" -c "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
+        su - "$TARGET_USER" -c "ibus write-cache" 2>/dev/null || true
       fi
 
       log "$(msg "[3/3] ibus 환경변수 설정..." "[3/3] Configuring ibus environment variables...")"

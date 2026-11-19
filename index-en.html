@@ -2277,16 +2277,29 @@ main() {
   dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
   ok "패키지 설치 완료"
 
-  # 2. GNOME 입력 소스 자동 등록
-  log "[2/3] GNOME 입력 소스에 한국어(Hangul) 등록..."
+  # 2. 입력 소스 등록 및 ibus 엔진 캐시 갱신 (GNOME + 비-GNOME 대응)
+  log "[2/3] 입력 소스 및 ibus 엔진 캐시 등록 (Hangul)..."
+  ibus write-cache --system 2>/dev/null || true
   local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
+  local preload="['xkb:us::eng', 'hangul']"
   if [ -S "/run/user/$TARGET_UID/bus" ]; then
     local bus="unix:path=/run/user/$TARGET_UID/bus"
-    sudo -u "$USER" DBUS_SESSION_BUS_ADDRESS="$bus" gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      ibus write-cache 2>/dev/null || true
+    if pgrep -u "$TARGET_UID" -x ibus-daemon >/dev/null 2>&1; then
+      sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+        ibus restart 2>/dev/null || true
+    fi
   else
     su - "$USER" -c "gsettings set org.gnome.desktop.input-sources sources \\"$sources\\"" 2>/dev/null || true
+    su - "$USER" -c "gsettings set org.freedesktop.ibus.general preload-engines \\"$preload\\"" 2>/dev/null || true
+    su - "$USER" -c "ibus write-cache" 2>/dev/null || true
   fi
-  ok "입력 소스 설정 완료"
+  ok "입력 소스 및 엔진 캐시 설정 완료"
 
   # 3. 환경변수 설정
   log "[3/3] 환경변수 설정..."
