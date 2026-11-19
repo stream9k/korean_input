@@ -347,6 +347,6 @@ Permission is hereby granted...
 
 ---
 
-**작성일**: 2026-11-19  
+**작성일**: 2026-11-20  
 **작성자**: Antigravity Agent & 사용자 협업  
-**버전**: 1.1.0 (190개 스크립트, 재부팅 후 1회성 팝업, ibus/kime 동적 검증, 오른쪽 Alt 충돌 해결 가이드 탑재)
+**버전**: 1.1.1 (실행 중인 fcitx5 데몬/서비스 안전 중지 후 프로필 적용, RHEL 계열 ibus 캐시 갱신·preload-engines·재시작 보강)
