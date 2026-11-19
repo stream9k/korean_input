@@ -61,6 +61,14 @@ EOF
 
   # 3. Fcitx5 설정
   log "[3/4] Fcitx5 프로필·핫키 구성..."
+  # 실행 중인 fcitx5가 종료 시 기존 프로필로 덮어쓰는 현상 방지
+  _fcitx5_uid=$(id -u "$USER" 2>/dev/null || echo "")
+  if [ -n "$_fcitx5_uid" ] && command -v pkill >/dev/null 2>&1; then
+    pkill -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+  elif command -v killall >/dev/null 2>&1; then
+    killall fcitx5 2>/dev/null || true
+  fi
+  sleep 1
   FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
   mkdir -p "$FCITX5_DIR"
   cat > "$FCITX5_DIR/profile" <<'EOF'

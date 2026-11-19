@@ -146,6 +146,43 @@ write_fcitx5_user_config() {
   local target_home="$1"
   local uid="$2"
   local gid="$3"
+  local user
+  user=$(id -nu "$uid" 2>/dev/null || echo "")
+
+  # 실행 중인 fcitx5가 종료 시 메모리의 기존 프로필로 덮어쓰는 현상 방지 (Omarchy 등 기본 탑재 환경 대응)
+  local stopped_svcs=()
+  if [[ -n "$user" && -S "/run/user/$uid/bus" ]] && command -v systemctl >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    local bus="unix:path=/run/user/$uid/bus"
+    local svc
+    while IFS= read -r svc; do
+      if [[ -n "$svc" ]]; then
+        sudo -u "$user" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+          systemctl --user stop "$svc" 2>/dev/null || true
+        stopped_svcs+=("$svc")
+      fi
+    done < <(sudo -u "$user" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      systemctl --user list-units --type=service --state=running --no-legend '*fcitx5*' 2>/dev/null | awk '{print $1}' || true)
+  fi
+
+  if command -v pkill >/dev/null 2>&1; then
+    pkill -u "$uid" -x fcitx5 2>/dev/null || true
+  elif [[ -n "$user" ]] && command -v killall >/dev/null 2>&1; then
+    killall -u "$user" fcitx5 2>/dev/null || true
+  fi
+
+  if command -v pgrep >/dev/null 2>&1; then
+    local wait_i=0
+    while pgrep -u "$uid" -x fcitx5 >/dev/null 2>&1 && [[ $wait_i -lt 20 ]]; do
+      sleep 0.1 2>/dev/null || sleep 1
+      wait_i=$((wait_i + 1))
+    done
+    if pgrep -u "$uid" -x fcitx5 >/dev/null 2>&1; then
+      pkill -9 -u "$uid" -x fcitx5 2>/dev/null || true
+      sleep 0.2 2>/dev/null || sleep 1
+    fi
+  else
+    sleep 1
+  fi
 
   local fcitx5_dir="$target_home/.config/fcitx5"
   mkdir -p "$fcitx5_dir"
@@ -176,6 +213,16 @@ SkipFirst=False
 EOF
 
   chown -R "$uid:$gid" "$fcitx5_dir"
+
+  if [[ ${#stopped_svcs[@]} -gt 0 && -n "$user" && -S "/run/user/$uid/bus" ]]; then
+    local bus="unix:path=/run/user/$uid/bus"
+    local svc
+    for svc in "${stopped_svcs[@]}"; do
+      sudo -u "$user" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+        systemctl --user start "$svc" 2>/dev/null || true
+    done
+  fi
+
   ok "$(msg "Fcitx5 프로필 및 한/영 전환 핫키 설정 완료" "Configured Fcitx5 profile and Hangul toggle hotkeys")"
 }
 

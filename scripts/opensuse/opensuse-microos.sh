@@ -67,6 +67,38 @@ main() {
 
   # 4. 사용자 설정
   log "[4/5] 사용자 Fcitx5 설정..."
+  # 실행 중인 fcitx5가 종료 시 기존 프로필로 덮어쓰는 현상 방지
+  local _fcitx5_uid _fcitx5_svcs=()
+  _fcitx5_uid=$(id -u "$USER" 2>/dev/null || echo "")
+  if [[ -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]] && command -v systemctl >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    local _svc
+    while IFS= read -r _svc; do
+      if [[ -n "$_svc" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \
+          systemctl --user stop "$_svc" 2>/dev/null || true
+        _fcitx5_svcs+=("$_svc")
+      fi
+    done < <(sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \
+      systemctl --user list-units --type=service --state=running --no-legend '*fcitx5*' 2>/dev/null | awk '{print $1}' || true)
+  fi
+  if [[ -n "$_fcitx5_uid" ]] && command -v pkill >/dev/null 2>&1; then
+    pkill -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+  elif command -v killall >/dev/null 2>&1; then
+    killall -u "$USER" fcitx5 2>/dev/null || true
+  fi
+  if [[ -n "$_fcitx5_uid" ]] && command -v pgrep >/dev/null 2>&1; then
+    local _wi=0
+    while pgrep -u "$_fcitx5_uid" -x fcitx5 >/dev/null 2>&1 && [[ $_wi -lt 20 ]]; do
+      sleep 0.1 2>/dev/null || sleep 1
+      _wi=$((_wi + 1))
+    done
+    if pgrep -u "$_fcitx5_uid" -x fcitx5 >/dev/null 2>&1; then
+      pkill -9 -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+      sleep 0.2 2>/dev/null || sleep 1
+    fi
+  else
+    sleep 1
+  fi
   local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
   mkdir -p "$FCITX5_DIR"
   cat > "$FCITX5_DIR/profile" <<'EOF'
@@ -103,6 +135,13 @@ export QT_IM_MODULE=fcitx
 export XMODIFIERS=@im=fcitx
 EOF
   chown -R "$USER:$USER" "$FCITX5_DIR" "$PROFILE_FILE"
+  if [[ ${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
+    local _svc
+    for _svc in "${_fcitx5_svcs[@]}"; do
+      sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \
+        systemctl --user start "$_svc" 2>/dev/null || true
+    done
+  fi
   ok "사용자 설정 완료"
 
   # 5. KDE Plasma Virtual Keyboard 안내

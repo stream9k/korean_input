@@ -107,6 +107,35 @@ main() {
 
     # 4. Fcitx5 프로필·핫키 선작성 (키보드-US + Hangul, 한/영키·Ctrl+Space·Shift+Space)
     log "[4/7] Fcitx5 프로필 및 핫키 사전 구성..."
+    # 실행 중인 fcitx5가 종료 시 기존 프로필로 덮어쓰는 현상 방지
+    local stopped_svcs=()
+    if [[ -S "/run/user/$TARGET_UID/bus" ]] && command -v systemctl >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+        local bus="unix:path=/run/user/$TARGET_UID/bus"
+        local svc
+        while IFS= read -r svc; do
+            if [[ -n "$svc" ]]; then
+                sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+                    systemctl --user stop "$svc" 2>/dev/null || true
+                stopped_svcs+=("$svc")
+            fi
+        done < <(sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+            systemctl --user list-units --type=service --state=running --no-legend '*fcitx5*' 2>/dev/null | awk '{print $1}' || true)
+    fi
+    pkill -u "$TARGET_UID" -x fcitx5 2>/dev/null || true
+    if command -v pgrep >/dev/null 2>&1; then
+        local wait_i=0
+        while pgrep -u "$TARGET_UID" -x fcitx5 >/dev/null 2>&1 && [[ $wait_i -lt 20 ]]; do
+            sleep 0.1 2>/dev/null || sleep 1
+            wait_i=$((wait_i + 1))
+        done
+        if pgrep -u "$TARGET_UID" -x fcitx5 >/dev/null 2>&1; then
+            pkill -9 -u "$TARGET_UID" -x fcitx5 2>/dev/null || true
+            sleep 0.2 2>/dev/null || sleep 1
+        fi
+    else
+        sleep 1
+    fi
+
     local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
     mkdir -p "$FCITX5_DIR"
 
@@ -138,6 +167,14 @@ SkipFirst=False
 EOF
 
     chown -R "$TARGET_USER:$TARGET_USER" "$FCITX5_DIR"
+    if [[ ${#stopped_svcs[@]} -gt 0 && -S "/run/user/$TARGET_UID/bus" ]]; then
+        local bus="unix:path=/run/user/$TARGET_UID/bus"
+        local svc
+        for svc in "${stopped_svcs[@]}"; do
+            sudo -u "$TARGET_USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+                systemctl --user start "$svc" 2>/dev/null || true
+        done
+    fi
     ok "Fcitx5 설정 파일 생성 완료"
 
     # 5. 데스크톱별 단축키 충돌 해제 (Super+Space 등)
