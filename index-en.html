@@ -125,7 +125,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       <span class="lang-sep">·</span>
       <a class="lang-link" href="https://github.com/stream9k/korean_input" target="_blank" rel="noopener">GitHub</a>
     </div>
-    <h1><a id="heroTitle" class="hero-title-link" href="index-en.html" onclick="event.preventDefault(); window.location.reload();" title="Reload page">Linux Korean Input Method Installer</a></h1>
+    <h1><a id="heroTitle" class="hero-title-link" href="index-en.html" onclick="event.preventDefault(); if (window.location.hash) { window.location.href = window.location.pathname + window.location.search; } else { window.location.reload(); }" title="Reset to home">Linux Korean Input Method Installer</a></h1>
     <p class="subtitle" id="heroSubtitle">Select your Linux distribution and edition to generate a tailored fcitx5-hangul or kime setup script.</p>
   </header>
 
