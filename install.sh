@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.3.2"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -242,12 +242,18 @@ print_preflight_summary_and_confirm() {
             "   - apt-get update && apt-get install: ibus, ibus-hangul, im-config, fonts-noto-cjk (+ ibus-gtk3/gtk4 if available)")
           cfg_summary=$(msg \
             "   - im-config -n ibus 적용 및 ibus write-cache\n   - GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings), fcitx5 사용자 서비스 비활성화\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - 첫 로그인 1회 안내 등록" \
+          cfg_summary=$(msg \
+            "   - im-config -n ibus 적용 및 ibus write-cache\n   - GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings), fcitx5 사용자 서비스 비활성화\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - 첫 로그인 1회 안내 등록" \
+            "   - Run im-config -n ibus and ibus write-cache\n   - Configure GNOME input sources ('hangul') & preload-engines (gsettings), disable fcitx5 user service\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - One-shot first-login guide")
             "   - Run im-config -n ibus and ibus write-cache\n   - Configure GNOME input sources ('hangul') & preload-engines (gsettings), disable fcitx5 user service\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - One-shot first-login guide")
           ;;
         vanilla)
           pkg_summary="   - abroot pkg add: ibus, ibus-hangul, im-config, fonts-noto-cjk"
           cfg_summary=$(msg \
             "   - ibus write-cache, GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings)\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - 첫 로그인 1회 안내 등록" \
+          cfg_summary=$(msg \
+            "   - ibus write-cache, GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings)\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - 첫 로그인 1회 안내 등록" \
+            "   - ibus write-cache, configure GNOME input sources ('hangul') & preload-engines (gsettings)\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - One-shot first-login guide")
             "   - ibus write-cache, configure GNOME input sources ('hangul') & preload-engines (gsettings)\n   - $target_home/.config/environment.d/ibus.conf, $target_home/.xsessionrc\n   - One-shot first-login guide")
           extra_warn=$(msg \
             " ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다." \
@@ -306,6 +312,9 @@ print_preflight_summary_and_confirm() {
             "   - dnf install: ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (or google-noto-cjk-fonts)")
           cfg_summary=$(msg \
             "   - ibus write-cache, GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings), ibus-daemon 재시작\n   - $target_home/.config/environment.d/ibus.conf, ~/.bash_profile(또는 ~/.profile)\n   - 첫 로그인 1회 안내 등록" \
+          cfg_summary=$(msg \
+            "   - ibus write-cache, GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings), ibus-daemon 재시작\n   - $target_home/.config/environment.d/ibus.conf, ~/.bash_profile(또는 ~/.profile)\n   - 첫 로그인 1회 안내 등록" \
+            "   - ibus write-cache, configure GNOME input sources ('hangul') & preload-engines (gsettings), restart ibus-daemon\n   - $target_home/.config/environment.d/ibus.conf, ~/.bash_profile (or ~/.profile)\n   - One-shot first-login guide")
             "   - ibus write-cache, configure GNOME input sources ('hangul') & preload-engines (gsettings), restart ibus-daemon\n   - $target_home/.config/environment.d/ibus.conf, ~/.bash_profile (or ~/.profile)\n   - One-shot first-login guide")
           ;;
         void)
@@ -880,7 +889,7 @@ register_first_login_guide() {
       msg+="🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드에서 확인)\n"
     fi
     if [[ "$selected_ime" == "ibus" ]]; then
-      msg+="⌨️  전환 단축키: Super+Space 또는 한/영 키\n"
+      msg+="⌨️  전환 단축키: Shift+Space / Ctrl+Space 또는 한/영 키\n"
       msg+="⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)\n"
     else
       msg+="⌨️  전환 단축키: 한/영 키, Ctrl+Space, Shift+Space\n"
@@ -897,7 +906,7 @@ register_first_login_guide() {
       msg+="🖥️  KDE Plasma Virtual Keyboard (Fcitx 5) auto-configured (if inactive, check System Settings -> Input Devices -> Virtual Keyboard)\n"
     fi
     if [[ "$selected_ime" == "ibus" ]]; then
-      msg+="⌨️  Toggle: Super+Space or Hangul key\n"
+      msg+="⌨️  Toggle: Shift+Space / Ctrl+Space or Hangul key\n"
       msg+="⚙️  Config: ibus-setup (GNOME: Settings -> Keyboard -> Input Sources)\n"
     else
       msg+="⌨️  Toggle keys: Hangul key, Ctrl+Space, Shift+Space\n"
@@ -1227,6 +1236,54 @@ EOF
     changed=true
   fi
 
+  # 7. ibus D-Bus 자동 활성화(on-demand 실행) 차단 / 복원 (GNOME은 ibus를 직접 사용하므로 제외)
+  #    프로세스를 죽여도 앱이 ibus를 호출하면 D-Bus가 ibus-daemon을 다시 띄우기 때문에 사용자 수준에서 가림
+  local dbus_dir="$target_home/.local/share/dbus-1/services"
+  local dbus_svc
+  local ibus_dbus_svcs=(org.freedesktop.IBus.service org.freedesktop.portal.IBus.service)
+  if [[ "$target_ime" == "ibus" ]]; then
+    for dbus_svc in "${ibus_dbus_svcs[@]}"; do
+      if [[ -f "$dbus_dir/$dbus_svc" ]] && grep -q '^# korean_input: disabled' "$dbus_dir/$dbus_svc" 2>/dev/null; then
+        rm -f "$dbus_dir/$dbus_svc"
+        changed=true
+      fi
+    done
+  elif [[ "$is_gnome" != "true" ]]; then
+    mkdir -p "$dbus_dir"
+    for dbus_svc in "${ibus_dbus_svcs[@]}"; do
+      if [[ ! -f "$dbus_dir/$dbus_svc" ]]; then
+        local dbus_name="${dbus_svc%.service}"
+        cat > "$dbus_dir/$dbus_svc" <<EOF
+# korean_input: disabled (다른 한글 입력기와 충돌 방지 / prevent conflict with the selected IME)
+[D-BUS Service]
+Name=$dbus_name
+Exec=/bin/false
+EOF
+        changed=true
+      fi
+    done
+    chown -R "$target_uid:$target_gid" "$target_home/.local/share/dbus-1" 2>/dev/null || true
+  fi
+
+  # 8. 남아있는 보조 프로세스(ibus 엔진/UI 등) 정리 후, 충돌 프로세스가 끝까지 살아있으면 강제 종료
+  if [[ "$target_ime" != "ibus" && "$is_gnome" != "true" ]]; then
+    for p in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+      pkill -u "$target_uid" -x "$p" 2>/dev/null || true
+    done
+  fi
+  sleep 1
+  local survivors=()
+  for p in "${procs[@]}"; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$target_uid" -x "$p" >/dev/null 2>&1; then
+      pkill -9 -u "$target_uid" -x "$p" 2>/dev/null || true
+      survivors+=("$p")
+    fi
+  done
+  if [[ ${#survivors[@]} -gt 0 ]]; then
+    warn "$(msg "종료되지 않아 강제 종료한 입력기 프로세스: ${survivors[*]}" "Force-killed IME processes that did not exit: ${survivors[*]}")"
+    changed=true
+  fi
+
   if [[ "$changed" == "true" ]]; then
     ok "$(msg "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $target_ime)" "Automatically disabled conflicting IME settings (target: $target_ime)")"
   fi
@@ -1245,12 +1302,15 @@ configure_ibus_user_session() {
   ibus write-cache --system 2>/dev/null || true
   local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
   local preload="['xkb:us::eng', 'hangul']"
+  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
   if [[ -S "/run/user/$target_uid/bus" ]]; then
     local bus="unix:path=/run/user/$target_uid/bus"
     sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
     sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
+    sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
     sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
       ibus write-cache 2>/dev/null || true
     if command -v systemctl >/dev/null 2>&1; then
@@ -1264,6 +1324,7 @@ configure_ibus_user_session() {
   else
     su - "$target_user" -c "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
     su - "$target_user" -c "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
+    su - "$target_user" -c "gsettings set org.freedesktop.ibus.general.hotkey triggers \"$triggers\"" 2>/dev/null || true
     su - "$target_user" -c "ibus write-cache" 2>/dev/null || true
     su - "$target_user" -c "systemctl --user disable fcitx5 2>/dev/null || true" || true
   fi
@@ -1832,7 +1893,7 @@ EOF
       echo " 👉 로그아웃 후 다시 로그인(또는 재부팅)하면 적용됩니다."
     fi
     if [[ "$SELECTED_IME" == "ibus" ]]; then
-      echo " ⌨️  전환: Super+Space 또는 한/영 키 | 세부 설정: ibus-setup"
+      echo " ⌨️  전환: Shift+Space / Ctrl+Space 또는 한/영 키 | 세부 설정: ibus-setup"
     else
       if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
         echo " 🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)"
@@ -1851,7 +1912,7 @@ EOF
       echo " 👉 Please log out and log back in (or reboot) to activate."
     fi
     if [[ "$SELECTED_IME" == "ibus" ]]; then
-      echo " ⌨️  Toggle: Super+Space or Hangul key | Config: ibus-setup"
+      echo " ⌨️  Toggle: Shift+Space / Ctrl+Space or Hangul key | Config: ibus-setup"
     else
       if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
         echo " 🖥️  KDE Plasma Virtual Keyboard (Fcitx 5) auto-configured (if inactive, check System Settings -> Input Devices -> Virtual Keyboard)"

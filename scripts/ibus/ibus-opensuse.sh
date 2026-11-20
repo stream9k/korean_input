@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.3.2"
 LOG_FILE="/var/log/install-ibus-ibus-opensuse.log"
 
 LOG_ENABLED=false
@@ -513,29 +513,35 @@ main() {
     debian)
       _pkg_summary="   - apt-get update && apt-get install: ibus, ibus-hangul, im-config, fonts-noto-cjk (+ ibus-gtk3/gtk4 사용 가능 시)"
       _cfg_summary="   - im-config -n ibus\n   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xsessionrc\n   - 첫 로그인 1회 안내 팝업 등록"
+      _cfg_summary="   - im-config -n ibus\n   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xsessionrc\n   - 첫 로그인 1회 안내 팝업 등록"
       ;;
     vanilla)
       _need_reboot=true
       _pkg_summary="   - abroot pkg add: ibus, ibus-hangul, im-config, fonts-noto-cjk"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xsessionrc\n   - 첫 로그인 1회 안내 팝업 등록"
       _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xsessionrc\n   - 첫 로그인 1회 안내 팝업 등록"
       _extra_warn=" ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
       ;;
     fedora)
       _pkg_summary="   - dnf install: ibus, ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
       _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - alternatives --set xinputrc (ibus.conf 있는 경우), systemctl --user enable ibus / disable fcitx5\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - alternatives --set xinputrc (ibus.conf 있는 경우), systemctl --user enable ibus / disable fcitx5\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       ;;
     fedora-atomic)
       _need_reboot=true
       _pkg_summary="   - rpm-ostree install --idempotent --allow-inactive: ibus, ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       _extra_warn=" ⚠️  참고: 불변 OS(rpm-ostree)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
       ;;
     arch)
       _pkg_summary="   - pacman -Sy --needed: ibus, ibus-hangul, noto-fonts-cjk"
       _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xprofile\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xprofile\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       ;;
     steamos)
       _pkg_summary="   - steamos-readonly disable → pacman-key init/populate → pacman -Sy --needed: ibus, ibus-hangul, noto-fonts-cjk → steamos-readonly enable"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xprofile\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xprofile\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       _extra_warn=" ⚠️  참고: SteamOS 루트 파일시스템 읽기 전용 상태를 일시 해제했다가 복구합니다."
       ;;
@@ -547,6 +553,7 @@ main() {
       else
         _pkg_summary="   - zypper --non-interactive install -y: ibus, ibus-hangul, google-noto-sans-cjk-fonts"
       fi
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - alternatives --set xinputrc (ibus.conf 있는 경우), systemctl --user enable ibus / disable fcitx5\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - alternatives --set xinputrc (ibus.conf 있는 경우), systemctl --user enable ibus / disable fcitx5\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
       ;;
   esac
@@ -633,12 +640,15 @@ main() {
   ibus write-cache --system 2>/dev/null || true
   local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
   local preload="['xkb:us::eng', 'hangul']"
+  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
   if [[ -S "/run/user/$TARGET_UID/bus" ]]; then
     local bus="unix:path=/run/user/$TARGET_UID/bus"
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       ibus write-cache 2>/dev/null || true
     if command -v systemctl >/dev/null 2>&1; then
@@ -652,6 +662,7 @@ main() {
   else
     su - "$USER" -c "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
     su - "$USER" -c "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
+    su - "$USER" -c "gsettings set org.freedesktop.ibus.general.hotkey triggers \"$triggers\"" 2>/dev/null || true
     su - "$USER" -c "ibus write-cache" 2>/dev/null || true
     su - "$USER" -c "systemctl --user disable fcitx5 2>/dev/null || true" || true
   fi
@@ -767,7 +778,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 ibus-hangul (GNOME 친화 대안 입력기) 한글 입력기(ibus-hangul) 설정이 완료되었습니다!
 
-⌨️  전환: Super+Space 또는 한/영 키
+⌨️  전환: Shift+Space / Ctrl+Space 또는 한/영 키
 ⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)
 📝 로그: /var/log/install-ibus-ibus-opensuse.log
 
@@ -803,7 +814,7 @@ GUIDE_DSK_EOF
   else
     echo " 🎉 ibus-hangul 설치 완료! 로그아웃 후 다시 로그인하세요."
   fi
-  echo " 전환: Super+Space 또는 한/영 키"
+  echo " 전환: Shift+Space / Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)"
   echo " 로그: $LOG_FILE"
   echo "============================================================"

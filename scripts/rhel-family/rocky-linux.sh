@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.3.2"
 LOG_FILE="/var/log/install-hangul-rocky-linux.log"
 
 LOG_ENABLED=false
@@ -454,6 +454,7 @@ main() {
 
   local _pkg_summary="   - dnf install -y: ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
   local _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - 실행 중인 ibus-daemon 재시작\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)"
+  local _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - 실행 중인 ibus-daemon 재시작\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)"
   local _extra_warn
   _extra_warn=$(append_conflict_ime_warn "ibus" "$EXISTING_IME")
 
@@ -478,12 +479,15 @@ main() {
   ibus write-cache --system 2>/dev/null || true
   local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
   local preload="['xkb:us::eng', 'hangul']"
+  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
   if [ -S "/run/user/$TARGET_UID/bus" ]; then
     local bus="unix:path=/run/user/$TARGET_UID/bus"
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       ibus write-cache 2>/dev/null || true
     if pgrep -u "$TARGET_UID" -x ibus-daemon >/dev/null 2>&1; then
@@ -493,6 +497,7 @@ main() {
   else
     su - "$USER" -c "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
     su - "$USER" -c "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
+    su - "$USER" -c "gsettings set org.freedesktop.ibus.general.hotkey triggers \"$triggers\"" 2>/dev/null || true
     su - "$USER" -c "ibus write-cache" 2>/dev/null || true
   fi
   ok "입력 소스 및 엔진 캐시 설정 완료"
@@ -523,7 +528,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 ibus-hangul 설치 완료! 재로그인 또는 재부팅 필요"
-  echo " 전환: Super+Space 또는 한/영 키"
+  echo " 전환: Shift+Space / Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup"
   echo "============================================================"
 }
