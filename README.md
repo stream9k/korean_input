@@ -22,6 +22,8 @@ curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.
 wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 ```
 
+> 🛡️ **실행 전 변경 내역 확인**: 스크립트는 시스템을 먼저 조사해 감지된 환경(OS·데스크톱·기존 입력기)과 설치/수정할 패키지·설정 파일을 출력한 뒤 `[y/N]` 확인을 받습니다. 무인 실행 시에는 `-s -- --yes`(로컬 실행 시 `--yes` 또는 `-y`) 옵션을 추가하세요.
+
 ### 설치 완료 후
 1. **로그아웃 후 다시 로그인 (또는 재부팅)**합니다.
 2. `한/영` 키 또는 `Ctrl + Space`를 눌러 한글 입력을 시작합니다.

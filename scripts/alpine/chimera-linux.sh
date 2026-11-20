@@ -7,10 +7,175 @@ set -eu
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-chimera-linux.log"
 
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
+LOG_ENABLED=false
+AUTO_YES=false
+for _pf_arg in "$@"; do
+  case "$_pf_arg" in
+    -y|--yes) AUTO_YES=true ;;
+  esac
+done
+
+log() {
+  _pf_line="[$(date '+%F %T')] $*"
+  if [ "$LOG_ENABLED" = "true" ]; then
+    echo "$_pf_line" | tee -a "$LOG_FILE"
+  else
+    echo "$_pf_line"
+  fi
+}
+err() {
+  _pf_line="[$(date '+%F %T')] ❌ $*"
+  if [ "$LOG_ENABLED" = "true" ]; then
+    echo "$_pf_line" | tee -a "$LOG_FILE" >&2
+  else
+    echo "$_pf_line" >&2
+  fi
+  exit 1
+}
 ok() { log "✅ $*"; }
 info() { log "ℹ️  $*"; }
+
+detect_os_pretty() {
+  if [ -f /etc/os-release ]; then
+    (
+      . /etc/os-release
+      echo "${PRETTY_NAME:-${NAME:-Unknown Linux}}"
+    )
+  else
+    echo "Unknown Linux"
+  fi
+}
+
+detect_desktop() {
+  _pf_u="$1"
+  _pf_d="${XDG_CURRENT_DESKTOP:-}"
+  [ -n "$_pf_d" ] && { echo "$_pf_d"; return; }
+  _pf_d=$(su - "$_pf_u" -c 'echo ${XDG_CURRENT_DESKTOP:-}' </dev/null 2>/dev/null || true)
+  [ -n "$_pf_d" ] && { echo "$_pf_d"; return; }
+  _pf_d=$(su - "$_pf_u" -c 'echo ${DESKTOP_SESSION:-}' </dev/null 2>/dev/null || true)
+  [ -n "$_pf_d" ] && { echo "$_pf_d"; return; }
+  echo "unknown"
+}
+
+detect_session_type() {
+  _pf_u="$1"
+  _pf_uid="$2"
+  _pf_st="${XDG_SESSION_TYPE:-}"
+  if [ -n "$_pf_st" ] && [ "$_pf_st" != "unspecified" ] && [ "$_pf_st" != "tty" ]; then
+    echo "$_pf_st"; return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    for _pf_sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$_pf_u" '$3==u {print $1}' || true); do
+      _pf_st=$(loginctl show-session "$_pf_sid" -p Type --value 2>/dev/null || true)
+      if [ "$_pf_st" = "wayland" ] || [ "$_pf_st" = "x11" ] || [ "$_pf_st" = "mir" ]; then
+        echo "$_pf_st"; return
+      fi
+    done
+  fi
+  if ls "/run/user/$_pf_uid"/wayland-* >/dev/null 2>&1 || [ -n "${WAYLAND_DISPLAY:-}" ]; then
+    echo "wayland"; return
+  fi
+  if [ -n "${DISPLAY:-}" ]; then
+    echo "x11"; return
+  fi
+  echo "unknown"
+}
+
+detect_existing_ime() {
+  _pf_uid="$1"
+  _pf_found=""
+  _pf_sep=""
+  for _pf_im in fcitx5 fcitx ibus-daemon kime; do
+    _pf_running=false
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_pf_uid" -x "$_pf_im" >/dev/null 2>&1; then
+      _pf_running=true
+    fi
+    if command -v "$_pf_im" >/dev/null 2>&1 || [ "$_pf_running" = "true" ]; then
+      if [ "$_pf_running" = "true" ]; then
+        _pf_found="${_pf_found}${_pf_sep}${_pf_im} (실행 중)"
+      else
+        _pf_found="${_pf_found}${_pf_sep}${_pf_im} (설치됨)"
+      fi
+      _pf_sep=", "
+    fi
+  done
+  if [ -z "$_pf_found" ]; then
+    echo "감지된 입력기 없음"
+  else
+    echo "$_pf_found"
+  fi
+}
+
+fcitx5_overwrite_note() {
+  if [ -f "$1/.config/fcitx5/profile" ] || [ -f "$1/.config/fcitx5/config" ]; then
+    echo " (기존 파일 덮어쓰기)"
+  else
+    echo " (신규 생성)"
+  fi
+}
+
+confirm_before_changes() {
+  _pf_title="$1"
+  _pf_os="$2"
+  _pf_user="$3"
+  _pf_uid="$4"
+  _pf_home="$5"
+  _pf_desktop="$6"
+  _pf_session="$7"
+  _pf_ime="$8"
+  _pf_pkg="$9"
+  shift 9
+  _pf_cfg="$1"
+  _pf_warn="${2:-}"
+
+  echo
+  echo "============================================================"
+  echo " 🔍 설치 전 시스템 조사 및 변경 예정 내역"
+  echo "============================================================"
+  echo " • 대상 스크립트  : $_pf_title (v$SCRIPT_VERSION)"
+  echo " • 감지된 OS      : $_pf_os"
+  echo " • 대상 사용자    : $_pf_user (UID=$_pf_uid, HOME=$_pf_home)"
+  echo " • 데스크톱/세션  : $_pf_desktop / $_pf_session"
+  echo " • 기존 입력기    : $_pf_ime"
+  echo "------------------------------------------------------------"
+  echo " 📦 패키지 변경 예정:"
+  printf "%b\n" "$_pf_pkg"
+  echo " ⚙️  설정·파일 변경 예정:"
+  printf "%b\n" "$_pf_cfg"
+  echo " • 설치 로그 파일 : $LOG_FILE"
+  if [ -n "$_pf_warn" ]; then
+    echo "------------------------------------------------------------"
+    printf "%b\n" "$_pf_warn"
+  fi
+  echo "============================================================"
+  echo " ⚠️  경고: 계속 진행하면 위 패키지와 시스템/사용자 설정이 실제로 변경됩니다."
+
+  if [ "$AUTO_YES" = "true" ]; then
+    echo " ℹ️  --yes (-y) 옵션이 지정되어 확인 절차를 건너뛰고 진행합니다."
+    echo
+    return 0
+  fi
+
+  if ! ( : </dev/tty ) 2>/dev/null; then
+    echo " ❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." >&2
+    echo "    대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." >&2
+    exit 1
+  fi
+
+  _pf_reply=""
+  printf " 이대로 설치를 진행하시겠습니까? [y/N]: "
+  IFS= read -r _pf_reply </dev/tty || _pf_reply=""
+  case "$_pf_reply" in
+    y|Y|yes|YES)
+      echo
+      return 0
+      ;;
+    *)
+      echo " 🛑 설치를 취소했습니다. 시스템에 아무런 변경도 적용되지 않았습니다."
+      exit 0
+      ;;
+  esac
+}
 
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
 
@@ -26,12 +191,31 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== Alpine Linux / Chimera / Nura Chimera Linux (FreeBSD userland + apk) 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
   USER=$(detect_user)
   TARGET_HOME=$(awk -F: -v u="$USER" '$1==u {print $6}' /etc/passwd)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+
+  _pkg_summary="   - apk update && apk add: fcitx5, fcitx5-hangul, fcitx5-gtk,\n     fcitx5-qt, fcitx5-configtool, font-noto-cjk"
+  _cfg_summary="   - /etc/environment, $TARGET_HOME/.profile\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록"
+  _extra_warn=""
+  if [ -f "$TARGET_HOME/.config/fcitx5/profile" ] || [ -f "$TARGET_HOME/.config/fcitx5/config" ]; then
+    _extra_warn=" ⚠️  참고: 기존 Fcitx5 설정 파일($TARGET_HOME/.config/fcitx5/profile, config)이 덮어써집니다."
+  fi
+
+  confirm_before_changes     "Alpine Linux / Chimera / Nura Chimera Linux (FreeBSD userland + apk)"     "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME"     "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME"     "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== Alpine Linux / Chimera / Nura Chimera Linux (FreeBSD userland + apk) 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. apk 패키지 설치 (Alpine / Chimera 공용)
   log "[1/4] fcitx5 패키지 설치 (apk)..."

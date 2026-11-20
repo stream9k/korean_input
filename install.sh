@@ -4,12 +4,14 @@
 # Usage (no git / chmod required):
 #   curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 #   or wget: wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
-#   or local: sudo bash install.sh [--lang=ko|--lang=en]
+#   or local: sudo bash install.sh [--lang=ko|--lang=en] [-y|--yes]
 
 set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-auto.log"
+LOG_ENABLED=false
+AUTO_YES=false
 
 IS_KO=false
 if [[ "${LC_ALL:-${LANG:-}}" == ko* ]]; then
@@ -19,6 +21,7 @@ for arg in "$@"; do
   case "$arg" in
     --lang=ko) IS_KO=true ;;
     --lang=en) IS_KO=false ;;
+    -y|--yes) AUTO_YES=true ;;
   esac
 done
 
@@ -30,8 +33,23 @@ msg() {
   fi
 }
 
-log()  { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err()  { log "❌ $*"; exit 1; }
+log() {
+  local line="[$(date '+%F %T')] $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$line" | tee -a "$LOG_FILE"
+  else
+    echo "$line"
+  fi
+}
+err() {
+  local line="[$(date '+%F %T')] ❌ $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$line" | tee -a "$LOG_FILE" >&2
+  else
+    echo "$line" >&2
+  fi
+  exit 1
+}
 warn() { log "⚠️  $*"; }
 ok()   { log "✅ $*"; }
 info() { log "ℹ️  $*"; }
@@ -60,11 +78,322 @@ detect_desktop() {
   local user="$1"
   local d="${XDG_CURRENT_DESKTOP:-}"
   [[ -n "$d" ]] && { echo "$d"; return; }
-  d=$(su - "$user" -c 'echo ${XDG_CURRENT_DESKTOP:-}' 2>/dev/null || true)
+  d=$(su - "$user" -c 'echo ${XDG_CURRENT_DESKTOP:-}' </dev/null 2>/dev/null || true)
   [[ -n "$d" ]] && { echo "$d"; return; }
-  d=$(su - "$user" -c 'echo ${DESKTOP_SESSION:-}' 2>/dev/null || true)
+  d=$(su - "$user" -c 'echo ${DESKTOP_SESSION:-}' </dev/null 2>/dev/null || true)
   [[ -n "$d" ]] && { echo "$d"; return; }
   echo "unknown"
+}
+
+detect_session_type() {
+  local user="$1"
+  local uid="$2"
+  local st="${XDG_SESSION_TYPE:-}"
+  if [[ -n "$st" && "$st" != "unspecified" && "$st" != "tty" ]]; then
+    echo "$st"
+    return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    local sid
+    for sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$user" '$3==u {print $1}' || true); do
+      st=$(loginctl show-session "$sid" -p Type --value 2>/dev/null || true)
+      if [[ "$st" == "wayland" || "$st" == "x11" || "$st" == "mir" ]]; then
+        echo "$st"
+        return
+      fi
+    done
+  fi
+  if ls "/run/user/$uid"/wayland-* >/dev/null 2>&1 || [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    echo "wayland"
+    return
+  fi
+  if [[ -n "${DISPLAY:-}" ]]; then
+    echo "x11"
+    return
+  fi
+  echo "unknown"
+}
+
+detect_existing_ime() {
+  local uid="$1"
+  local found=()
+  local im status is_running
+  for im in fcitx5 fcitx ibus-daemon kime; do
+    is_running=false
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$uid" -x "$im" >/dev/null 2>&1; then
+      is_running=true
+    fi
+    if command -v "$im" >/dev/null 2>&1 || [[ "$is_running" == "true" ]]; then
+      if [[ "$is_running" == "true" ]]; then
+        status=$(msg "실행 중" "running")
+      else
+        status=$(msg "설치됨" "installed")
+      fi
+      found+=("$im ($status)")
+    fi
+  done
+  if [[ ${#found[@]} -eq 0 ]]; then
+    msg "감지된 입력기 없음" "none detected"
+  else
+    local IFS=", "
+    echo "${found[*]}"
+  fi
+}
+
+will_configure_kde() {
+  local target_home="$1"
+  local desktop="$2"
+  if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     command -v kwriteconfig6 >/dev/null 2>&1 || \
+     command -v kwriteconfig5 >/dev/null 2>&1 || \
+     [[ -f "$target_home/.config/kwinrc" ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+detect_mandriva_pkg_mgr() {
+  if command -v dnf >/dev/null 2>&1; then
+    echo "dnf"
+  elif command -v urpmi >/dev/null 2>&1; then
+    echo "urpmi"
+  elif command -v apt-get >/dev/null 2>&1; then
+    echo "apt-get"
+  else
+    err "$(msg "지원되는 패키지 관리자(dnf / urpmi / apt-get)를 찾지 못했습니다." "No supported package manager found (dnf / urpmi / apt-get).")"
+  fi
+}
+
+print_preflight_summary_and_confirm() {
+  local pretty_name="$1"
+  local family="$2"
+  local target_user="$3"
+  local target_uid="$4"
+  local target_home="$5"
+  local desktop="$6"
+  local session_type="$7"
+  local existing_ime="$8"
+  local kde_will_cfg="$9"
+  local mandriva_pkg_mgr="${10:-}"
+
+  local fcitx5_note=""
+  if [[ -f "$target_home/.config/fcitx5/profile" || -f "$target_home/.config/fcitx5/config" ]]; then
+    fcitx5_note=$(msg " (기존 파일 덮어쓰기)" " (will overwrite existing)")
+  else
+    fcitx5_note=$(msg " (신규 생성)" " (new)")
+  fi
+
+  local pkg_summary=""
+  local cfg_summary=""
+  local extra_warn=""
+
+  case "$family" in
+    debian-family)
+      pkg_summary=$(msg \
+        "   - apt-get update 실행 후 레거시 fcitx(4.x) 제거 및 autoremove --purge\n   - apt-get install: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-configtool,\n     fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk" \
+        "   - apt-get update, purge legacy fcitx(4.x) + autoremove --purge\n   - apt-get install: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-configtool,\n     fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk")
+      cfg_summary=$(msg \
+        "   - im-config -n fcitx5 적용 및 데스크톱 단축키 충돌 해제(gsettings)\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xsessionrc\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - Run im-config -n fcitx5 and clear desktop input-source shortcut conflicts (gsettings)\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xsessionrc\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      extra_warn=$(msg \
+        " ⚠️  참고: 기존 fcitx 4.x 패키지 및 미사용 의존성(autoremove)이 제거됩니다." \
+        " ⚠️  Note: Legacy fcitx 4.x packages and unused dependencies (autoremove) will be removed.")
+      ;;
+    arch-family)
+      pkg_summary=$(msg \
+        "   - pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, noto-fonts-cjk" \
+        "   - pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, noto-fonts-cjk")
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop, systemctl --user enable fcitx5\n   - 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop, systemctl --user enable fcitx5\n   - One-shot first-login guide")
+      ;;
+    kaos)
+      pkg_summary="   - pacman -Sy --needed: fcitx5, fcitx5-hangul, fcitx5-qt, fcitx5-configtool, noto-fonts-cjk"
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    steamos)
+      pkg_summary=$(msg \
+        "   - steamos-readonly 임시 해제 → pacman-key init/populate →\n     pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk\n   - 설치 후 steamos-readonly 다시 활성화" \
+        "   - Temporarily run steamos-readonly disable → pacman-key init/populate →\n     pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk\n   - Re-enable steamos-readonly after completion")
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      extra_warn=$(msg \
+        " ⚠️  참고: SteamOS 루트 파일시스템 읽기 전용 상태를 일시 해제했다가 복구합니다." \
+        " ⚠️  Note: SteamOS read-only rootfs will be temporarily unlocked and restored.")
+      ;;
+    fedora)
+      pkg_summary=$(msg \
+        "   - dnf install: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt,\n     fcitx5-autostart, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)" \
+        "   - dnf install: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt,\n     fcitx5-autostart, google-noto-sans-cjk-ttc-fonts (or google-noto-cjk-fonts)")
+      cfg_summary=$(msg \
+        "   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile(또는 ~/.profile)\n   - 첫 로그인 1회 안내 등록" \
+        "   - alternatives --set xinputrc, patch /etc/X11/xinit/xinput.d/fcitx5.conf, disable ibus user service\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (or ~/.profile)\n   - One-shot first-login guide")
+      ;;
+    fedora-atomic)
+      pkg_summary=$(msg \
+        "   - rpm-ostree install --idempotent --allow-inactive:\n     fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts" \
+        "   - rpm-ostree install --idempotent --allow-inactive:\n     fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts")
+      cfg_summary=$(msg \
+        "   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf and one-shot first-login guide")
+      extra_warn=$(msg \
+        " ⚠️  참고: 불변 OS(rpm-ostree)이므로 설치 완료 후 반드시 재부팅이 필요합니다." \
+        " ⚠️  Note: Immutable OS (rpm-ostree) — a system reboot will be required after installation.")
+      ;;
+    vanilla)
+      pkg_summary=$(msg \
+        "   - abroot pkg add: fcitx5, fcitx5-hangul, fcitx5-config-qt,\n     fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk" \
+        "   - abroot pkg add: fcitx5, fcitx5-hangul, fcitx5-config-qt,\n     fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk")
+      cfg_summary=$(msg \
+        "   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf, $target_home/.config/autostart/fcitx5.desktop\n   - 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/environment.d/fcitx5.conf, $target_home/.config/autostart/fcitx5.desktop\n   - One-shot first-login guide")
+      extra_warn=$(msg \
+        " ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다." \
+        " ⚠️  Note: Immutable OS (ABRoot) — a system reboot will be required after installation.")
+      ;;
+    opensuse-transactional)
+      pkg_summary=$(msg \
+        "   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts" \
+        "   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts")
+      cfg_summary=$(msg \
+        "   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile(또는 ~/.profile) 및 첫 로그인 1회 안내 등록" \
+        "   - alternatives --set xinputrc, patch /etc/X11/xinit/xinput.d/fcitx5.conf, disable ibus user service\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile (or ~/.profile) and one-shot first-login guide")
+      extra_warn=$(msg \
+        " ⚠️  참고: Transactional OS이므로 설치 완료 후 반드시 재부팅이 필요합니다." \
+        " ⚠️  Note: Transactional OS — a system reboot will be required after installation.")
+      ;;
+    opensuse)
+      pkg_summary="   - zypper install: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts"
+      cfg_summary=$(msg \
+        "   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile(또는 ~/.profile) 및 첫 로그인 1회 안내 등록" \
+        "   - alternatives --set xinputrc, patch /etc/X11/xinit/xinput.d/fcitx5.conf, disable ibus user service\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile (or ~/.profile) and one-shot first-login guide")
+      ;;
+    rhel-family)
+      pkg_summary=$(msg \
+        "   - dnf install: ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)" \
+        "   - dnf install: ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (or google-noto-cjk-fonts)")
+      cfg_summary=$(msg \
+        "   - ibus write-cache, GNOME 입력 소스('hangul') 및 preload-engines 등록(gsettings), ibus-daemon 재시작\n   - $target_home/.config/environment.d/ibus.conf, ~/.bash_profile(또는 ~/.profile)\n   - 첫 로그인 1회 안내 등록" \
+        "   - ibus write-cache, configure GNOME input sources ('hangul') & preload-engines (gsettings), restart ibus-daemon\n   - $target_home/.config/environment.d/ibus.conf, ~/.bash_profile (or ~/.profile)\n   - One-shot first-login guide")
+      ;;
+    void)
+      pkg_summary="   - xbps-install -Sy: fcitx5, fcitx5-hangul, fcitx5-gtk+3, fcitx5-gtk4, fcitx5-qt5, fcitx5-qt6, fcitx5-configtool, noto-fonts-cjk"
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    alpine)
+      pkg_summary="   - apk update && apk add: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool, font-noto-cjk"
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.profile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.profile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    solus)
+      pkg_summary="   - eopkg install -y: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt5, fcitx5-configtool"
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    gentoo)
+      pkg_summary="   - emerge --noreplace: app-i18n/fcitx:5, fcitx-hangul:5, fcitx-gtk:5, fcitx-qt:5, fcitx-configtool:5"
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    mandriva-family)
+      if [[ "$mandriva_pkg_mgr" == "apt-get" ]]; then
+        pkg_summary="   - apt-get update && apt-get install -y: fcitx5, fcitx5-hangul, fcitx5-configtool"
+      elif [[ "$mandriva_pkg_mgr" == "urpmi" ]]; then
+        pkg_summary="   - urpmi --auto: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool"
+      else
+        pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool"
+      fi
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    alt)
+      pkg_summary="   - apt-get update && apt-get install -y: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool"
+      cfg_summary=$(msg \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - $target_home/.config/environment.d/fcitx5.conf, /etc/environment, $target_home/.xprofile\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+    guix)
+      pkg_summary="   - su - $target_user: guix install fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-google-noto-sans-cjk"
+      cfg_summary=$(msg \
+        "   - ~/.bash_profile (또는 ~/.profile) GUIX_PROFILE 및 환경변수 추가\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록" \
+        "   - Append GUIX_PROFILE & env vars to ~/.bash_profile (or ~/.profile)\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - $target_home/.config/autostart/fcitx5.desktop and one-shot first-login guide")
+      ;;
+  esac
+
+  if [[ "$kde_will_cfg" == "true" ]]; then
+    cfg_summary+="\n"$(msg \
+      "   - KDE Plasma 가상 키보드 설정: $target_home/.config/kwinrc ([Wayland] InputMethod)" \
+      "   - KDE Plasma Virtual Keyboard: $target_home/.config/kwinrc ([Wayland] InputMethod)")
+  fi
+
+  if [[ "$family" != "rhel-family" && -f "$target_home/.config/fcitx5/profile" ]]; then
+    local ow_msg
+    ow_msg=$(msg \
+      " ⚠️  참고: 기존 Fcitx5 설정 파일($target_home/.config/fcitx5/profile, config)이 덮어써집니다." \
+      " ⚠️  Note: Existing Fcitx5 config ($target_home/.config/fcitx5/profile, config) will be overwritten.")
+    if [[ -n "$extra_warn" ]]; then
+      extra_warn+="\n$ow_msg"
+    else
+      extra_warn="$ow_msg"
+    fi
+  fi
+
+  echo
+  echo "============================================================"
+  echo " $(msg "🔍 설치 전 시스템 조사 및 변경 예정 내역" "🔍 Pre-flight System Inspection & Planned Changes")"
+  echo "============================================================"
+  echo " • $(msg "감지된 OS     " "Detected OS   ") : $pretty_name ($family)"
+  echo " • $(msg "대상 사용자   " "Target User   ") : $target_user (UID=$target_uid, HOME=$target_home)"
+  echo " • $(msg "데스크톱/세션 " "Desktop/Session") : $desktop / $session_type"
+  echo " • $(msg "기존 입력기   " "Existing IME  ") : $existing_ime"
+  echo "------------------------------------------------------------"
+  echo " $(msg "📦 패키지 변경 예정:" "📦 Package Changes:")"
+  printf "%b\n" "$pkg_summary"
+  echo " $(msg "⚙️  설정·파일 변경 예정:" "⚙️  Config & File Changes:")"
+  printf "%b\n" "$cfg_summary"
+  echo " • $(msg "설치 로그 파일" "Install Log   ") : $LOG_FILE"
+  if [[ -n "$extra_warn" ]]; then
+    echo "------------------------------------------------------------"
+    printf "%b\n" "$extra_warn"
+  fi
+  echo "============================================================"
+  echo " $(msg "⚠️  경고: 계속 진행하면 위 패키지와 시스템/사용자 설정이 실제로 변경됩니다." "⚠️  Warning: Proceeding will install/modify system packages and configuration files listed above.")"
+
+  if [[ "$AUTO_YES" == "true" ]]; then
+    echo " $(msg "ℹ️  --yes (-y) 옵션이 지정되어 확인 절차를 건너뛰고 진행합니다." "ℹ️  --yes (-y) flag detected; proceeding without interactive prompt.")"
+    echo
+    return 0
+  fi
+
+  if ! ( : </dev/tty ) 2>/dev/null; then
+    echo " $(msg "❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." "❌ No interactive terminal (/dev/tty) available for confirmation.")" >&2
+    echo "    $(msg "대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." "Run interactively or pass --yes (-y).")" >&2
+    exit 1
+  fi
+
+  local reply=""
+  printf " %s" "$(msg "이대로 설치를 진행하시겠습니까? [y/N]: " "Proceed with installation? [y/N]: ")"
+  IFS= read -r reply </dev/tty || reply=""
+  case "$reply" in
+    y|Y|yes|YES)
+      echo
+      return 0
+      ;;
+    *)
+      echo " $(msg "🛑 설치를 취소했습니다. 시스템에 아무런 변경도 적용되지 않았습니다." "🛑 Installation cancelled. No changes were made to your system.")"
+      exit 0
+      ;;
+  esac
 }
 
 detect_family() {
@@ -522,8 +851,6 @@ steamos_cleanup() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "$(msg "=== 리눅스 한글 입력기 자동 감지 설치 시작 (v$SCRIPT_VERSION) ===" "=== Starting Linux Korean Input Method Auto-Installer (v$SCRIPT_VERSION) ===")"
 
   local pretty_name="Unknown Linux"
   if [[ -f /etc/os-release ]]; then
@@ -534,8 +861,6 @@ main() {
 
   local FAMILY
   FAMILY=$(detect_family)
-  info "$(msg "감지된 배포판: $pretty_name" "Detected distro: $pretty_name")"
-  info "$(msg "선택된 설치 패밀리: $FAMILY" "Selected family: $FAMILY")"
 
   if [[ "$FAMILY" == "nixos" ]]; then
     echo
@@ -561,15 +886,34 @@ main() {
     exit 0
   fi
 
-  local TARGET_USER TARGET_HOME TARGET_UID TARGET_GID DESKTOP
+  local TARGET_USER TARGET_HOME TARGET_UID TARGET_GID DESKTOP SESSION_TYPE EXISTING_IME KDE_WILL_CFG MANDRIVA_PKG_MGR=""
   TARGET_USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$TARGET_USER" 2>/dev/null | cut -d: -f6 || awk -F: -v u="$TARGET_USER" '$1==u {print $6}' /etc/passwd)
   TARGET_UID=$(id -u "$TARGET_USER")
   TARGET_GID=$(id -g "$TARGET_USER")
   DESKTOP=$(detect_desktop "$TARGET_USER")
+  SESSION_TYPE=$(detect_session_type "$TARGET_USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  KDE_WILL_CFG="false"
+  if [[ "$FAMILY" != "rhel-family" ]]; then
+    KDE_WILL_CFG=$(will_configure_kde "$TARGET_HOME" "$DESKTOP")
+  fi
+  if [[ "$FAMILY" == "mandriva-family" ]]; then
+    MANDRIVA_PKG_MGR=$(detect_mandriva_pkg_mgr)
+  fi
 
+  print_preflight_summary_and_confirm \
+    "$pretty_name" "$FAMILY" "$TARGET_USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" "$KDE_WILL_CFG" "$MANDRIVA_PKG_MGR"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "$(msg "=== 리눅스 한글 입력기 자동 감지 설치 시작 (v$SCRIPT_VERSION) ===" "=== Starting Linux Korean Input Method Auto-Installer (v$SCRIPT_VERSION) ===")"
+  info "$(msg "감지된 배포판: $pretty_name" "Detected distro: $pretty_name")"
+  info "$(msg "선택된 설치 패밀리: $FAMILY" "Selected family: $FAMILY")"
   info "$(msg "대상 사용자: $TARGET_USER (UID=$TARGET_UID, HOME=$TARGET_HOME)" "Target user: $TARGET_USER (UID=$TARGET_UID, HOME=$TARGET_HOME)")"
-  info "$(msg "감지된 데스크톱: $DESKTOP" "Detected desktop: $DESKTOP")"
+  info "$(msg "감지된 데스크톱/세션: $DESKTOP / $SESSION_TYPE" "Detected desktop/session: $DESKTOP / $SESSION_TYPE")"
+  info "$(msg "기존 입력기: $EXISTING_IME" "Existing IME: $EXISTING_IME")"
 
   local need_reboot=false
 
@@ -848,14 +1192,15 @@ EOF
       ;;
 
     mandriva-family)
-      log "$(msg "[1/4] fcitx5 패키지 설치 (Mandriva 계열)..." "[1/4] Installing fcitx5 (Mandriva family)...")"
-      if command -v dnf >/dev/null 2>&1; then
-        dnf install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
-      elif command -v urpmi >/dev/null 2>&1; then
-        urpmi --auto fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
-      elif command -v apt-get >/dev/null 2>&1; then
-        apt-get update && apt-get install -y fcitx5 fcitx5-hangul fcitx5-configtool
-      fi
+      log "$(msg "[1/4] fcitx5 패키지 설치 (Mandriva 계열: $MANDRIVA_PKG_MGR)..." "[1/4] Installing fcitx5 (Mandriva family: $MANDRIVA_PKG_MGR)...")"
+      case "$MANDRIVA_PKG_MGR" in
+        dnf)
+          dnf install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool ;;
+        urpmi)
+          urpmi --auto fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool ;;
+        apt-get)
+          apt-get update && apt-get install -y fcitx5 fcitx5-hangul fcitx5-configtool ;;
+      esac
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"

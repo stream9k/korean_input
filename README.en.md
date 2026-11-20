@@ -23,6 +23,8 @@ curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.
 wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 ```
 
+> 🛡️ **Pre-flight Confirmation**: Before modifying anything, the installer inspects your OS, desktop session, and existing IMEs, prints all planned package and config changes, and asks `[y/N]` for confirmation. For unattended runs, append `-s -- --yes` (or `--yes` / `-y` locally).
+
 ### After Installation
 1. **Log out and log back in** (or reboot).
 2. Press `Hangul` or `Ctrl + Space` to toggle Korean input.

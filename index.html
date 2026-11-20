@@ -1069,25 +1069,410 @@ const KDE_VIRTUAL_KEYBOARD_SNIPPET = (forceKde = false) => `
   fi
 `;
 
+// ──────────────────────────────────────────────────────────────
+// 설치 전 시스템 조사 + 변경 내역 경고 + 사용자 확인([y/N]) 공통 스니펫
+// ──────────────────────────────────────────────────────────────
+const PREFLIGHT_COMMON_BASH = `
+LOG_ENABLED=false
+AUTO_YES=false
+for _arg in "$@"; do
+  case "$_arg" in
+    -y|--yes) AUTO_YES=true ;;
+  esac
+done
+
+log() {
+  local _line="[$(date '+%F %T')] $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$_line" | tee -a "$LOG_FILE"
+  else
+    echo "$_line"
+  fi
+}
+err() {
+  local _line="[$(date '+%F %T')] ❌ $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$_line" | tee -a "$LOG_FILE" >&2
+  else
+    echo "$_line" >&2
+  fi
+  exit 1
+}
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+detect_os_pretty() {
+  if [[ -f /etc/os-release ]]; then
+    (
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      echo "\${PRETTY_NAME:-\${NAME:-Unknown Linux}}"
+    )
+  else
+    echo "Unknown Linux"
+  fi
+}
+
+detect_desktop() {
+  local _u="$1"
+  local _d="\${XDG_CURRENT_DESKTOP:-}"
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  _d=$(su - "$_u" -c 'echo \${XDG_CURRENT_DESKTOP:-}' </dev/null 2>/dev/null || true)
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  _d=$(su - "$_u" -c 'echo \${DESKTOP_SESSION:-}' </dev/null 2>/dev/null || true)
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  echo "unknown"
+}
+
+detect_session_type() {
+  local _u="$1"
+  local _uid="$2"
+  local _st="\${XDG_SESSION_TYPE:-}"
+  if [[ -n "$_st" && "$_st" != "unspecified" && "$_st" != "tty" ]]; then
+    echo "$_st"; return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    local _sid
+    for _sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$_u" '$3==u {print $1}' || true); do
+      _st=$(loginctl show-session "$_sid" -p Type --value 2>/dev/null || true)
+      if [[ "$_st" == "wayland" || "$_st" == "x11" || "$_st" == "mir" ]]; then
+        echo "$_st"; return
+      fi
+    done
+  fi
+  if ls "/run/user/$_uid"/wayland-* >/dev/null 2>&1 || [[ -n "\${WAYLAND_DISPLAY:-}" ]]; then
+    echo "wayland"; return
+  fi
+  if [[ -n "\${DISPLAY:-}" ]]; then
+    echo "x11"; return
+  fi
+  echo "unknown"
+}
+
+detect_existing_ime() {
+  local _uid="$1"
+  local _found=() _im _running
+  for _im in fcitx5 fcitx ibus-daemon kime; do
+    _running=false
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_uid" -x "$_im" >/dev/null 2>&1; then
+      _running=true
+    fi
+    if command -v "$_im" >/dev/null 2>&1 || [[ "$_running" == "true" ]]; then
+      if [[ "$_running" == "true" ]]; then
+        _found+=("$_im (실행 중)")
+      else
+        _found+=("$_im (설치됨)")
+      fi
+    fi
+  done
+  if [[ \${#_found[@]} -eq 0 ]]; then
+    echo "감지된 입력기 없음"
+  else
+    local IFS=", "
+    echo "\${_found[*]}"
+  fi
+}
+
+will_configure_kde() {
+  local _force="$1"
+  local _home="$2"
+  local _desk="$3"
+  if [[ "$_force" == "true" ]] || \\
+     [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
+     [[ "\${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
+     command -v kwriteconfig6 >/dev/null 2>&1 || \\
+     command -v kwriteconfig5 >/dev/null 2>&1 || \\
+     [[ -f "$_home/.config/kwinrc" ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+fcitx5_overwrite_note() {
+  if [[ -f "$1/.config/fcitx5/profile" || -f "$1/.config/fcitx5/config" ]]; then
+    echo " (기존 파일 덮어쓰기)"
+  else
+    echo " (신규 생성)"
+  fi
+}
+
+append_kde_cfg_line() {
+  local _kde_will="$1"
+  local _home="$2"
+  local _cfg="$3"
+  if [[ "$_kde_will" == "true" ]]; then
+    printf '%s\\n   - KDE Plasma 가상 키보드 설정: %s/.config/kwinrc ([Wayland] InputMethod)' "$_cfg" "$_home"
+  else
+    printf '%s' "$_cfg"
+  fi
+}
+
+append_fcitx5_overwrite_warn() {
+  local _home="$1"
+  local _base="\${2:-}"
+  local _w=""
+  if [[ -f "$_home/.config/fcitx5/profile" || -f "$_home/.config/fcitx5/config" ]]; then
+    _w=" ⚠️  참고: 기존 Fcitx5 설정 파일($_home/.config/fcitx5/profile, config)이 덮어써집니다."
+  fi
+  if [[ -n "$_base" && -n "$_w" ]]; then
+    printf '%s\\n%s' "$_base" "$_w"
+  elif [[ -n "$_base" ]]; then
+    printf '%s' "$_base"
+  else
+    printf '%s' "$_w"
+  fi
+}
+
+confirm_before_changes() {
+  local _title="$1"
+  local _os_name="$2"
+  local _user="$3"
+  local _uid="$4"
+  local _home="$5"
+  local _desktop="$6"
+  local _session="$7"
+  local _existing_ime="$8"
+  local _pkg_summary="$9"
+  local _cfg_summary="\${10}"
+  local _extra_warn="\${11:-}"
+
+  echo
+  echo "============================================================"
+  echo " 🔍 설치 전 시스템 조사 및 변경 예정 내역"
+  echo "============================================================"
+  echo " • 대상 스크립트  : $_title (v$SCRIPT_VERSION)"
+  echo " • 감지된 OS      : $_os_name"
+  echo " • 대상 사용자    : $_user (UID=$_uid, HOME=$_home)"
+  echo " • 데스크톱/세션  : $_desktop / $_session"
+  echo " • 기존 입력기    : $_existing_ime"
+  echo "------------------------------------------------------------"
+  echo " 📦 패키지 변경 예정:"
+  printf "%b\\n" "$_pkg_summary"
+  echo " ⚙️  설정·파일 변경 예정:"
+  printf "%b\\n" "$_cfg_summary"
+  echo " • 설치 로그 파일 : $LOG_FILE"
+  if [[ -n "$_extra_warn" ]]; then
+    echo "------------------------------------------------------------"
+    printf "%b\\n" "$_extra_warn"
+  fi
+  echo "============================================================"
+  echo " ⚠️  경고: 계속 진행하면 위 패키지와 시스템/사용자 설정이 실제로 변경됩니다."
+
+  if [[ "$AUTO_YES" == "true" ]]; then
+    echo " ℹ️  --yes (-y) 옵션이 지정되어 확인 절차를 건너뛰고 진행합니다."
+    echo
+    return 0
+  fi
+
+  if ! ( : </dev/tty ) 2>/dev/null; then
+    echo " ❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." >&2
+    echo "    대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." >&2
+    exit 1
+  fi
+
+  local _reply=""
+  printf " 이대로 설치를 진행하시겠습니까? [y/N]: "
+  IFS= read -r _reply </dev/tty || _reply=""
+  case "$_reply" in
+    y|Y|yes|YES)
+      echo
+      return 0
+      ;;
+    *)
+      echo " 🛑 설치를 취소했습니다. 시스템에 아무런 변경도 적용되지 않았습니다."
+      exit 0
+      ;;
+  esac
+}
+`;
+
+const PREFLIGHT_COMMON_SH = `
+LOG_ENABLED=false
+AUTO_YES=false
+for _pf_arg in "$@"; do
+  case "$_pf_arg" in
+    -y|--yes) AUTO_YES=true ;;
+  esac
+done
+
+log() {
+  _pf_line="[$(date '+%F %T')] $*"
+  if [ "$LOG_ENABLED" = "true" ]; then
+    echo "$_pf_line" | tee -a "$LOG_FILE"
+  else
+    echo "$_pf_line"
+  fi
+}
+err() {
+  _pf_line="[$(date '+%F %T')] ❌ $*"
+  if [ "$LOG_ENABLED" = "true" ]; then
+    echo "$_pf_line" | tee -a "$LOG_FILE" >&2
+  else
+    echo "$_pf_line" >&2
+  fi
+  exit 1
+}
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+detect_os_pretty() {
+  if [ -f /etc/os-release ]; then
+    (
+      . /etc/os-release
+      echo "\${PRETTY_NAME:-\${NAME:-Unknown Linux}}"
+    )
+  else
+    echo "Unknown Linux"
+  fi
+}
+
+detect_desktop() {
+  _pf_u="$1"
+  _pf_d="\${XDG_CURRENT_DESKTOP:-}"
+  [ -n "$_pf_d" ] && { echo "$_pf_d"; return; }
+  _pf_d=$(su - "$_pf_u" -c 'echo \${XDG_CURRENT_DESKTOP:-}' </dev/null 2>/dev/null || true)
+  [ -n "$_pf_d" ] && { echo "$_pf_d"; return; }
+  _pf_d=$(su - "$_pf_u" -c 'echo \${DESKTOP_SESSION:-}' </dev/null 2>/dev/null || true)
+  [ -n "$_pf_d" ] && { echo "$_pf_d"; return; }
+  echo "unknown"
+}
+
+detect_session_type() {
+  _pf_u="$1"
+  _pf_uid="$2"
+  _pf_st="\${XDG_SESSION_TYPE:-}"
+  if [ -n "$_pf_st" ] && [ "$_pf_st" != "unspecified" ] && [ "$_pf_st" != "tty" ]; then
+    echo "$_pf_st"; return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    for _pf_sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$_pf_u" '$3==u {print $1}' || true); do
+      _pf_st=$(loginctl show-session "$_pf_sid" -p Type --value 2>/dev/null || true)
+      if [ "$_pf_st" = "wayland" ] || [ "$_pf_st" = "x11" ] || [ "$_pf_st" = "mir" ]; then
+        echo "$_pf_st"; return
+      fi
+    done
+  fi
+  if ls "/run/user/$_pf_uid"/wayland-* >/dev/null 2>&1 || [ -n "\${WAYLAND_DISPLAY:-}" ]; then
+    echo "wayland"; return
+  fi
+  if [ -n "\${DISPLAY:-}" ]; then
+    echo "x11"; return
+  fi
+  echo "unknown"
+}
+
+detect_existing_ime() {
+  _pf_uid="$1"
+  _pf_found=""
+  _pf_sep=""
+  for _pf_im in fcitx5 fcitx ibus-daemon kime; do
+    _pf_running=false
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_pf_uid" -x "$_pf_im" >/dev/null 2>&1; then
+      _pf_running=true
+    fi
+    if command -v "$_pf_im" >/dev/null 2>&1 || [ "$_pf_running" = "true" ]; then
+      if [ "$_pf_running" = "true" ]; then
+        _pf_found="\${_pf_found}\${_pf_sep}\${_pf_im} (실행 중)"
+      else
+        _pf_found="\${_pf_found}\${_pf_sep}\${_pf_im} (설치됨)"
+      fi
+      _pf_sep=", "
+    fi
+  done
+  if [ -z "$_pf_found" ]; then
+    echo "감지된 입력기 없음"
+  else
+    echo "$_pf_found"
+  fi
+}
+
+fcitx5_overwrite_note() {
+  if [ -f "$1/.config/fcitx5/profile" ] || [ -f "$1/.config/fcitx5/config" ]; then
+    echo " (기존 파일 덮어쓰기)"
+  else
+    echo " (신규 생성)"
+  fi
+}
+
+confirm_before_changes() {
+  _pf_title="$1"
+  _pf_os="$2"
+  _pf_user="$3"
+  _pf_uid="$4"
+  _pf_home="$5"
+  _pf_desktop="$6"
+  _pf_session="$7"
+  _pf_ime="$8"
+  _pf_pkg="$9"
+  shift 9
+  _pf_cfg="$1"
+  _pf_warn="\${2:-}"
+
+  echo
+  echo "============================================================"
+  echo " 🔍 설치 전 시스템 조사 및 변경 예정 내역"
+  echo "============================================================"
+  echo " • 대상 스크립트  : $_pf_title (v$SCRIPT_VERSION)"
+  echo " • 감지된 OS      : $_pf_os"
+  echo " • 대상 사용자    : $_pf_user (UID=$_pf_uid, HOME=$_pf_home)"
+  echo " • 데스크톱/세션  : $_pf_desktop / $_pf_session"
+  echo " • 기존 입력기    : $_pf_ime"
+  echo "------------------------------------------------------------"
+  echo " 📦 패키지 변경 예정:"
+  printf "%b\\n" "$_pf_pkg"
+  echo " ⚙️  설정·파일 변경 예정:"
+  printf "%b\\n" "$_pf_cfg"
+  echo " • 설치 로그 파일 : $LOG_FILE"
+  if [ -n "$_pf_warn" ]; then
+    echo "------------------------------------------------------------"
+    printf "%b\\n" "$_pf_warn"
+  fi
+  echo "============================================================"
+  echo " ⚠️  경고: 계속 진행하면 위 패키지와 시스템/사용자 설정이 실제로 변경됩니다."
+
+  if [ "$AUTO_YES" = "true" ]; then
+    echo " ℹ️  --yes (-y) 옵션이 지정되어 확인 절차를 건너뛰고 진행합니다."
+    echo
+    return 0
+  fi
+
+  if ! ( : </dev/tty ) 2>/dev/null; then
+    echo " ❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." >&2
+    echo "    대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." >&2
+    exit 1
+  fi
+
+  _pf_reply=""
+  printf " 이대로 설치를 진행하시겠습니까? [y/N]: "
+  IFS= read -r _pf_reply </dev/tty || _pf_reply=""
+  case "$_pf_reply" in
+    y|Y|yes|YES)
+      echo
+      return 0
+      ;;
+    *)
+      echo " 🛑 설치를 취소했습니다. 시스템에 아무런 변경도 적용되지 않았습니다."
+      exit 0
+      ;;
+  esac
+}
+`;
+
 const SCRIPT_TEMPLATES = {
   // ─── Debian/Ubuntu/Mint/Pop/Zorin/elementary/KDE Neon ───
   "debian-family": (params) => `#!/usr/bin/env bash
 # ${params.distroName} ${params.editionLabel} - 한글 입력기(fcitx5-hangul) 자동 설치
 # 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/debian-family/${params.scriptId}.sh | sudo bash
-#       또는: sudo bash ${params.scriptId}.sh
+#       또는: sudo bash ${params.scriptId}.sh [-y|--yes]
 
 set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -1100,30 +1485,38 @@ detect_user() {
   err "대상 사용자 탐지 실패. SUDO_USER로 실행하세요."
 }
 
-detect_desktop() {
-  local user="$1"
-  local d="\${XDG_CURRENT_DESKTOP:-}"
-  [[ -n "$d" ]] && { echo "$d"; return; }
-  d=$(su - "$user" -c 'echo \${XDG_CURRENT_DESKTOP:-}' 2>/dev/null || true)
-  [[ -n "$d" ]] && { echo "$d"; return; }
-  d=$(su - "$user" -c 'echo \${DESKTOP_SESSION:-}' 2>/dev/null || true)
-  [[ -n "$d" ]] && { echo "$d"; return; }
-  echo "unknown"
-}
-
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 시작 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME TARGET_UID DESKTOP
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
   TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
   DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
 
+  local _pkg_summary="   - apt-get update 후 레거시 fcitx(4.x) 제거 및 autoremove --purge\\n   - apt-get install: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-configtool,\\n     fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk"
+  local _cfg_summary="   - im-config -n fcitx5 적용 및 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xsessionrc\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn=" ⚠️  참고: 기존 fcitx 4.x 패키지 및 미사용 의존성(autoremove)이 제거됩니다."
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 시작 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
   info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
-  info "데스크톱: $DESKTOP"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 레거시 제거 & 업데이트
   log "[1/7] 레거시 fcitx4 제거 및 패키지 업데이트..."
@@ -1327,13 +1720,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -1348,14 +1735,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME TARGET_UID
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
   TARGET_UID=$(id -u "$USER")
-  info "사용자: $USER (UID=$TARGET_UID)"
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk,\\n     fcitx5-qt, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
+  local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - ~/.bash_profile (또는 ~/.profile) 환경변수 추가"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 패키지 설치
   log "[1/5] fcitx5 및 한글 폰트 패키지 설치 (dnf)..."
@@ -1483,13 +1892,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -1504,14 +1907,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME TARGET_UID
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
   TARGET_UID=$(id -u "$USER")
-  info "사용자: $USER (UID=$TARGET_UID)"
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - pacman -Sy --needed --noconfirm: fcitx5-im, fcitx5-hangul,\\n     fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk"
+  local _cfg_summary="   - /etc/environment 환경변수 추가\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop, systemctl --user enable fcitx5\\n   - 첫 로그인 1회 안내 등록"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 패키지 설치 (pacman)
   log "[1/5] fcitx5 및 한글 폰트 패키지 설치 (pacman)..."
@@ -1622,7 +2047,6 @@ EOF
   # 5. KDE Plasma 가상 키보드 자동 설정 및 데스크톱별 안내
   log "[5/5] 데스크톱별 마무리..."
 ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
-  local DESKTOP="\${XDG_CURRENT_DESKTOP:-}"
   if [[ "$DESKTOP" =~ [Gg][Nn][Oo][Mm][Ee] ]]; then
     info "GNOME: 재로그인 후 자동 적용 (환경변수 상속)"
   elif ! [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
@@ -1650,13 +2074,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -1671,18 +2089,46 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME TARGET_UID
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
   TARGET_UID=$(id -u "$USER")
-  info "사용자: $USER (UID=$TARGET_UID)"
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _is_transactional=false _pkg_summary="" _extra_warn=""
+  if command -v transactional-update >/dev/null 2>&1; then
+    _is_transactional=true
+    _pkg_summary="   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool,\\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts"
+    _extra_warn=" ⚠️  참고: Aeon / MicroOS(transactional-update) 감지 — 설치 후 재부팅이 필요합니다."
+  else
+    _pkg_summary="   - zypper install -y: fcitx5, fcitx5-hangul, fcitx5-configtool,\\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts"
+  fi
+  local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - ~/.bash_profile (또는 ~/.profile) 환경변수 추가"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 패키지 설치 (transactional-update / zypper)
   log "[1/5] fcitx5 및 한글 폰트 패키지 설치..."
-  if command -v transactional-update >/dev/null 2>&1; then
+  if [[ "$_is_transactional" == "true" ]]; then
     transactional-update --non-interactive pkg install \\
       fcitx5 fcitx5-hangul fcitx5-configtool \\
       fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \\
@@ -1889,13 +2335,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -1910,28 +2350,66 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} kime 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME TARGET_UID
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
   TARGET_UID=$(id -u "$USER")
-  info "사용자: $USER"
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+
+  local _kime_id="" _aur_helper="" _pkg_summary=""
+  if [[ -f /etc/os-release ]]; then
+    _kime_id=$( ( . /etc/os-release; echo "\${ID:-}" ) )
+  fi
+  case "$_kime_id" in
+    arch|manjaro|endeavouros|garuda)
+      if command -v yay &>/dev/null; then
+        _aur_helper="yay"
+        _pkg_summary="   - AUR (yay): su - $USER -c \\"yay -S --noconfirm kime\\""
+      elif command -v paru &>/dev/null; then
+        _aur_helper="paru"
+        _pkg_summary="   - AUR (paru): su - $USER -c \\"paru -S --noconfirm kime\\""
+      else
+        err "AUR 헬퍼 없음. 수동 설치 필요: https://github.com/kime-ime/kime"
+      fi
+      ;;
+    fedora)
+      _pkg_summary="   - dnf copr enable -y toroidalfox/kime && dnf install -y kime"
+      ;;
+    opensuse*)
+      _pkg_summary="   - zypper --non-interactive install -y kime"
+      ;;
+    ubuntu|debian|linuxmint|pop|zorin|elementary|neon)
+      _pkg_summary="   - GitHub Releases에서 kime-$(uname -m).deb 다운로드(/tmp) 후 apt-get install -y"
+      ;;
+    *)
+      err "지원하지 않는 배포판: \${_kime_id:-unknown}. 수동 설치: https://github.com/kime-ime/kime"
+      ;;
+  esac
+
+  local _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf\\n   - $TARGET_HOME/.config/autostart/kime.desktop 및 첫 로그인 1회 안내 등록"
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel} (kime)" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" ""
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} kime 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 배포판별 설치
-  . /etc/os-release
-  case "$ID" in
+  case "$_kime_id" in
     arch|manjaro|endeavouros|garuda)
       log "[1/3] kime 설치 (pacman/AUR)..."
-      if command -v yay &>/dev/null; then
-        su - "$USER" -c "yay -S --noconfirm kime"
-      elif command -v paru &>/dev/null; then
-        su - "$USER" -c "paru -S --noconfirm kime"
-      else
-        warn "AUR 헬퍼 없음. 수동 설치 필요: https://github.com/kime-ime/kime"
-        exit 1
-      fi
+      su - "$USER" -c "$_aur_helper -S --noconfirm kime"
       ;;
     fedora)
       log "[1/3] kime 설치 (COPR)..."
@@ -1947,9 +2425,6 @@ main() {
       cd /tmp
       wget -q "https://github.com/kime-ime/kime/releases/latest/download/kime-$(uname -m).deb"
       apt-get install -y ./kime-*.deb
-      ;;
-    *)
-      err "지원하지 않는 배포판: $ID. 수동 설치: https://github.com/kime-ime/kime"
       ;;
   esac
   ok "kime 설치 완료"
@@ -2003,13 +2478,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -2024,13 +2493,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") || params.distroKey === "bazzite" || params.distroKey === "aurora" ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - rpm-ostree install --idempotent --allow-inactive:\\n     fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts"
+  local _cfg_summary="   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn=" ⚠️  참고: 불변 OS(rpm-ostree)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. rpm-ostree 패키지 레이어링
   log "[1/3] fcitx5 및 한글 폰트 패키지 설치 (rpm-ostree)..."
@@ -2140,13 +2632,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -2165,14 +2651,35 @@ cleanup() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  trap cleanup EXIT
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+
+  local _pkg_summary="   - steamos-readonly disable → pacman-key --init/--populate →\\n     pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk\\n   - 설치 후 steamos-readonly enable 복구"
+  local _cfg_summary="   - /etc/environment 환경변수 추가\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop\\n   - KDE Plasma 가상 키보드 설정: $TARGET_HOME/.config/kwinrc ([Wayland] InputMethod)"
+  local _extra_warn=" ⚠️  참고: SteamOS 루트 파일시스템 읽기 전용 상태를 일시 해제했다가 복구합니다."
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  trap cleanup EXIT
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 읽기 전용 해제 및 pacman 키 초기화
   log "[1/4] steamos-readonly 해제 및 패키지 설치..."
@@ -2301,13 +2808,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -2322,14 +2823,31 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기(ibus-hangul) 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME TARGET_UID
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
   TARGET_UID=$(id -u "$USER")
-  info "사용자: $USER (UID=$TARGET_UID)"
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+
+  local _pkg_summary="   - dnf install -y: ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
+  local _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\\n   - 실행 중인 ibus-daemon 재시작\\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)"
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel} (ibus-hangul)" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" ""
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기(ibus-hangul) 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. ibus-hangul + 한글 폰트 설치 (RHEL 계열 기본 공식 저장소)
   log "[1/3] ibus-hangul 및 한글 폰트 패키지 설치 (dnf)..."
@@ -2403,13 +2921,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-warn() { log "⚠️  $*"; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -2424,13 +2936,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - xbps-install -Sy: fcitx5, fcitx5-hangul, fcitx5-gtk+3, fcitx5-gtk4,\\n     fcitx5-qt5, fcitx5-qt6, fcitx5-configtool, noto-fonts-cjk"
+  local _cfg_summary="   - /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 패키지 설치 (xbps)
   log "[1/4] fcitx5 및 한글 폰트 패키지 설치 (xbps-install)..."
@@ -2561,12 +3096,7 @@ set -eu
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
 
 detect_user() {
@@ -2581,12 +3111,35 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
   USER=$(detect_user)
   TARGET_HOME=$(awk -F: -v u="$USER" '$1==u {print $6}' /etc/passwd)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+
+  _pkg_summary="   - apk update && apk add: fcitx5, fcitx5-hangul, fcitx5-gtk,\\n     fcitx5-qt, fcitx5-configtool, font-noto-cjk"
+  _cfg_summary="   - /etc/environment, $TARGET_HOME/.profile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록"
+  _extra_warn=""
+  if [ -f "$TARGET_HOME/.config/fcitx5/profile" ] || [ -f "$TARGET_HOME/.config/fcitx5/config" ]; then
+    _extra_warn=" ⚠️  참고: 기존 Fcitx5 설정 파일($TARGET_HOME/.config/fcitx5/profile, config)이 덮어써집니다."
+  fi
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. apk 패키지 설치 (Alpine / Chimera 공용)
   log "[1/4] fcitx5 패키지 설치 (apk)..."
@@ -2687,12 +3240,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -2707,13 +3255,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - eopkg install -y: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt5, fcitx5-configtool"
+  local _cfg_summary="   - /etc/environment, $TARGET_HOME/.config/environment.d/fcitx5.conf\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. eopkg 패키지 설치
   log "[1/4] fcitx5 패키지 설치 (eopkg)..."
@@ -2843,12 +3414,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -2863,13 +3429,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - emerge --noreplace: app-i18n/fcitx:5, app-i18n/fcitx-hangul:5,\\n     app-i18n/fcitx-gtk:5, app-i18n/fcitx-qt:5, app-i18n/fcitx-configtool:5"
+  local _cfg_summary="   - /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 등록"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. Portage 패키지 설치
   log "[1/4] fcitx5 패키지 설치 (emerge)..."
@@ -3002,12 +3591,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -3022,25 +3606,60 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
 
-  # 1. 패키지 관리자 자동 분기 (dnf / urpmi / apt-get)
-  log "[1/4] fcitx5 패키지 설치..."
+  local _pkg_mgr="" _pkg_summary=""
   if command -v dnf >/dev/null 2>&1; then
-    dnf install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
+    _pkg_mgr="dnf"
+    _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool"
   elif command -v urpmi >/dev/null 2>&1; then
-    urpmi --auto fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
+    _pkg_mgr="urpmi"
+    _pkg_summary="   - urpmi --auto: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool"
   elif command -v apt-get >/dev/null 2>&1; then
-    apt-get update && apt-get install -y fcitx5 fcitx5-hangul fcitx5-configtool
+    _pkg_mgr="apt-get"
+    _pkg_summary="   - apt-get update && apt-get install -y: fcitx5, fcitx5-hangul, fcitx5-configtool"
   else
     err "지원되는 패키지 관리자(dnf / urpmi / apt-get)를 찾지 못했습니다."
   fi
+
+  local _cfg_summary="   - /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
+
+  # 1. 패키지 관리자 자동 분기 (dnf / urpmi / apt-get)
+  log "[1/4] fcitx5 패키지 설치 ($_pkg_mgr)..."
+  case "$_pkg_mgr" in
+    dnf)
+      dnf install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool ;;
+    urpmi)
+      urpmi --auto fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool ;;
+    apt-get)
+      apt-get update && apt-get install -y fcitx5 fcitx5-hangul fcitx5-configtool ;;
+  esac
   ok "패키지 설치 완료"
 
   # 2. 환경변수 설정
@@ -3167,12 +3786,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -3187,13 +3801,34 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+
+  local _pkg_summary="   - pacman -Sy --needed --noconfirm: fcitx5, fcitx5-hangul, fcitx5-qt, fcitx5-configtool, noto-fonts-cjk"
+  local _cfg_summary="   - /etc/environment, $TARGET_HOME/.config/environment.d/fcitx5.conf\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop\\n   - KDE Plasma 가상 키보드 설정: $TARGET_HOME/.config/kwinrc ([Wayland] InputMethod)"
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. pacman 패키지 설치 (KaOS Qt/KDE 전용 패키지 구성)
   log "[1/4] fcitx5 및 한글 폰트 패키지 설치 (pacman)..."
@@ -3323,12 +3958,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -3343,13 +3973,34 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+
+  local _pkg_summary="   - abroot pkg add: fcitx5, fcitx5-hangul, fcitx5-config-qt,\\n     fcitx5-frontend-gtk3, fcitx5-frontend-gtk4, fcitx5-frontend-qt5, fcitx5-frontend-qt6"
+  local _cfg_summary="   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, $TARGET_HOME/.config/autostart/fcitx5.desktop"
+  local _extra_warn=" ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. ABRoot 패키지 추가
   log "[1/4] fcitx5 패키지 추가 (abroot pkg add)..."
@@ -3472,12 +4123,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -3492,13 +4138,36 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note _kde_will
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
+
+  local _pkg_summary="   - apt-get update && apt-get install -y: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool"
+  local _cfg_summary="   - /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop"
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary")
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. apt-rpm 패키지 설치
   log "[1/4] fcitx5 패키지 설치 (apt-get / apt-rpm)..."
@@ -3630,12 +4299,7 @@ set -euo pipefail
 
 SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
-
-log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
-err() { log "❌ $*"; exit 1; }
-ok() { log "✅ $*"; }
-info() { log "ℹ️  $*"; }
-
+${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
 
 detect_user() {
@@ -3650,13 +4314,34 @@ detect_user() {
 
 main() {
   require_root
-  mkdir -p "$(dirname "$LOG_FILE")"
-  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
 
-  local USER TARGET_HOME
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME _ow_note
   USER=$(detect_user)
   TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
-  info "사용자: $USER (HOME=$TARGET_HOME)"
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+
+  local _pkg_summary="   - su - $USER: guix install fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-google-noto-sans-cjk"
+  local _cfg_summary="   - ~/.bash_profile (또는 ~/.profile) GUIX_PROFILE 및 환경변수 추가\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop"
+  local _extra_warn
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
+
+  confirm_before_changes \
+    "${params.distroName} ${params.editionLabel}" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
   # 1. 사용자 Guix 프로필에 패키지 설치
   log "[1/4] fcitx5 패키지 설치 (guix install)..."
