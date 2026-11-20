@@ -507,6 +507,54 @@ EOF
     _changed=true
   fi
 
+  # ibus D-Bus 자동 활성화(on-demand 실행) 차단 / 복원 (GNOME은 ibus를 직접 사용하므로 제외)
+  local _dbus_dir="$_home/.local/share/dbus-1/services"
+  local _dbus_svc _dbus_name
+  local _ibus_dbus_svcs=(org.freedesktop.IBus.service org.freedesktop.portal.IBus.service)
+  if [[ "$_target_ime" == "ibus" ]]; then
+    for _dbus_svc in "\${_ibus_dbus_svcs[@]}"; do
+      if [[ -f "$_dbus_dir/$_dbus_svc" ]] && grep -q '^# korean_input: disabled' "$_dbus_dir/$_dbus_svc" 2>/dev/null; then
+        rm -f "$_dbus_dir/$_dbus_svc"
+        _changed=true
+      fi
+    done
+  elif [[ "$_is_gnome" != "true" ]]; then
+    mkdir -p "$_dbus_dir"
+    for _dbus_svc in "\${_ibus_dbus_svcs[@]}"; do
+      if [[ ! -f "$_dbus_dir/$_dbus_svc" ]]; then
+        _dbus_name="\${_dbus_svc%.service}"
+        cat > "$_dbus_dir/$_dbus_svc" <<EOF
+# korean_input: disabled (다른 한글 입력기와 충돌 방지 / prevent conflict with the selected IME)
+[D-BUS Service]
+Name=$_dbus_name
+Exec=/bin/false
+EOF
+        _changed=true
+      fi
+    done
+    chown -R "$_uid:$_gid" "$_home/.local/share/dbus-1" 2>/dev/null || true
+  fi
+
+  # 남아있는 보조 프로세스(ibus 엔진/UI 등) 정리 후, 끝까지 살아있는 충돌 프로세스는 강제 종료
+  local _hp
+  if [[ "$_target_ime" != "ibus" && "$_is_gnome" != "true" ]]; then
+    for _hp in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+      pkill -u "$_uid" -x "$_hp" 2>/dev/null || true
+    done
+  fi
+  sleep 1
+  local _survivors=()
+  for _hp in "\${_procs[@]}"; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_uid" -x "$_hp" >/dev/null 2>&1; then
+      pkill -9 -u "$_uid" -x "$_hp" 2>/dev/null || true
+      _survivors+=("$_hp")
+    fi
+  done
+  if [[ \${#_survivors[@]} -gt 0 ]]; then
+    warn "종료되지 않아 강제 종료한 입력기 프로세스: \${_survivors[*]}"
+    _changed=true
+  fi
+
   if [[ "$_changed" == "true" ]]; then
     ok "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $_target_ime)"
   fi
@@ -900,6 +948,49 @@ EOF
     _dc_changed=true
   fi
 
+  _dc_dbus_dir="$_dc_home/.local/share/dbus-1/services"
+  if [ "$_dc_target" = "ibus" ]; then
+    for _dc_ds in org.freedesktop.IBus.service org.freedesktop.portal.IBus.service; do
+      if [ -f "$_dc_dbus_dir/$_dc_ds" ] && grep -q '^# korean_input: disabled' "$_dc_dbus_dir/$_dc_ds" 2>/dev/null; then
+        rm -f "$_dc_dbus_dir/$_dc_ds"
+        _dc_changed=true
+      fi
+    done
+  elif [ "$_dc_gnome" != "true" ]; then
+    mkdir -p "$_dc_dbus_dir"
+    for _dc_ds in org.freedesktop.IBus.service org.freedesktop.portal.IBus.service; do
+      if [ ! -f "$_dc_dbus_dir/$_dc_ds" ]; then
+        _dc_dn="\${_dc_ds%.service}"
+        cat > "$_dc_dbus_dir/$_dc_ds" <<EOF
+# korean_input: disabled (다른 한글 입력기와 충돌 방지 / prevent conflict with the selected IME)
+[D-BUS Service]
+Name=$_dc_dn
+Exec=/bin/false
+EOF
+        _dc_changed=true
+      fi
+    done
+    chown -R "$_dc_uid:$_dc_gid" "$_dc_home/.local/share/dbus-1" 2>/dev/null || true
+  fi
+
+  if [ "$_dc_target" != "ibus" ] && [ "$_dc_gnome" != "true" ]; then
+    for _dc_hp in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+      pkill -u "$_dc_uid" -x "$_dc_hp" 2>/dev/null || true
+    done
+  fi
+  sleep 1
+  _dc_surv=""
+  for _dc_hp in $_dc_procs; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_dc_uid" -x "$_dc_hp" >/dev/null 2>&1; then
+      pkill -9 -u "$_dc_uid" -x "$_dc_hp" 2>/dev/null || true
+      _dc_surv="$_dc_surv $_dc_hp"
+    fi
+  done
+  if [ -n "$_dc_surv" ]; then
+    warn "종료되지 않아 강제 종료한 입력기 프로세스:$_dc_surv"
+    _dc_changed=true
+  fi
+
   if [ "$_dc_changed" = "true" ]; then
     ok "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $_dc_target)"
   fi
@@ -986,7 +1077,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -1237,7 +1328,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1411,7 +1502,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1595,7 +1686,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1858,7 +1949,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2221,7 +2312,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2786,7 +2877,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2942,7 +3033,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3120,7 +3211,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3241,7 +3332,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3418,7 +3509,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -3564,7 +3655,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3740,7 +3831,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3919,7 +4010,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4116,7 +4207,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4290,7 +4381,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4457,7 +4548,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4635,7 +4726,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }

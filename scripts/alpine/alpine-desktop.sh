@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.3.2"
+SCRIPT_VERSION="1.3.3"
 LOG_FILE="/var/log/install-hangul-alpine-desktop.log"
 
 LOG_ENABLED=false
@@ -273,6 +273,49 @@ EOF
       ' "$_dc_kwin" > "${_dc_kwin}.tmp" && cat "${_dc_kwin}.tmp" > "$_dc_kwin" && rm -f "${_dc_kwin}.tmp"
     fi
     chown "$_dc_uid:$_dc_gid" "$_dc_kwin" 2>/dev/null || true
+    _dc_changed=true
+  fi
+
+  _dc_dbus_dir="$_dc_home/.local/share/dbus-1/services"
+  if [ "$_dc_target" = "ibus" ]; then
+    for _dc_ds in org.freedesktop.IBus.service org.freedesktop.portal.IBus.service; do
+      if [ -f "$_dc_dbus_dir/$_dc_ds" ] && grep -q '^# korean_input: disabled' "$_dc_dbus_dir/$_dc_ds" 2>/dev/null; then
+        rm -f "$_dc_dbus_dir/$_dc_ds"
+        _dc_changed=true
+      fi
+    done
+  elif [ "$_dc_gnome" != "true" ]; then
+    mkdir -p "$_dc_dbus_dir"
+    for _dc_ds in org.freedesktop.IBus.service org.freedesktop.portal.IBus.service; do
+      if [ ! -f "$_dc_dbus_dir/$_dc_ds" ]; then
+        _dc_dn="${_dc_ds%.service}"
+        cat > "$_dc_dbus_dir/$_dc_ds" <<EOF
+# korean_input: disabled (다른 한글 입력기와 충돌 방지 / prevent conflict with the selected IME)
+[D-BUS Service]
+Name=$_dc_dn
+Exec=/bin/false
+EOF
+        _dc_changed=true
+      fi
+    done
+    chown -R "$_dc_uid:$_dc_gid" "$_dc_home/.local/share/dbus-1" 2>/dev/null || true
+  fi
+
+  if [ "$_dc_target" != "ibus" ] && [ "$_dc_gnome" != "true" ]; then
+    for _dc_hp in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+      pkill -u "$_dc_uid" -x "$_dc_hp" 2>/dev/null || true
+    done
+  fi
+  sleep 1
+  _dc_surv=""
+  for _dc_hp in $_dc_procs; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_dc_uid" -x "$_dc_hp" >/dev/null 2>&1; then
+      pkill -9 -u "$_dc_uid" -x "$_dc_hp" 2>/dev/null || true
+      _dc_surv="$_dc_surv $_dc_hp"
+    fi
+  done
+  if [ -n "$_dc_surv" ]; then
+    warn "종료되지 않아 강제 종료한 입력기 프로세스:$_dc_surv"
     _dc_changed=true
   fi
 
