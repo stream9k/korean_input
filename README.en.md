@@ -1,4 +1,4 @@
-# Linux Korean Input Method Auto-Installer (`fcitx5-hangul` / `kime`)
+# Linux Korean Input Method Auto-Installer (`fcitx5-hangul` / `ibus-hangul` / `kime`)
 
 🌐 [🇰🇷 한국어 (README.md)](README.md) | **🇺🇸 English** | [🌐 Web Generator (is.gd/korean_input)](https://is.gd/korean_input)
 
@@ -23,7 +23,9 @@ curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.
 wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 ```
 
-> 🛡️ **Pre-flight Confirmation**: Before modifying anything, the installer inspects your OS, desktop session, and existing IMEs, prints all planned package and config changes, and asks `[y/N]` for confirmation. For unattended runs, append `-s -- --yes` (or `--yes` / `-y` locally).
+> 🛡️ **Pre-flight Confirmation**: Before modifying anything, the installer inspects your OS, desktop session, and existing IMEs, prints all planned package and config changes with the recommended IME (`fcitx5-hangul`, or `ibus-hangul` on RHEL), and prompts `[y/N/ibus]` (or `[y/N]`).
+> * Prefer IBus? Type **`ibus`** at the confirmation prompt or pass `--ibus` (`... | sudo bash -s -- --ibus`).
+> * For unattended runs, append `-s -- --yes` (or `--yes` / `-y` locally).
 
 ### After Installation
 1. **Log out and log back in** (or reboot).
@@ -50,7 +52,7 @@ The Web Generator offers two execution choices:
 
 ## 📌 Distro-Specific One-Liners
 
-Representative one-liners from our **190 pre-generated scripts across 18 families**:
+Representative one-liners from our **194 pre-generated scripts across 19 families**:
 
 | Distro | Desktop / Edition | IME | One-Line Command |
 |:---|:---|:---|:---|
@@ -69,7 +71,7 @@ Representative one-liners from our **190 pre-generated scripts across 18 familie
 | **NixOS** | GNOME / KDE | `fcitx5` | Merge snippet from [scripts/nixos/](scripts/nixos/) into `configuration.nix` |
 
 <details>
-<summary>📂 View full list of 190 supported scripts and distro families</summary>
+<summary>📂 View full list of 194 supported scripts and distro families</summary>
 
 * **Debian / Ubuntu Family (75 scripts)**: Mint, LMDE, Ubuntu, Kubuntu, Debian, Pop!_OS, Zorin OS, elementary OS, Sparky, Bodhi, Peppermint, Voyager, BunsenLabs, MX Linux, Kali, Parrot, Q4OS, etc.
 * **Arch Family (41 scripts)**: Arch Linux, EndeavourOS, Garuda, Manjaro, CachyOS, Mabox, Artix, BigLinux, Archcraft, etc.
@@ -79,6 +81,7 @@ Representative one-liners from our **190 pre-generated scripts across 18 familie
 * **NixOS Family (6 scripts)**: GNOME, KDE, Hyprland, Sway, Minimal, etc.
 * **Enterprise RHEL Family (5 scripts)**: RHEL, Rocky Linux, AlmaLinux, CentOS Stream, Oreon (`ibus-hangul` standard stack)
 * **Independent / Lightweight (24 scripts)**: Void Linux, Alpine Linux, Solus, Gentoo, Mageia, KaOS, Guix, etc.
+* **ibus-hangul Alternative IME (4 scripts)**: GNOME-friendly universal `ibus-hangul` scripts for Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE
 * **kime Alternative IME (4 scripts)**: Rust-based `kime` scripts for Debian, Fedora, Arch, openSUSE
 
 </details>

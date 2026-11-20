@@ -6,32 +6,20 @@
 
 const fs = require("fs");
 const path = require("path");
-const vm = require("vm");
 
 const ROOT_DIR = __dirname;
-const HTML_PATH = path.join(ROOT_DIR, "index.html");
 const SCRIPTS_DIR = path.join(ROOT_DIR, "scripts");
 
 function loadGeneratorCore() {
-  const html = fs.readFileSync(HTML_PATH, "utf8");
-  const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/);
-  if (!scriptMatch) {
-    throw new Error("index.html에서 <script> 블록을 찾을 수 없습니다.");
-  }
-
-  const fullScript = scriptMatch[1];
-  const uiMarker = "// UI 로직";
-  const uiIndex = fullScript.indexOf(uiMarker);
-  if (uiIndex === -1) {
-    throw new Error("index.html에서 '// UI 로직' 구분자를 찾을 수 없습니다.");
-  }
-
-  const coreCode = `${fullScript.slice(0, uiIndex)}
-({ GITHUB_REPO, DISTRO_DATA, SCRIPT_TEMPLATES, getScriptId, getTemplateFamily });
-`;
-
-  const context = vm.createContext({});
-  return vm.runInContext(coreCode, context, { filename: "index.html" });
+  const data = require("./js/data.js");
+  const templates = require("./js/templates.js");
+  return {
+    GITHUB_REPO: data.GITHUB_REPO,
+    DISTRO_DATA: data.DISTRO_DATA,
+    SCRIPT_TEMPLATES: templates.SCRIPT_TEMPLATES,
+    getScriptId: data.getScriptId,
+    getTemplateFamily: data.getTemplateFamily
+  };
 }
 
 function main() {

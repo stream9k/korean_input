@@ -1,0 +1,610 @@
+#!/usr/bin/env bash
+# ibus-hangul (GNOME 친화 대안 입력기) Fedora / RHEL / Rocky / Alma (dnf) - ibus-hangul (GNOME 친화 대안 한글 입력기) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/ibus/ibus-fedora.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.3.0"
+LOG_FILE="/var/log/install-ibus-ibus-fedora.log"
+
+LOG_ENABLED=false
+AUTO_YES=false
+for _arg in "$@"; do
+  case "$_arg" in
+    -y|--yes) AUTO_YES=true ;;
+  esac
+done
+
+log() {
+  local _line="[$(date '+%F %T')] $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$_line" | tee -a "$LOG_FILE"
+  else
+    echo "$_line"
+  fi
+}
+err() {
+  local _line="[$(date '+%F %T')] ❌ $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$_line" | tee -a "$LOG_FILE" >&2
+  else
+    echo "$_line" >&2
+  fi
+  exit 1
+}
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+detect_os_pretty() {
+  if [[ -f /etc/os-release ]]; then
+    (
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      echo "${PRETTY_NAME:-${NAME:-Unknown Linux}}"
+    )
+  else
+    echo "Unknown Linux"
+  fi
+}
+
+detect_desktop() {
+  local _u="$1"
+  local _d="${XDG_CURRENT_DESKTOP:-}"
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  _d=$(su - "$_u" -c 'echo ${XDG_CURRENT_DESKTOP:-}' </dev/null 2>/dev/null || true)
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  _d=$(su - "$_u" -c 'echo ${DESKTOP_SESSION:-}' </dev/null 2>/dev/null || true)
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  echo "unknown"
+}
+
+detect_session_type() {
+  local _u="$1"
+  local _uid="$2"
+  local _st="${XDG_SESSION_TYPE:-}"
+  if [[ -n "$_st" && "$_st" != "unspecified" && "$_st" != "tty" ]]; then
+    echo "$_st"; return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    local _sid
+    for _sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$_u" '$3==u {print $1}' || true); do
+      _st=$(loginctl show-session "$_sid" -p Type --value 2>/dev/null || true)
+      if [[ "$_st" == "wayland" || "$_st" == "x11" || "$_st" == "mir" ]]; then
+        echo "$_st"; return
+      fi
+    done
+  fi
+  if ls "/run/user/$_uid"/wayland-* >/dev/null 2>&1 || [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    echo "wayland"; return
+  fi
+  if [[ -n "${DISPLAY:-}" ]]; then
+    echo "x11"; return
+  fi
+  echo "unknown"
+}
+
+detect_existing_ime() {
+  local _uid="$1"
+  local _found=() _im _running
+  for _im in fcitx5 fcitx ibus-daemon kime; do
+    _running=false
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_uid" -x "$_im" >/dev/null 2>&1; then
+      _running=true
+    fi
+    if command -v "$_im" >/dev/null 2>&1 || [[ "$_running" == "true" ]]; then
+      if [[ "$_running" == "true" ]]; then
+        _found+=("$_im (실행 중)")
+      else
+        _found+=("$_im (설치됨)")
+      fi
+    fi
+  done
+  if [[ ${#_found[@]} -eq 0 ]]; then
+    echo "감지된 입력기 없음"
+  else
+    local IFS=", "
+    echo "${_found[*]}"
+  fi
+}
+
+will_configure_kde() {
+  local _force="$1"
+  local _home="$2"
+  local _desk="$3"
+  if [[ "$_force" == "true" ]] || \
+     [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     command -v kwriteconfig6 >/dev/null 2>&1 || \
+     command -v kwriteconfig5 >/dev/null 2>&1 || \
+     [[ -f "$_home/.config/kwinrc" ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+fcitx5_overwrite_note() {
+  if [[ -f "$1/.config/fcitx5/profile" || -f "$1/.config/fcitx5/config" ]]; then
+    echo " (기존 파일 덮어쓰기)"
+  else
+    echo " (신규 생성)"
+  fi
+}
+
+append_kde_cfg_line() {
+  local _kde_will="$1"
+  local _home="$2"
+  local _cfg="$3"
+  if [[ "$_kde_will" == "true" ]]; then
+    printf '%s\n   - KDE Plasma 가상 키보드 설정: %s/.config/kwinrc ([Wayland] InputMethod)' "$_cfg" "$_home"
+  else
+    printf '%s' "$_cfg"
+  fi
+}
+
+append_fcitx5_overwrite_warn() {
+  local _home="$1"
+  local _base="${2:-}"
+  local _w=""
+  if [[ -f "$_home/.config/fcitx5/profile" || -f "$_home/.config/fcitx5/config" ]]; then
+    _w=" ⚠️  참고: 기존 Fcitx5 설정 파일($_home/.config/fcitx5/profile, config)이 덮어써집니다."
+  fi
+  if [[ -n "$_base" && -n "$_w" ]]; then
+    printf '%s\n%s' "$_base" "$_w"
+  elif [[ -n "$_base" ]]; then
+    printf '%s' "$_base"
+  else
+    printf '%s' "$_w"
+  fi
+}
+
+confirm_before_changes() {
+  local _title="$1"
+  local _os_name="$2"
+  local _user="$3"
+  local _uid="$4"
+  local _home="$5"
+  local _desktop="$6"
+  local _session="$7"
+  local _existing_ime="$8"
+  local _pkg_summary="$9"
+  local _cfg_summary="${10}"
+  local _extra_warn="${11:-}"
+
+  echo
+  echo "============================================================"
+  echo " 🔍 설치 전 시스템 조사 및 변경 예정 내역"
+  echo "============================================================"
+  echo " • 대상 스크립트  : $_title (v$SCRIPT_VERSION)"
+  echo " • 감지된 OS      : $_os_name"
+  echo " • 대상 사용자    : $_user (UID=$_uid, HOME=$_home)"
+  echo " • 데스크톱/세션  : $_desktop / $_session"
+  echo " • 기존 입력기    : $_existing_ime"
+  echo "------------------------------------------------------------"
+  echo " 📦 패키지 변경 예정:"
+  printf "%b\n" "$_pkg_summary"
+  echo " ⚙️  설정·파일 변경 예정:"
+  printf "%b\n" "$_cfg_summary"
+  echo " • 설치 로그 파일 : $LOG_FILE"
+  if [[ -n "$_extra_warn" ]]; then
+    echo "------------------------------------------------------------"
+    printf "%b\n" "$_extra_warn"
+  fi
+  echo "============================================================"
+  echo " ⚠️  경고: 계속 진행하면 위 패키지와 시스템/사용자 설정이 실제로 변경됩니다."
+
+  if [[ "$AUTO_YES" == "true" ]]; then
+    echo " ℹ️  --yes (-y) 옵션이 지정되어 확인 절차를 건너뛰고 진행합니다."
+    echo
+    return 0
+  fi
+
+  if ! ( : </dev/tty ) 2>/dev/null; then
+    echo " ❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." >&2
+    echo "    대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." >&2
+    exit 1
+  fi
+
+  local _reply=""
+  printf " 이대로 설치를 진행하시겠습니까? [y/N]: "
+  IFS= read -r _reply </dev/tty || _reply=""
+  case "$_reply" in
+    y|Y|yes|YES)
+      echo
+      return 0
+      ;;
+    *)
+      echo " 🛑 설치를 취소했습니다. 시스템에 아무런 변경도 적용되지 않았습니다."
+      exit 0
+      ;;
+  esac
+}
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  if id -u deck >/dev/null 2>&1; then
+    echo "deck"
+    return
+  fi
+  err "대상 사용자 탐지 실패"
+}
+
+steamos_cleanup() {
+  if command -v steamos-readonly >/dev/null 2>&1; then
+    steamos-readonly enable 2>/dev/null || true
+  fi
+}
+
+detect_ibus_family() {
+  local _id="${1,,}"
+  if command -v steamos-readonly >/dev/null 2>&1 || [[ "$_id" == "steamos" ]]; then
+    echo "steamos"; return
+  fi
+  if command -v rpm-ostree >/dev/null 2>&1; then
+    echo "fedora-atomic"; return
+  fi
+  if command -v abroot >/dev/null 2>&1; then
+    echo "vanilla"; return
+  fi
+  if command -v transactional-update >/dev/null 2>&1; then
+    echo "opensuse-transactional"; return
+  fi
+  if [[ "$_id" == "kaos" ]]; then
+    err "KaOS는 KDE/Qt 전용 배포판으로 공식 ibus-hangul을 지원하지 않습니다. Fcitx5 스크립트 사용을 권장합니다."
+  fi
+  if [[ "$_id" == "altlinux" || -f /etc/altlinux-release ]]; then
+    err "ALT Linux는 Fcitx5 스크립트 사용을 권장합니다."
+  fi
+  if command -v pacman >/dev/null 2>&1; then
+    echo "arch"; return
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "debian"; return
+  fi
+  if command -v dnf >/dev/null 2>&1; then
+    echo "fedora"; return
+  fi
+  if command -v zypper >/dev/null 2>&1; then
+    echo "opensuse"; return
+  fi
+  err "지원하지 않는 배포판입니다 (ID=${_id:-unknown}). Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE 계열에서 실행하세요."
+}
+
+main() {
+  require_root
+
+  local USER TARGET_HOME TARGET_UID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+
+  local _os_id=""
+  if [[ -f /etc/os-release ]]; then
+    _os_id=$(
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      echo "${ID:-}"
+    )
+  fi
+
+  local _ibus_family _pkg_summary="" _cfg_summary="" _extra_warn="" _need_reboot=false
+  _ibus_family=$(detect_ibus_family "$_os_id")
+
+  case "$_ibus_family" in
+    debian)
+      _pkg_summary="   - apt-get update && apt-get install: ibus, ibus-hangul, im-config, fonts-noto-cjk (+ ibus-gtk3/gtk4 사용 가능 시)"
+      _cfg_summary="   - im-config -n ibus\n   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xsessionrc\n   - 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    vanilla)
+      _need_reboot=true
+      _pkg_summary="   - abroot pkg add: ibus, ibus-hangul, im-config, fonts-noto-cjk"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xsessionrc\n   - 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      ;;
+    fedora)
+      _pkg_summary="   - dnf install: ibus, ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - alternatives --set xinputrc (ibus.conf 있는 경우), systemctl --user enable ibus / disable fcitx5\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    fedora-atomic)
+      _need_reboot=true
+      _pkg_summary="   - rpm-ostree install --idempotent --allow-inactive: ibus, ibus-hangul, ibus-setup, google-noto-sans-cjk-ttc-fonts"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 불변 OS(rpm-ostree)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      ;;
+    arch)
+      _pkg_summary="   - pacman -Sy --needed: ibus, ibus-hangul, noto-fonts-cjk"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - fcitx5 사용자 서비스 비활성화(있는 경우)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xprofile\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    steamos)
+      _pkg_summary="   - steamos-readonly disable → pacman-key init/populate → pacman -Sy --needed: ibus, ibus-hangul, noto-fonts-cjk → steamos-readonly enable"
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - $TARGET_HOME/.config/environment.d/ibus.conf, $TARGET_HOME/.xprofile\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: SteamOS 루트 파일시스템 읽기 전용 상태를 일시 해제했다가 복구합니다."
+      ;;
+    opensuse|opensuse-transactional)
+      if [[ "$_ibus_family" == "opensuse-transactional" ]]; then
+        _need_reboot=true
+        _pkg_summary="   - transactional-update --non-interactive pkg install: ibus, ibus-hangul, google-noto-sans-cjk-fonts"
+        _extra_warn=" ⚠️  참고: Transactional OS이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      else
+        _pkg_summary="   - zypper --non-interactive install -y: ibus, ibus-hangul, google-noto-sans-cjk-fonts"
+      fi
+      _cfg_summary="   - ibus write-cache 및 GNOME 입력 소스('hangul')/preload-engines 등록(gsettings)\n   - alternatives --set xinputrc (ibus.conf 있는 경우), systemctl --user enable ibus / disable fcitx5\n   - $TARGET_HOME/.config/environment.d/ibus.conf, ~/.bash_profile (또는 ~/.profile)\n   - 비-GNOME 데스크톱 시 $TARGET_HOME/.config/autostart/ibus-daemon.desktop (NotShowIn=GNOME;)\n   - 첫 로그인 1회 안내 팝업 등록"
+      ;;
+  esac
+
+  if [[ "$EXISTING_IME" == *"fcitx"* || "$EXISTING_IME" == *"kime"* ]]; then
+    local _ime_warn=" ⚠️  참고: 기존 입력기(${EXISTING_IME})가 감지되었습니다. ibus와 충돌할 수 있으므로 필요 시 기존 입력기를 비활성화하세요."
+    if [[ -n "$_extra_warn" ]]; then
+      _extra_warn="${_extra_warn}\n${_ime_warn}"
+    else
+      _extra_warn="$_ime_warn"
+    fi
+  fi
+  if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] && "$SESSION_TYPE" == "wayland" ]]; then
+    local _kde_warn=" ⚠️  참고: KDE Plasma Wayland 환경에서는 IBus보다 Fcitx 5가 더 안정적으로 권장됩니다."
+    if [[ -n "$_extra_warn" ]]; then
+      _extra_warn="${_extra_warn}\n${_kde_warn}"
+    else
+      _extra_warn="$_kde_warn"
+    fi
+  fi
+
+  confirm_before_changes \
+    "ibus-hangul (GNOME 친화 대안 입력기) Fedora / RHEL / Rocky / Alma (dnf) (ibus-hangul)" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ibus-hangul (GNOME 친화 대안 입력기) Fedora / RHEL / Rocky / Alma (dnf) ibus-hangul 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME (family=$_ibus_family, id=${_os_id:-unknown})"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
+
+  # 1. 배포판별 패키지 설치
+  case "$_ibus_family" in
+    debian)
+      log "[1/3] ibus-hangul 및 한글 폰트 설치 (apt-get)..."
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      local _deb_pkgs=(ibus ibus-hangul im-config fonts-noto-cjk)
+      local _opt_pkg
+      for _opt_pkg in ibus-gtk3 ibus-gtk4; do
+        if apt-cache show "$_opt_pkg" >/dev/null 2>&1; then
+          _deb_pkgs+=("$_opt_pkg")
+        fi
+      done
+      apt-get install -y -qq "${_deb_pkgs[@]}"
+      ;;
+    vanilla)
+      log "[1/3] ibus-hangul 및 한글 폰트 추가 (abroot)..."
+      abroot pkg add ibus ibus-hangul im-config fonts-noto-cjk
+      ;;
+    fedora)
+      log "[1/3] ibus-hangul 및 한글 폰트 설치 (dnf)..."
+      dnf install -y -q ibus ibus-hangul ibus-setup
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ;;
+    fedora-atomic)
+      log "[1/3] ibus-hangul 및 한글 폰트 레이어링 (rpm-ostree)..."
+      rpm-ostree install --idempotent --allow-inactive ibus ibus-hangul ibus-setup google-noto-sans-cjk-ttc-fonts
+      ;;
+    arch)
+      log "[1/3] ibus-hangul 및 한글 폰트 설치 (pacman)..."
+      pacman -Sy --needed --noconfirm ibus ibus-hangul noto-fonts-cjk
+      ;;
+    steamos)
+      trap steamos_cleanup EXIT
+      log "[1/3] SteamOS 읽기 전용 해제 및 ibus-hangul 설치..."
+      steamos-readonly disable
+      pacman-key --init
+      pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
+      pacman -Sy --needed --noconfirm ibus ibus-hangul noto-fonts-cjk
+      steamos-readonly enable
+      ;;
+    opensuse)
+      log "[1/3] ibus-hangul 및 한글 폰트 설치 (zypper)..."
+      zypper --non-interactive install -y ibus ibus-hangul
+      zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
+      ;;
+    opensuse-transactional)
+      log "[1/3] ibus-hangul 및 한글 폰트 설치 (transactional-update)..."
+      transactional-update --non-interactive pkg install ibus ibus-hangul google-noto-sans-cjk-fonts
+      ;;
+  esac
+  ok "패키지 설치 완료"
+
+  # 2. 입력 소스 등록, ibus 엔진 캐시 갱신 및 충돌 서비스 비활성화
+  log "[2/3] 입력 소스('hangul') 등록 및 ibus 엔진 캐시 갱신..."
+  ibus write-cache --system 2>/dev/null || true
+  local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
+  local preload="['xkb:us::eng', 'hangul']"
+  if [[ -S "/run/user/$TARGET_UID/bus" ]]; then
+    local bus="unix:path=/run/user/$TARGET_UID/bus"
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.gnome.desktop.input-sources sources "$sources" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      ibus write-cache 2>/dev/null || true
+    if command -v systemctl >/dev/null 2>&1; then
+      sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+        systemctl --user disable fcitx5 2>/dev/null || true
+    fi
+    if pgrep -u "$TARGET_UID" -x ibus-daemon >/dev/null 2>&1; then
+      sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+        ibus restart 2>/dev/null || true
+    fi
+  else
+    su - "$USER" -c "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
+    su - "$USER" -c "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
+    su - "$USER" -c "ibus write-cache" 2>/dev/null || true
+    su - "$USER" -c "systemctl --user disable fcitx5 2>/dev/null || true" || true
+  fi
+  ok "입력 소스 및 엔진 캐시 설정 완료"
+
+  # 3. 프레임워크 및 환경변수 설정
+  log "[3/3] 프레임워크 및 환경변수 설정..."
+  local ENV_FILE="$TARGET_HOME/.config/environment.d/ibus.conf"
+  mkdir -p "$(dirname "$ENV_FILE")"
+  cat > "$ENV_FILE" <<'EOF'
+GTK_IM_MODULE=ibus
+QT_IM_MODULE=ibus
+XMODIFIERS=@im=ibus
+EOF
+  chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
+
+  case "$_ibus_family" in
+    debian|vanilla)
+      if [[ "$_ibus_family" == "debian" ]] && command -v im-config >/dev/null 2>&1; then
+        su - "$USER" -c "im-config -n ibus" 2>/dev/null || warn "im-config -n ibus 실패 (수동으로 입력기를 ibus로 선택하세요)"
+      fi
+      local XSESSION_FILE="$TARGET_HOME/.xsessionrc"
+      if ! grep -q "GTK_IM_MODULE=ibus" "$XSESSION_FILE" 2>/dev/null; then
+        cat >> "$XSESSION_FILE" <<'EOF'
+
+# ibus 환경변수
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+EOF
+        chown "$USER:$USER" "$XSESSION_FILE"
+      fi
+      ;;
+    fedora|opensuse|opensuse-transactional)
+      if [[ -f /etc/X11/xinit/xinput.d/ibus.conf ]] && command -v alternatives >/dev/null 2>&1; then
+        alternatives --set xinputrc /etc/X11/xinit/xinput.d/ibus.conf 2>/dev/null || true
+      fi
+      if [[ -S "/run/user/$TARGET_UID/bus" ]] && command -v systemctl >/dev/null 2>&1; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+          systemctl --user enable ibus 2>/dev/null || true
+      else
+        su - "$USER" -c "systemctl --user enable ibus 2>/dev/null || true" || true
+      fi
+      local PROFILE_FILE="$TARGET_HOME/.bash_profile"
+      [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+      if ! grep -q "GTK_IM_MODULE=ibus" "$PROFILE_FILE" 2>/dev/null; then
+        cat >> "$PROFILE_FILE" <<'EOF'
+
+# ibus 환경변수
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+EOF
+        chown "$USER:$USER" "$PROFILE_FILE"
+      fi
+      ;;
+    fedora-atomic)
+      local PROFILE_FILE="$TARGET_HOME/.bash_profile"
+      [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+      if ! grep -q "GTK_IM_MODULE=ibus" "$PROFILE_FILE" 2>/dev/null; then
+        cat >> "$PROFILE_FILE" <<'EOF'
+
+# ibus 환경변수
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+EOF
+        chown "$USER:$USER" "$PROFILE_FILE"
+      fi
+      ;;
+    arch|steamos)
+      local XPROFILE_FILE="$TARGET_HOME/.xprofile"
+      if ! grep -q "GTK_IM_MODULE=ibus" "$XPROFILE_FILE" 2>/dev/null; then
+        cat >> "$XPROFILE_FILE" <<'EOF'
+
+# ibus 환경변수
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+EOF
+        chown "$USER:$USER" "$XPROFILE_FILE"
+      fi
+      ;;
+  esac
+
+  if [[ "$_ibus_family" != "debian" && "$_ibus_family" != "vanilla" && ! "${DESKTOP,,}" == *"gnome"* ]]; then
+    local ADIR="$TARGET_HOME/.config/autostart"
+    mkdir -p "$ADIR"
+    cat > "$ADIR/ibus-daemon.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=IBus Daemon
+Exec=ibus-daemon -drxR
+NotShowIn=GNOME;
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+    chown -R "$USER:$USER" "$ADIR"
+    ok "비-GNOME 데스크톱용 ibus-daemon 자동시작 등록 (NotShowIn=GNOME;)"
+  fi
+  ok "환경변수 설정 완료"
+
+  # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
+  local GUIDE_DIR="$TARGET_HOME/.local/bin"
+  local GUIDE_BIN="$GUIDE_DIR/hangul-first-login-guide.sh"
+  local GUIDE_DESK="$TARGET_HOME/.config/autostart/hangul-first-login-guide.desktop"
+  mkdir -p "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  cat > "$GUIDE_BIN" <<'GUIDE_EOF'
+#!/usr/bin/env bash
+sleep 2
+TITLE="리눅스 한글 입력기 안내"
+MSG="🎉 ibus-hangul (GNOME 친화 대안 입력기) 한글 입력기(ibus-hangul) 설정이 완료되었습니다!
+
+⌨️  전환: Super+Space 또는 한/영 키
+⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)
+📝 로그: /var/log/install-ibus-ibus-fedora.log
+
+(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
+
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "$TITLE" --msgbox "$MSG" 2>/dev/null
+elif command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="$TITLE" --text="$MSG" --width=480 2>/dev/null
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send -u critical -t 20000 "$TITLE" "$MSG" 2>/dev/null
+fi
+rm -f "$HOME/.config/autostart/hangul-first-login-guide.desktop"
+rm -f "$0"
+GUIDE_EOF
+  chmod +x "$GUIDE_BIN"
+
+  cat > "$GUIDE_DESK" <<GUIDE_DSK_EOF
+[Desktop Entry]
+Type=Application
+Name=Hangul First Login Guide
+Exec=$GUIDE_BIN
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+GUIDE_DSK_EOF
+  chown -R "$USER:$USER" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  echo
+  echo "============================================================"
+  if [[ "$_need_reboot" == "true" ]]; then
+    echo " 🎉 ibus-hangul 설치 완료! 불변 OS이므로 반드시 재부팅하세요 (systemctl reboot)."
+  else
+    echo " 🎉 ibus-hangul 설치 완료! 로그아웃 후 다시 로그인하세요."
+  fi
+  echo " 전환: Super+Space 또는 한/영 키"
+  echo " 세부 설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)"
+  echo " 로그: $LOG_FILE"
+  echo "============================================================"
+}
+main "$@"

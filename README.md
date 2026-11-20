@@ -1,4 +1,4 @@
-# 리눅스 한글 입력기 자동 설치 스크립트 (`fcitx5-hangul` / `kime`)
+# 리눅스 한글 입력기 자동 설치 스크립트 (`fcitx5-hangul` / `ibus-hangul` / `kime`)
 
 🌐 **🇰🇷 한국어** | [🇺🇸 English Docs (README.en.md)](README.en.md) | [🌐 웹 생성기 (is.gd/korean_input)](https://is.gd/korean_input)
 
@@ -22,7 +22,9 @@ curl -fsSL https://raw.githubusercontent.com/stream9k/korean_input/main/install.
 wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.sh | sudo bash
 ```
 
-> 🛡️ **실행 전 변경 내역 확인**: 스크립트는 시스템을 먼저 조사해 감지된 환경(OS·데스크톱·기존 입력기)과 설치/수정할 패키지·설정 파일을 출력한 뒤 `[y/N]` 확인을 받습니다. 무인 실행 시에는 `-s -- --yes`(로컬 실행 시 `--yes` 또는 `-y`) 옵션을 추가하세요.
+> 🛡️ **실행 전 변경 내역 확인**: 스크립트는 시스템을 먼저 조사해 감지된 환경(OS·데스크톱·기존 입력기)과 권장 입력기(`fcitx5-hangul`, RHEL 계열은 `ibus-hangul`), 설치/수정할 패키지·설정 파일을 출력한 뒤 `[y/N/ibus]`(또는 `[y/N]`) 확인을 받습니다.
+> * IBus를 원하시면 확인 프롬프트에서 **`ibus`** 를 입력하거나 `--ibus` 옵션(`... | sudo bash -s -- --ibus`)으로 바로 전환할 수 있습니다.
+> * 무인 실행 시에는 `-s -- --yes`(로컬 실행 시 `--yes` 또는 `-y`) 옵션을 추가하세요.
 
 ### 설치 완료 후
 1. **로그아웃 후 다시 로그인 (또는 재부팅)**합니다.
@@ -49,7 +51,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 
 ## 📌 주요 배포판별 전용 명령어
 
-자동 감지 대신 특정 배포판 전용 스크립트를 바로 실행하려면 아래 명령어를 사용하세요. (전체 18개 패밀리, 190개 스크립트 지원)
+자동 감지 대신 특정 배포판 전용 스크립트를 바로 실행하려면 아래 명령어를 사용하세요. (전체 19개 패밀리, 194개 스크립트 지원)
 
 | 배포판 | 데스크톱 / 에디션 | 입력기 | 전용 원라인 명령어 |
 |:---|:---|:---|:---|
@@ -68,7 +70,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 | **NixOS** | GNOME / KDE 등 | `fcitx5` | [scripts/nixos/](scripts/nixos/) 설정 조각을 `configuration.nix`에 병합 |
 
 <details>
-<summary>📂 전체 지원 배포판 및 190개 스크립트 목록 펼치기</summary>
+<summary>📂 전체 지원 배포판 및 194개 스크립트 목록 펼치기</summary>
 
 * **Debian / Ubuntu 계열 (75개)**: Mint, LMDE, Ubuntu, Kubuntu, Debian, Pop!_OS, Zorin OS, elementary OS, Sparky, Bodhi, Peppermint, Voyager, BunsenLabs, MX Linux, Kali, Parrot, Q4OS 등
 * **Arch 계열 (41개)**: Arch Linux, EndeavourOS, Garuda, Manjaro, CachyOS, Mabox, Artix, BigLinux, Archcraft 등
@@ -78,6 +80,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 * **NixOS 계열 (6개)**: GNOME, KDE, Hyprland, Sway, Minimal 등
 * **엔터프라이즈 RHEL 계열 (5개)**: RHEL, Rocky Linux, AlmaLinux, CentOS Stream, Oreon (`ibus-hangul` 표준 구성)
 * **독립/경량 배포판 (24개)**: Void Linux, Alpine Linux, Solus, Gentoo, Mageia, KaOS, Guix 등
+* **ibus-hangul 대안 입력기 (4개)**: GNOME 친화 `ibus-hangul` 범용 스크립트 (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE)
 * **kime 대안 입력기 (4개)**: Rust 기반의 `kime` 전용 스크립트 (Debian, Fedora, Arch, openSUSE)
 
 </details>
@@ -166,12 +169,12 @@ sudo bash install.sh
 
 ## 🏗️ 아키텍처 및 패밀리별 구현 참고
 
-* **`index.html`**: 단일 정적 HTML 웹 생성기 (한국어/영어 다국어 지원, `DISTRO_DATA` 및 `SCRIPT_TEMPLATES` 내장)
-* **`install.sh`**: 18개 패밀리를 자동 감지해 설치하는 만능 올인원 스크립트
-* **`generate_scripts.js` & `scripts/`**: `index.html`의 템플릿을 기반으로 `scripts/<family>/` 아래 190개 배포판별 `.sh` / `.nix` 파일을 일괄 생성
+* **`index.html` & `js/{data,templates,app}.js`**: 빌드 도구 없는 정적 HTML + 모듈형 JS 웹 생성기 (한국어/영어 다국어 지원, `DISTRO_DATA` 및 `SCRIPT_TEMPLATES` 내장)
+* **`install.sh`**: 18개 배포판 패밀리를 자동 감지하고 권장 입력기(`fcitx5-hangul` / RHEL: `ibus-hangul`) 및 선택적 `ibus` 전환을 지원하는 만능 올인원 스크립트
+* **`generate_scripts.js` & `scripts/`**: `js/data.js`·`js/templates.js`를 기반으로 `scripts/<family>/` 아래 194개 배포판별 `.sh` / `.nix` 파일을 일괄 생성
 
 <details>
-<summary>📋 18개 패밀리별 구현 차이 및 미지원 OS 40종 기준 펼치기</summary>
+<summary>📋 19개 패밀리별 구현 차이 및 미지원 OS 40종 기준 펼치기</summary>
 
 ### 스크립트 패밀리별 핵심 구현 차이
 
@@ -194,6 +197,7 @@ sudo bash install.sh
 | **vanilla** | Vanilla OS 2 Orchid | `abroot` | 환경변수 + autostart | `~/.config/environment.d/fcitx5.conf` | ABRoot 불변 Debian, 설치 후 **재부팅 필수** |
 | **alt** | ALT Linux | `apt-get` (`apt-rpm`) | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.xprofile` | `apt-rpm` 패키지 구성 적용 |
 | **guix** | Guix System | `guix` | 수동 (`guix install`) | `~/.bash_profile` (`GUIX_PROFILE`) | GNU Guix 사용자 프로필 설치 및 `config.scm` 안내 |
+| **ibus** | 전체 (GNOME 친화 대안) | 각자 | `im-config` / `gsettings` / `alternatives` | `~/.config/environment.d/ibus.conf` | GNOME 통합 친화 대안, Debian/Fedora/Arch/openSUSE 범용 분기 |
 | **kime** | 전체 (대안) | 각자 | 수동 | `~/.config/environment.d/kime.conf` | Rust 기반, Wayland 네이티브, AUR/COPR/.deb/zypper 분기 |
 
 ### 제외(미지원) 대상 40종 및 사유
