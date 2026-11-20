@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.1.4"
+SCRIPT_VERSION="1.1.5"
 LOG_FILE="/var/log/install-hangul-siduction.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 
