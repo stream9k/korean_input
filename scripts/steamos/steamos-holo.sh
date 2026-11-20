@@ -140,6 +140,63 @@ Hidden=false
 NoDisplay=false
 EOF
   chown -R "$USER:$USER" "$ADIR"
+
+  # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
+  local _kde_detected=true
+  if [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     command -v kwriteconfig6 >/dev/null 2>&1 || \
+     command -v kwriteconfig5 >/dev/null 2>&1 || \
+     [[ -f "$TARGET_HOME/.config/kwinrc" ]]; then
+    _kde_detected=true
+  fi
+  if [[ "$_kde_detected" == "true" ]]; then
+    local _fcitx5_desktop="/usr/share/applications/org.fcitx.Fcitx5.desktop"
+    if [[ -f /usr/share/applications/fcitx5-wayland-launcher.desktop ]]; then
+      _fcitx5_desktop="/usr/share/applications/fcitx5-wayland-launcher.desktop"
+    fi
+    local _kwinrc="$TARGET_HOME/.config/kwinrc"
+    mkdir -p "$TARGET_HOME/.config"
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_kwinrc" --group Wayland --key InputMethod "$_fcitx5_desktop" 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_kwinrc" --group Wayland --key InputMethod "$_fcitx5_desktop" 2>/dev/null || true
+    elif [[ -f "$_kwinrc" ]]; then
+      awk -v im="$_fcitx5_desktop" '
+        BEGIN { in_wayland=0; found_wayland=0; updated=0 }
+        /^\[Wayland\]$/ { in_wayland=1; found_wayland=1; print; next }
+        /^\[/ {
+          if (in_wayland && !updated) { print "InputMethod=" im; updated=1 }
+          in_wayland=0; print; next
+        }
+        in_wayland && /^InputMethod(\[\$e\])?=/ {
+          if (!updated) { print "InputMethod=" im; updated=1 }
+          next
+        }
+        { print }
+        END {
+          if (in_wayland && !updated) { print "InputMethod=" im }
+          else if (!found_wayland) { print ""; print "[Wayland]"; print "InputMethod=" im }
+        }
+      ' "$_kwinrc" > "${_kwinrc}.tmp" && mv "${_kwinrc}.tmp" "$_kwinrc"
+    else
+      printf '[Wayland]\nInputMethod=%s\n' "$_fcitx5_desktop" > "$_kwinrc"
+    fi
+    chown "$USER:$USER" "$TARGET_HOME/.config" "$_kwinrc" 2>/dev/null || true
+    local _kde_uid
+    _kde_uid=$(id -u "$USER" 2>/dev/null || echo "")
+    if [[ -n "$_kde_uid" && -S "/run/user/$_kde_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _qdbus=""
+      if command -v qdbus6 >/dev/null 2>&1; then _qdbus="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then _qdbus="qdbus"
+      fi
+      if [[ -n "$_qdbus" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_kde_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_kde_uid/bus" \
+          "$_qdbus" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    ok "KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 ($_fcitx5_desktop)"
+  fi
+
   ok "사용자 설정 완료"
 
   # 4. 읽기 전용 복구
@@ -150,7 +207,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 SteamOS 설치 완료! 재로그인 또는 재부팅 필요"
-  echo " KDE: 시스템설정 → 입력장치 → 가상키보드 → Fcitx 5 선택"
+  echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " 참고: SteamOS 메이저 업데이트 시 루트 패키지가 초기화될 수 있습니다."
   echo "============================================================"
 }

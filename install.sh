@@ -245,6 +245,82 @@ EOF
   ok "$(msg "Fcitx5 자동시작 등록 완료" "Registered Fcitx5 autostart entry")"
 }
 
+configure_kde_virtual_keyboard() {
+  local target_home="$1"
+  local uid="$2"
+  local gid="$3"
+  local user="$4"
+  local desktop="$5"
+
+  local is_kde=false
+  if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    is_kde=true
+  elif command -v kwriteconfig6 >/dev/null 2>&1 || command -v kwriteconfig5 >/dev/null 2>&1 || [[ -f "$target_home/.config/kwinrc" ]]; then
+    is_kde=true
+  fi
+
+  if [[ "$is_kde" != "true" ]]; then
+    return 0
+  fi
+
+  local fcitx5_desktop=""
+  if [[ -f /usr/share/applications/fcitx5-wayland-launcher.desktop ]]; then
+    fcitx5_desktop="/usr/share/applications/fcitx5-wayland-launcher.desktop"
+  elif [[ -f /usr/share/applications/org.fcitx.Fcitx5.desktop ]]; then
+    fcitx5_desktop="/usr/share/applications/org.fcitx.Fcitx5.desktop"
+  else
+    fcitx5_desktop="/usr/share/applications/org.fcitx.Fcitx5.desktop"
+  fi
+
+  local config_dir="$target_home/.config"
+  local kwinrc="$config_dir/kwinrc"
+  mkdir -p "$config_dir"
+
+  if command -v kwriteconfig6 >/dev/null 2>&1; then
+    kwriteconfig6 --file "$kwinrc" --group Wayland --key InputMethod "$fcitx5_desktop" 2>/dev/null || true
+  elif command -v kwriteconfig5 >/dev/null 2>&1; then
+    kwriteconfig5 --file "$kwinrc" --group Wayland --key InputMethod "$fcitx5_desktop" 2>/dev/null || true
+  elif [[ -f "$kwinrc" ]]; then
+    awk -v im="$fcitx5_desktop" '
+      BEGIN { in_wayland=0; found_wayland=0; updated=0 }
+      /^\[Wayland\]$/ { in_wayland=1; found_wayland=1; print; next }
+      /^\[/ {
+        if (in_wayland && !updated) { print "InputMethod=" im; updated=1 }
+        in_wayland=0; print; next
+      }
+      in_wayland && /^InputMethod(\[\$e\])?=/ {
+        if (!updated) { print "InputMethod=" im; updated=1 }
+        next
+      }
+      { print }
+      END {
+        if (in_wayland && !updated) { print "InputMethod=" im }
+        else if (!found_wayland) { print ""; print "[Wayland]"; print "InputMethod=" im }
+      }
+    ' "$kwinrc" > "${kwinrc}.tmp" && mv "${kwinrc}.tmp" "$kwinrc"
+  else
+    printf '[Wayland]\nInputMethod=%s\n' "$fcitx5_desktop" > "$kwinrc"
+  fi
+
+  chown "$uid:$gid" "$config_dir" "$kwinrc" 2>/dev/null || true
+
+  # 실행 중인 KDE 세션이 있으면 KWin 설정 즉시 리로드 시도
+  if [[ -n "$user" && -S "/run/user/$uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+    local qdbus_cmd=""
+    if command -v qdbus6 >/dev/null 2>&1; then
+      qdbus_cmd="qdbus6"
+    elif command -v qdbus >/dev/null 2>&1; then
+      qdbus_cmd="qdbus"
+    fi
+    if [[ -n "$qdbus_cmd" ]]; then
+      sudo -u "$user" XDG_RUNTIME_DIR="/run/user/$uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$uid/bus" \
+        "$qdbus_cmd" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+    fi
+  fi
+
+  ok "$(msg "KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 ($fcitx5_desktop)" "Auto-configured KDE Plasma Virtual Keyboard to Fcitx 5 ($fcitx5_desktop)")"
+}
+
 register_first_login_guide() {
   local target_home="$1"
   local target_uid="$2"
@@ -265,7 +341,7 @@ register_first_login_guide() {
     title="리눅스 한글 입력기 안내"
     msg="🎉 리눅스 한글 입력기 설정이 완료되었습니다!\n\n"
     if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
-      msg+="🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택\n"
+      msg+="🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드에서 확인)\n"
     fi
     if [[ "$family" == "rhel-family" ]]; then
       msg+="⌨️  전환 단축키: Super+Space 또는 한/영 키\n"
@@ -282,7 +358,7 @@ register_first_login_guide() {
     title="Linux Korean Input Guide"
     msg="🎉 Korean Input Method setup complete!\n\n"
     if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
-      msg+="🖥️  KDE Plasma Extra Step: System Settings -> Input Devices -> Virtual Keyboard -> Select Fcitx 5\n"
+      msg+="🖥️  KDE Plasma Virtual Keyboard (Fcitx 5) auto-configured (if inactive, check System Settings -> Input Devices -> Virtual Keyboard)\n"
     fi
     if [[ "$family" == "rhel-family" ]]; then
       msg+="⌨️  Toggle: Super+Space or Hangul key\n"
@@ -823,6 +899,11 @@ EOF
       ;;
   esac
 
+  # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 (RHEL/IBus 제외)
+  if [[ "$FAMILY" != "rhel-family" ]]; then
+    configure_kde_virtual_keyboard "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$TARGET_USER" "$DESKTOP"
+  fi
+
   # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록
   register_first_login_guide "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$IS_KO" "$FAMILY" "$DESKTOP" 
 
@@ -839,7 +920,7 @@ EOF
       echo " ⌨️  전환: Super+Space 또는 한/영 키 | 세부 설정: ibus-setup"
     else
       if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
-        echo " 🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택"
+        echo " 🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)"
       fi
       echo " ⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space"
       echo " 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R)를 전환키로 추가할 수 있습니다."
@@ -858,7 +939,7 @@ EOF
       echo " ⌨️  Toggle: Super+Space or Hangul key | Config: ibus-setup"
     else
       if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
-        echo " 🖥️  KDE Plasma Extra Step: System Settings -> Input Devices -> Virtual Keyboard -> Select 'Fcitx 5'"
+        echo " 🖥️  KDE Plasma Virtual Keyboard (Fcitx 5) auto-configured (if inactive, check System Settings -> Input Devices -> Virtual Keyboard)"
       fi
       echo " ⌨️  Toggle keys: Hangul key, Ctrl+Space, Shift+Space"
       echo " 💡 US Keyboard tip: You can bind Right Alt (Alt_R) in 'fcitx5-configtool' -> Global Options."

@@ -142,14 +142,69 @@ EOF
   su - "$USER" -c "systemctl --user enable fcitx5 2>/dev/null || true" || true
   ok "자동시작 등록"
 
-  # 5. KDE Plasma 특화 안내
-  log "[5/5] 데스크톱별 안내..."
+  # 5. KDE Plasma 가상 키보드 자동 설정 및 데스크톱별 안내
+  log "[5/5] 데스크톱별 마무리..."
+
+  # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
+  local _kde_detected=true
+  if [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     command -v kwriteconfig6 >/dev/null 2>&1 || \
+     command -v kwriteconfig5 >/dev/null 2>&1 || \
+     [[ -f "$TARGET_HOME/.config/kwinrc" ]]; then
+    _kde_detected=true
+  fi
+  if [[ "$_kde_detected" == "true" ]]; then
+    local _fcitx5_desktop="/usr/share/applications/org.fcitx.Fcitx5.desktop"
+    if [[ -f /usr/share/applications/fcitx5-wayland-launcher.desktop ]]; then
+      _fcitx5_desktop="/usr/share/applications/fcitx5-wayland-launcher.desktop"
+    fi
+    local _kwinrc="$TARGET_HOME/.config/kwinrc"
+    mkdir -p "$TARGET_HOME/.config"
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_kwinrc" --group Wayland --key InputMethod "$_fcitx5_desktop" 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_kwinrc" --group Wayland --key InputMethod "$_fcitx5_desktop" 2>/dev/null || true
+    elif [[ -f "$_kwinrc" ]]; then
+      awk -v im="$_fcitx5_desktop" '
+        BEGIN { in_wayland=0; found_wayland=0; updated=0 }
+        /^\[Wayland\]$/ { in_wayland=1; found_wayland=1; print; next }
+        /^\[/ {
+          if (in_wayland && !updated) { print "InputMethod=" im; updated=1 }
+          in_wayland=0; print; next
+        }
+        in_wayland && /^InputMethod(\[\$e\])?=/ {
+          if (!updated) { print "InputMethod=" im; updated=1 }
+          next
+        }
+        { print }
+        END {
+          if (in_wayland && !updated) { print "InputMethod=" im }
+          else if (!found_wayland) { print ""; print "[Wayland]"; print "InputMethod=" im }
+        }
+      ' "$_kwinrc" > "${_kwinrc}.tmp" && mv "${_kwinrc}.tmp" "$_kwinrc"
+    else
+      printf '[Wayland]\nInputMethod=%s\n' "$_fcitx5_desktop" > "$_kwinrc"
+    fi
+    chown "$USER:$USER" "$TARGET_HOME/.config" "$_kwinrc" 2>/dev/null || true
+    local _kde_uid
+    _kde_uid=$(id -u "$USER" 2>/dev/null || echo "")
+    if [[ -n "$_kde_uid" && -S "/run/user/$_kde_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _qdbus=""
+      if command -v qdbus6 >/dev/null 2>&1; then _qdbus="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then _qdbus="qdbus"
+      fi
+      if [[ -n "$_qdbus" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_kde_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_kde_uid/bus" \
+          "$_qdbus" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    ok "KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 ($_fcitx5_desktop)"
+  fi
+
   local DESKTOP="${XDG_CURRENT_DESKTOP:-}"
-  if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
-    info "KDE Plasma: 시스템설정 → 입력장치 → 가상키보드 → Fcitx 5 선택 후 재로그인"
-  elif [[ "$DESKTOP" =~ [Gg][Nn][Oo][Mm][Ee] ]]; then
+  if [[ "$DESKTOP" =~ [Gg][Nn][Oo][Mm][Ee] ]]; then
     info "GNOME: 재로그인 후 자동 적용 (환경변수 상속)"
-  else
+  elif ! [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
     info "타 WM/DE: ~/.xprofile 또는 ~/.xinitrc 에 환경변수 추가 후 재시작"
   fi
 
@@ -166,7 +221,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 기타 Arch Linux 파생 (Generic Arch) 한글 입력기 설정이 완료되었습니다!
 
-🖥️  KDE Plasma 추가 설정: 시스템 설정 → 입력 장치 → 가상 키보드 → Fcitx 5 선택
+🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)
 
 ⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능

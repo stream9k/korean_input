@@ -26,7 +26,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 ### After Installation
 1. **Log out and log back in** (or reboot).
 2. Press `Hangul` or `Ctrl + Space` to toggle Korean input.
-   * 🖥 **KDE Plasma Users**: Open `System Settings → Input Devices → Virtual Keyboard`, select **Fcitx 5**, and click Apply.
+   * 🖥 **KDE Plasma Users**: The installer automatically sets the Virtual Keyboard to **Fcitx 5** in `~/.config/kwinrc`. (If it is not active after re-login, verify it under `System Settings → Input Devices → Virtual Keyboard`.)
    * ⌨️ **US Keyboards (Right Alt)**: Open `fcitx5-configtool` → **Global Options** → **Trigger Input Method** and press `Right Alt` (`Alt_R`) to add it as a toggle key.
    * 💡 **Firefox Menu Bar Conflict (Right Alt triggers both menu dropdown & Hangul)**:
      * If pressing Right Alt pops up the app menu in Firefox while toggling Korean, remap Right Alt at the XKB hardware level:
