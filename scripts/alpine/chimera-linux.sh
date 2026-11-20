@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 LOG_FILE="/var/log/install-hangul-chimera-linux.log"
 
 LOG_ENABLED=false
@@ -103,6 +103,181 @@ detect_existing_ime() {
     echo "감지된 입력기 없음"
   else
     echo "$_pf_found"
+  fi
+}
+
+has_conflicting_ime() {
+  _hc_target="$1"
+  _hc_existing="$2"
+  case "$_hc_target" in
+    fcitx5)
+      case "$_hc_existing" in
+        *ibus-daemon*|*kime*|*"fcitx ("*) return 0 ;;
+      esac
+      ;;
+    ibus)
+      case "$_hc_existing" in
+        *fcitx5*|*"fcitx ("*|*kime*) return 0 ;;
+      esac
+      ;;
+    kime)
+      case "$_hc_existing" in
+        *fcitx5*|*"fcitx ("*|*ibus-daemon*) return 0 ;;
+      esac
+      ;;
+  esac
+  return 1
+}
+
+append_conflict_ime_warn() {
+  _cw_target="$1"
+  _cw_existing="$2"
+  _cw_base="${3:-}"
+  _cw_w=""
+  if has_conflicting_ime "$_cw_target" "$_cw_existing"; then
+    _cw_w=" ⚠️  참고: 기존 입력기(${_cw_existing})가 감지되었습니다. 기존 입력기가 새 입력기와 충돌할 수 있으므로 기존 입력기 설정(자동시작·서비스·환경변수)을 자동으로 비활성화하겠습니다."
+  fi
+  if [ -n "$_cw_base" ] && [ -n "$_cw_w" ]; then
+    printf '%s\n%s' "$_cw_base" "$_cw_w"
+  elif [ -n "$_cw_base" ]; then
+    printf '%s' "$_cw_base"
+  else
+    printf '%s' "$_cw_w"
+  fi
+}
+
+disable_conflicting_imes() {
+  _dc_target="$1"
+  _dc_user="$2"
+  _dc_home="$3"
+  _dc_uid="$4"
+  _dc_desk="$5"
+  _dc_gid=$(id -g "$_dc_user" 2>/dev/null || echo "$_dc_uid")
+  _dc_changed=false
+  _dc_gnome=false
+  case "$_dc_desk" in
+    *[Gg][Nn][Oo][Mm][Ee]*) _dc_gnome=true ;;
+  esac
+
+  _dc_adir="$_dc_home/.config/autostart"
+  _dc_edir="$_dc_home/.config/environment.d"
+  _dc_tdesks=""
+  _dc_svcs=""
+  _dc_procs=""
+  _dc_desks=""
+  _dc_econfs=""
+  _dc_im_re=""
+  _dc_kwin_re=""
+
+  case "$_dc_target" in
+    fcitx5)
+      _dc_tdesks="org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5.desktop fcitx5-autostart.desktop"
+      _dc_svcs="ibus kime kime-daemon fcitx"
+      _dc_procs="fcitx kime kime-daemon kime-indicator kime-wayland kime-xim"
+      [ "$_dc_gnome" != "true" ] && _dc_procs="$_dc_procs ibus-daemon"
+      _dc_desks="ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop"
+      _dc_econfs="ibus.conf kime.conf fcitx.conf"
+      _dc_im_re="(ibus|kime)"
+      _dc_kwin_re="(ibus|kime)"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  for _dc_td in $_dc_tdesks; do
+    if [ -f "$_dc_adir/$_dc_td" ] && grep -q '^Hidden=true$' "$_dc_adir/$_dc_td" 2>/dev/null; then
+      rm -f "$_dc_adir/$_dc_td"
+    fi
+  done
+
+  if command -v systemctl >/dev/null 2>&1; then
+    for _dc_s in $_dc_svcs; do
+      if [ -S "/run/user/$_dc_uid/bus" ] && command -v sudo >/dev/null 2>&1; then
+        _dc_bus="unix:path=/run/user/$_dc_uid/bus"
+        if sudo -u "$_dc_user" XDG_RUNTIME_DIR="/run/user/$_dc_uid" DBUS_SESSION_BUS_ADDRESS="$_dc_bus"              systemctl --user is-enabled "$_dc_s" >/dev/null 2>&1 ||            sudo -u "$_dc_user" XDG_RUNTIME_DIR="/run/user/$_dc_uid" DBUS_SESSION_BUS_ADDRESS="$_dc_bus"              systemctl --user is-active "$_dc_s" >/dev/null 2>&1; then
+          sudo -u "$_dc_user" XDG_RUNTIME_DIR="/run/user/$_dc_uid" DBUS_SESSION_BUS_ADDRESS="$_dc_bus"             systemctl --user disable --now "$_dc_s" 2>/dev/null || true
+          _dc_changed=true
+        fi
+      else
+        if su - "$_dc_user" -c "systemctl --user is-enabled $_dc_s >/dev/null 2>&1" 2>/dev/null; then
+          su - "$_dc_user" -c "systemctl --user disable $_dc_s 2>/dev/null || true" || true
+          _dc_changed=true
+        fi
+      fi
+    done
+  fi
+
+  for _dc_p in $_dc_procs; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_dc_uid" -x "$_dc_p" >/dev/null 2>&1; then
+      pkill -u "$_dc_uid" -x "$_dc_p" 2>/dev/null || true
+      _dc_changed=true
+    fi
+  done
+
+  for _dc_d in $_dc_desks; do
+    if [ -f "/etc/xdg/autostart/$_dc_d" ]; then
+      if [ ! -f "$_dc_adir/$_dc_d" ] || ! grep -q '^Hidden=true$' "$_dc_adir/$_dc_d" 2>/dev/null; then
+        mkdir -p "$_dc_adir"
+        cat > "$_dc_adir/$_dc_d" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Disabled IME
+Hidden=true
+X-GNOME-Autostart-enabled=false
+EOF
+        chown "$_dc_uid:$_dc_gid" "$_dc_adir" "$_dc_adir/$_dc_d" 2>/dev/null || true
+        _dc_changed=true
+      fi
+    elif [ -f "$_dc_adir/$_dc_d" ]; then
+      mv -f "$_dc_adir/$_dc_d" "$_dc_adir/${_dc_d}.disabled"
+      chown "$_dc_uid:$_dc_gid" "$_dc_adir/${_dc_d}.disabled" 2>/dev/null || true
+      _dc_changed=true
+    fi
+  done
+
+  for _dc_ec in $_dc_econfs; do
+    if [ -f "$_dc_edir/$_dc_ec" ]; then
+      mv -f "$_dc_edir/$_dc_ec" "$_dc_edir/${_dc_ec}.disabled"
+      chown "$_dc_uid:$_dc_gid" "$_dc_edir/${_dc_ec}.disabled" 2>/dev/null || true
+      _dc_changed=true
+    fi
+  done
+
+  _dc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_dc_im_re}['\"]?|XMODIFIERS=['\"]?@im=${_dc_im_re}['\"]?)[[:space:]]*(#.*)?$"
+  for _dc_ef in /etc/environment "$_dc_home/.xsessionrc" "$_dc_home/.xprofile" "$_dc_home/.bash_profile" "$_dc_home/.profile"; do
+    if [ -f "$_dc_ef" ] && [ -w "$_dc_ef" ] && grep -qE "$_dc_env_re" "$_dc_ef" 2>/dev/null; then
+      grep -Ev "$_dc_env_re" "$_dc_ef" > "${_dc_ef}.tmp" || true
+      cat "${_dc_ef}.tmp" > "$_dc_ef"
+      rm -f "${_dc_ef}.tmp"
+      if [ "$_dc_ef" != "/etc/environment" ]; then
+        chown "$_dc_uid:$_dc_gid" "$_dc_ef" 2>/dev/null || true
+      fi
+      _dc_changed=true
+    fi
+  done
+
+  _dc_kwin="$_dc_home/.config/kwinrc"
+  if [ -f "$_dc_kwin" ] && grep -qE '^InputMethod(\[\$e\])?=.*'"${_dc_kwin_re}" "$_dc_kwin" 2>/dev/null; then
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_dc_kwin" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_dc_kwin" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    else
+      awk '
+        BEGIN { in_wayland=0 }
+        /^\[Wayland\]$/ { in_wayland=1; print; next }
+        /^\[/ { in_wayland=0; print; next }
+        in_wayland && /^InputMethod(\[\$e\])?=/ { next }
+        { print }
+      ' "$_dc_kwin" > "${_dc_kwin}.tmp" && cat "${_dc_kwin}.tmp" > "$_dc_kwin" && rm -f "${_dc_kwin}.tmp"
+    fi
+    chown "$_dc_uid:$_dc_gid" "$_dc_kwin" 2>/dev/null || true
+    _dc_changed=true
+  fi
+
+  if [ "$_dc_changed" = "true" ]; then
+    ok "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $_dc_target)"
   fi
 }
 
@@ -207,6 +382,7 @@ main() {
   if [ -f "$TARGET_HOME/.config/fcitx5/profile" ] || [ -f "$TARGET_HOME/.config/fcitx5/config" ]; then
     _extra_warn=" ⚠️  참고: 기존 Fcitx5 설정 파일($TARGET_HOME/.config/fcitx5/profile, config)이 덮어써집니다."
   fi
+  _extra_warn=$(append_conflict_ime_warn "fcitx5" "$EXISTING_IME" "$_extra_warn")
 
   confirm_before_changes     "Alpine Linux / Chimera / Nura Chimera Linux (FreeBSD userland + apk)"     "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME"     "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME"     "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
 
@@ -222,6 +398,7 @@ main() {
   apk update
   apk add fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-noto-cjk
   ok "패키지 설치 완료"
+  disable_conflicting_imes "fcitx5" "$USER" "$TARGET_HOME" "$TARGET_UID" "$DESKTOP"
 
   # 2. 환경변수 설정
   log "[2/4] 환경변수 설정..."

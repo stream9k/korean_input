@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -145,9 +145,29 @@ detect_existing_ime() {
   if [[ ${#found[@]} -eq 0 ]]; then
     msg "감지된 입력기 없음" "none detected"
   else
-    local IFS=", "
-    echo "${found[*]}"
+    local out="" item
+    for item in "${found[@]}"; do
+      out="${out:+$out, }$item"
+    done
+    echo "$out"
   fi
+}
+
+has_conflicting_ime() {
+  local target_ime="$1"
+  local existing_ime="$2"
+  case "$target_ime" in
+    fcitx5)
+      [[ "$existing_ime" == *"ibus-daemon"* || "$existing_ime" == *"kime"* || "$existing_ime" == *"fcitx ("* ]] && return 0
+      ;;
+    ibus)
+      [[ "$existing_ime" == *"fcitx5"* || "$existing_ime" == *"fcitx ("* || "$existing_ime" == *"kime"* ]] && return 0
+      ;;
+    kime)
+      [[ "$existing_ime" == *"fcitx5"* || "$existing_ime" == *"fcitx ("* || "$existing_ime" == *"ibus-daemon"* ]] && return 0
+      ;;
+  esac
+  return 1
 }
 
 will_configure_kde() {
@@ -308,11 +328,11 @@ print_preflight_summary_and_confirm() {
           ;;
       esac
 
-      if [[ "$existing_ime" == *"fcitx"* || "$existing_ime" == *"kime"* ]]; then
+      if has_conflicting_ime "ibus" "$existing_ime"; then
         local ime_conflict_msg
         ime_conflict_msg=$(msg \
-          " ⚠️  참고: 기존 입력기($existing_ime)가 감지되었습니다. ibus와 충돌할 수 있으므로 필요 시 기존 입력기를 비활성화하세요." \
-          " ⚠️  Note: Existing IME ($existing_ime) detected. Disable it if needed to avoid conflicts with ibus.")
+          " ⚠️  참고: 기존 입력기($existing_ime)가 감지되었습니다. 기존 입력기가 새 입력기와 충돌할 수 있으므로 기존 입력기 설정(자동시작·서비스·환경변수)을 자동으로 비활성화하겠습니다." \
+          " ⚠️  Note: Existing IME ($existing_ime) detected. Since existing IMEs may conflict with the new input method, conflicting IME settings (autostart, user services, and environment variables) will be automatically disabled.")
         if [[ -n "$extra_warn" ]]; then
           extra_warn+="\n$ime_conflict_msg"
         else
@@ -481,6 +501,18 @@ print_preflight_summary_and_confirm() {
           extra_warn+="\n$ow_msg"
         else
           extra_warn="$ow_msg"
+        fi
+      fi
+
+      if has_conflicting_ime "fcitx5" "$existing_ime"; then
+        local ime_conflict_msg
+        ime_conflict_msg=$(msg \
+          " ⚠️  참고: 기존 입력기($existing_ime)가 감지되었습니다. 기존 입력기가 새 입력기와 충돌할 수 있으므로 기존 입력기 설정(자동시작·서비스·환경변수)을 자동으로 비활성화하겠습니다." \
+          " ⚠️  Note: Existing IME ($existing_ime) detected. Since existing IMEs may conflict with the new input method, conflicting IME settings (autostart, user services, and environment variables) will be automatically disabled.")
+        if [[ -n "$extra_warn" ]]; then
+          extra_warn+="\n$ime_conflict_msg"
+        else
+          extra_warn="$ime_conflict_msg"
         fi
       fi
     fi
@@ -1024,6 +1056,182 @@ steamos_cleanup() {
   fi
 }
 
+disable_conflicting_imes() {
+  local target_ime="$1"
+  local target_user="$2"
+  local target_home="$3"
+  local target_uid="$4"
+  local target_gid="$5"
+  local desktop="$6"
+  local changed=false
+  local is_gnome=false
+  [[ "${desktop,,}" == *"gnome"* ]] && is_gnome=true
+
+  local autostart_dir="$target_home/.config/autostart"
+  local env_dir="$target_home/.config/environment.d"
+  local target_desktops=() svcs=() procs=() desktops=() env_confs=()
+  local im_re="" kwin_re=""
+
+  case "$target_ime" in
+    fcitx5)
+      target_desktops=(org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5.desktop fcitx5-autostart.desktop)
+      svcs=(ibus kime kime-daemon fcitx)
+      procs=(fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
+      [[ "$is_gnome" != "true" ]] && procs+=(ibus-daemon)
+      desktops=(ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop)
+      env_confs=(ibus.conf kime.conf fcitx.conf)
+      im_re="(ibus|kime)"
+      kwin_re="(ibus|kime)"
+      ;;
+    ibus)
+      target_desktops=(ibus.desktop ibus-daemon.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop)
+      svcs=(fcitx5 fcitx kime kime-daemon)
+      procs=(fcitx5 fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
+      desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop kime.desktop)
+      env_confs=(fcitx5.conf fcitx.conf kime.conf)
+      im_re="(fcitx5|fcitx|kime)"
+      kwin_re="(fcitx|kime)"
+      ;;
+    kime)
+      target_desktops=(kime.desktop)
+      svcs=(fcitx5 fcitx ibus)
+      procs=(fcitx5 fcitx)
+      [[ "$is_gnome" != "true" ]] && procs+=(ibus-daemon)
+      desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop ibus.desktop ibus-daemon.desktop)
+      env_confs=(fcitx5.conf fcitx.conf ibus.conf)
+      im_re="(fcitx5|fcitx|ibus)"
+      kwin_re="(fcitx|ibus)"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  # 0. 대상 입력기의 이전 Hidden=true 마스크가 남아있다면 제거
+  local td
+  for td in "${target_desktops[@]}"; do
+    if [[ -f "$autostart_dir/$td" ]] && grep -q '^Hidden=true$' "$autostart_dir/$td" 2>/dev/null; then
+      rm -f "$autostart_dir/$td"
+    fi
+  done
+
+  # 1. 충돌 systemd 사용자 서비스 중지 및 비활성화
+  local svc
+  if command -v systemctl >/dev/null 2>&1; then
+    if [[ -S "/run/user/$target_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local bus="unix:path=/run/user/$target_uid/bus"
+      for svc in "${svcs[@]}"; do
+        if sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+             systemctl --user is-enabled "$svc" >/dev/null 2>&1 || \
+           sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+             systemctl --user is-active "$svc" >/dev/null 2>&1; then
+          sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+            systemctl --user disable --now "$svc" 2>/dev/null || true
+          changed=true
+        fi
+      done
+    else
+      for svc in "${svcs[@]}"; do
+        if su - "$target_user" -c "systemctl --user is-enabled $svc >/dev/null 2>&1" 2>/dev/null; then
+          su - "$target_user" -c "systemctl --user disable $svc 2>/dev/null || true" || true
+          changed=true
+        fi
+      done
+    fi
+  fi
+
+  # 2. 실행 중인 충돌 입력기 프로세스 종료
+  local p
+  for p in "${procs[@]}"; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$target_uid" -x "$p" >/dev/null 2>&1; then
+      pkill -u "$target_uid" -x "$p" 2>/dev/null || true
+      changed=true
+    fi
+  done
+
+  # 3. XDG autostart 비활성화 (시스템 파일은 Hidden=true 마스킹, 사용자 파일은 .disabled 백업)
+  local desk
+  for desk in "${desktops[@]}"; do
+    if [[ -f "/etc/xdg/autostart/$desk" ]]; then
+      if [[ ! -f "$autostart_dir/$desk" ]] || ! grep -q '^Hidden=true$' "$autostart_dir/$desk" 2>/dev/null; then
+        mkdir -p "$autostart_dir"
+        cat > "$autostart_dir/$desk" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Disabled IME
+Hidden=true
+X-GNOME-Autostart-enabled=false
+EOF
+        chown "$target_uid:$target_gid" "$autostart_dir" "$autostart_dir/$desk" 2>/dev/null || true
+        changed=true
+      fi
+    elif [[ -f "$autostart_dir/$desk" ]]; then
+      mv -f "$autostart_dir/$desk" "$autostart_dir/${desk}.disabled"
+      chown "$target_uid:$target_gid" "$autostart_dir/${desk}.disabled" 2>/dev/null || true
+      changed=true
+    fi
+  done
+
+  # 4. environment.d 충돌 파일 비활성화 (.conf.disabled 백업)
+  local econf
+  for econf in "${env_confs[@]}"; do
+    if [[ -f "$env_dir/$econf" ]]; then
+      mv -f "$env_dir/$econf" "$env_dir/${econf}.disabled"
+      chown "$target_uid:$target_gid" "$env_dir/${econf}.disabled" 2>/dev/null || true
+      changed=true
+    fi
+  done
+
+  # 5. /etc/environment 및 사용자 셸/세션 프로필에서 충돌 IM 환경변수 줄 정리
+  local env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${im_re}['\"]?|XMODIFIERS=['\"]?@im=${im_re}['\"]?)[[:space:]]*(#.*)?$"
+  local ef
+  for ef in /etc/environment "$target_home/.xsessionrc" "$target_home/.xprofile" "$target_home/.bash_profile" "$target_home/.profile"; do
+    if [[ -f "$ef" && -w "$ef" ]] && grep -qE "$env_line_re" "$ef" 2>/dev/null; then
+      grep -Ev "$env_line_re" "$ef" > "${ef}.tmp" || true
+      cat "${ef}.tmp" > "$ef"
+      rm -f "${ef}.tmp"
+      if [[ "$ef" != "/etc/environment" ]]; then
+        chown "$target_uid:$target_gid" "$ef" 2>/dev/null || true
+      fi
+      changed=true
+    fi
+  done
+
+  # 6. KDE Plasma kwinrc 충돌 InputMethod 정리
+  local kwinrc="$target_home/.config/kwinrc"
+  if [[ -f "$kwinrc" ]] && grep -qE '^InputMethod(\[\$e\])?=.*'"${kwin_re}" "$kwinrc" 2>/dev/null; then
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$kwinrc" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$kwinrc" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    else
+      awk '
+        BEGIN { in_wayland=0 }
+        /^\[Wayland\]$/ { in_wayland=1; print; next }
+        /^\[/ { in_wayland=0; print; next }
+        in_wayland && /^InputMethod(\[\$e\])?=/ { next }
+        { print }
+      ' "$kwinrc" > "${kwinrc}.tmp" && cat "${kwinrc}.tmp" > "$kwinrc" && rm -f "${kwinrc}.tmp"
+    fi
+    chown "$target_uid:$target_gid" "$kwinrc" 2>/dev/null || true
+    if [[ -S "/run/user/$target_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local qdbus_cmd=""
+      if command -v qdbus6 >/dev/null 2>&1; then qdbus_cmd="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then qdbus_cmd="qdbus"
+      fi
+      if [[ -n "$qdbus_cmd" ]]; then
+        sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$target_uid/bus" \
+          "$qdbus_cmd" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    changed=true
+  fi
+
+  if [[ "$changed" == "true" ]]; then
+    ok "$(msg "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $target_ime)" "Automatically disabled conflicting IME settings (target: $target_ime)")"
+  fi
+}
+
 configure_ibus_user_session() {
   local family="$1"
   local target_user="$2"
@@ -1032,6 +1240,7 @@ configure_ibus_user_session() {
   local target_gid="$5"
   local desktop="$6"
 
+  disable_conflicting_imes "ibus" "$target_user" "$target_home" "$target_uid" "$target_gid" "$desktop"
   log "$(msg "[2/3] 입력 소스 및 ibus 엔진 캐시 등록 (Hangul)..." "[2/3] Registering Hangul input source and refreshing ibus cache...")"
   ibus write-cache --system 2>/dev/null || true
   local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
@@ -1318,6 +1527,7 @@ main() {
         fcitx5-frontend-qt5 fcitx5-frontend-qt6 \
         fonts-noto-cjk
       ok "$(msg "패키지 설치 완료" "Packages installed")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/5] 입력 프레임워크 전환 (im-config)..." "[2/5] Switching input framework to fcitx5 (im-config)...")"
       su - "$TARGET_USER" -c "im-config -n fcitx5" 2>/dev/null || warn "$(msg "im-config 실패 (필요시 수동 실행)" "im-config failed (run manually if needed)")"
@@ -1339,6 +1549,7 @@ main() {
       pacman -Sy --needed --noconfirm \
         fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk
       ok "$(msg "패키지 설치 완료" "Packages installed")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
@@ -1355,6 +1566,7 @@ main() {
       log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (KaOS pacman)..." "[1/4] Installing fcitx5 + Korean fonts (KaOS pacman)...")"
       pacman -Sy --needed --noconfirm fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk
       ok "$(msg "패키지 설치 완료" "Packages installed")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
@@ -1373,6 +1585,7 @@ main() {
       pacman-key --init
       pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
       pacman -Sy --needed --noconfirm fcitx5-im fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
@@ -1390,6 +1603,7 @@ main() {
       dnf install -y -q fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-autostart
       dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
       ok "$(msg "패키지 설치 완료" "Packages installed")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/4] 시스템 입력기 설정 및 ibus 비활성화..." "[2/4] Configuring alternatives and disabling ibus...")"
       alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
@@ -1414,6 +1628,7 @@ main() {
         fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart \
         google-noto-sans-cjk-ttc-fonts
       ok "$(msg "패키지 레이어링 완료" "Package layering complete")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/3] Fcitx5 프로필·핫키 구성..." "[2/3] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
@@ -1437,6 +1652,7 @@ EOF
         fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \
         fcitx5-frontend-qt5 fcitx5-frontend-qt6 fonts-noto-cjk
       ok "$(msg "패키지 추가 완료" "Packages added")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/4] Fcitx5 프로필·핫키 구성..." "[2/4] Configuring Fcitx5 profile and hotkeys...")"
       write_fcitx5_user_config "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
@@ -1470,6 +1686,7 @@ EOF
         zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
       fi
       ok "$(msg "패키지 설치 완료" "Packages installed")"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
 
       log "$(msg "[2/4] 시스템 입력기 등록 및 ibus 비활성화..." "[2/4] Configuring alternatives and disabling ibus...")"
       alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
@@ -1489,6 +1706,7 @@ EOF
     void)
       log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (xbps-install)..." "[1/4] Installing fcitx5 + Korean fonts (xbps-install)...")"
       xbps-install -Sy fcitx5 fcitx5-hangul fcitx5-gtk+3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 fcitx5-configtool noto-fonts-cjk
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
@@ -1502,6 +1720,7 @@ EOF
       log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 (apk)..." "[1/4] Installing fcitx5 + Korean fonts (apk)...")"
       apk update
       apk add fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-noto-cjk
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.profile" "$TARGET_UID" "$TARGET_GID" "fcitx"
@@ -1514,6 +1733,7 @@ EOF
     solus)
       log "$(msg "[1/4] fcitx5 패키지 설치 (eopkg)..." "[1/4] Installing fcitx5 (eopkg)...")"
       eopkg install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt5 fcitx5-configtool
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       log "$(msg "[3/4] Fcitx5 프로필·핫키 구성..." "[3/4] Configuring Fcitx5 profile and hotkeys...")"
@@ -1527,6 +1747,7 @@ EOF
       emerge --noreplace \
         app-i18n/fcitx:5 app-i18n/fcitx-hangul:5 \
         app-i18n/fcitx-gtk:5 app-i18n/fcitx-qt:5 app-i18n/fcitx-configtool:5
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
@@ -1546,6 +1767,7 @@ EOF
         apt-get)
           apt-get update && apt-get install -y fcitx5 fcitx5-hangul fcitx5-configtool ;;
       esac
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
@@ -1559,6 +1781,7 @@ EOF
       log "$(msg "[1/4] fcitx5 패키지 설치 (ALT Linux apt-rpm)..." "[1/4] Installing fcitx5 (ALT Linux apt-rpm)...")"
       apt-get update
       apt-get install -y fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       write_env_etc_and_envd "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID"
       append_profile_env "$TARGET_HOME/.xprofile" "$TARGET_UID" "$TARGET_GID" "fcitx"
@@ -1571,6 +1794,7 @@ EOF
     guix)
       log "$(msg "[1/4] fcitx5 패키지 설치 (guix install)..." "[1/4] Installing fcitx5 + Korean fonts (guix install)...")"
       su - "$TARGET_USER" -c "guix install fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool font-google-noto-sans-cjk"
+      disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
       log "$(msg "[2/4] 환경변수 설정..." "[2/4] Configuring environment variables...")"
       local gprof="$TARGET_HOME/.bash_profile"
       [[ -f "$TARGET_HOME/.profile" && ! -f "$gprof" ]] && gprof="$TARGET_HOME/.profile"

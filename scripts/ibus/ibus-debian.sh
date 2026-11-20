@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.3.1"
 LOG_FILE="/var/log/install-ibus-ibus-debian.log"
 
 LOG_ENABLED=false
@@ -103,8 +103,215 @@ detect_existing_ime() {
   if [[ ${#_found[@]} -eq 0 ]]; then
     echo "감지된 입력기 없음"
   else
-    local IFS=", "
-    echo "${_found[*]}"
+    local _out="" _item
+    for _item in "${_found[@]}"; do
+      _out="${_out:+$_out, }$_item"
+    done
+    echo "$_out"
+  fi
+}
+
+has_conflicting_ime() {
+  local _hc_target="$1"
+  local _hc_existing="$2"
+  case "$_hc_target" in
+    fcitx5)
+      [[ "$_hc_existing" == *"ibus-daemon"* || "$_hc_existing" == *"kime"* || "$_hc_existing" == *"fcitx ("* ]] && return 0
+      ;;
+    ibus)
+      [[ "$_hc_existing" == *"fcitx5"* || "$_hc_existing" == *"fcitx ("* || "$_hc_existing" == *"kime"* ]] && return 0
+      ;;
+    kime)
+      [[ "$_hc_existing" == *"fcitx5"* || "$_hc_existing" == *"fcitx ("* || "$_hc_existing" == *"ibus-daemon"* ]] && return 0
+      ;;
+  esac
+  return 1
+}
+
+append_conflict_ime_warn() {
+  local _target_ime="$1"
+  local _existing_ime="$2"
+  local _base="${3:-}"
+  local _w=""
+  if has_conflicting_ime "$_target_ime" "$_existing_ime"; then
+    _w=" ⚠️  참고: 기존 입력기(${_existing_ime})가 감지되었습니다. 기존 입력기가 새 입력기와 충돌할 수 있으므로 기존 입력기 설정(자동시작·서비스·환경변수)을 자동으로 비활성화하겠습니다."
+  fi
+  if [[ -n "$_base" && -n "$_w" ]]; then
+    printf '%s\n%s' "$_base" "$_w"
+  elif [[ -n "$_base" ]]; then
+    printf '%s' "$_base"
+  else
+    printf '%s' "$_w"
+  fi
+}
+
+disable_conflicting_imes() {
+  local _target_ime="$1"
+  local _user="$2"
+  local _home="$3"
+  local _uid="$4"
+  local _desktop="$5"
+  local _gid
+  _gid=$(id -g "$_user" 2>/dev/null || echo "$_uid")
+  local _changed=false
+  local _is_gnome=false
+  [[ "${_desktop,,}" == *"gnome"* ]] && _is_gnome=true
+
+  local _autostart_dir="$_home/.config/autostart"
+  local _env_dir="$_home/.config/environment.d"
+  local _target_desktops=() _svcs=() _procs=() _desktops=() _env_confs=()
+  local _im_re="" _kwin_re=""
+
+  case "$_target_ime" in
+    fcitx5)
+      _target_desktops=(org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5.desktop fcitx5-autostart.desktop)
+      _svcs=(ibus kime kime-daemon fcitx)
+      _procs=(fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
+      [[ "$_is_gnome" != "true" ]] && _procs+=(ibus-daemon)
+      _desktops=(ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop)
+      _env_confs=(ibus.conf kime.conf fcitx.conf)
+      _im_re="(ibus|kime)"
+      _kwin_re="(ibus|kime)"
+      ;;
+    ibus)
+      _target_desktops=(ibus.desktop ibus-daemon.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop)
+      _svcs=(fcitx5 fcitx kime kime-daemon)
+      _procs=(fcitx5 fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
+      _desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop kime.desktop)
+      _env_confs=(fcitx5.conf fcitx.conf kime.conf)
+      _im_re="(fcitx5|fcitx|kime)"
+      _kwin_re="(fcitx|kime)"
+      ;;
+    kime)
+      _target_desktops=(kime.desktop)
+      _svcs=(fcitx5 fcitx ibus)
+      _procs=(fcitx5 fcitx)
+      [[ "$_is_gnome" != "true" ]] && _procs+=(ibus-daemon)
+      _desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop ibus.desktop ibus-daemon.desktop)
+      _env_confs=(fcitx5.conf fcitx.conf ibus.conf)
+      _im_re="(fcitx5|fcitx|ibus)"
+      _kwin_re="(fcitx|ibus)"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  local _td
+  for _td in "${_target_desktops[@]}"; do
+    if [[ -f "$_autostart_dir/$_td" ]] && grep -q '^Hidden=true$' "$_autostart_dir/$_td" 2>/dev/null; then
+      rm -f "$_autostart_dir/$_td"
+    fi
+  done
+
+  local _svc
+  if command -v systemctl >/dev/null 2>&1; then
+    if [[ -S "/run/user/$_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _bus="unix:path=/run/user/$_uid/bus"
+      for _svc in "${_svcs[@]}"; do
+        if sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="$_bus" \
+             systemctl --user is-enabled "$_svc" >/dev/null 2>&1 || \
+           sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="$_bus" \
+             systemctl --user is-active "$_svc" >/dev/null 2>&1; then
+          sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="$_bus" \
+            systemctl --user disable --now "$_svc" 2>/dev/null || true
+          _changed=true
+        fi
+      done
+    else
+      for _svc in "${_svcs[@]}"; do
+        if su - "$_user" -c "systemctl --user is-enabled $_svc >/dev/null 2>&1" 2>/dev/null; then
+          su - "$_user" -c "systemctl --user disable $_svc 2>/dev/null || true" || true
+          _changed=true
+        fi
+      done
+    fi
+  fi
+
+  local _p
+  for _p in "${_procs[@]}"; do
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_uid" -x "$_p" >/dev/null 2>&1; then
+      pkill -u "$_uid" -x "$_p" 2>/dev/null || true
+      _changed=true
+    fi
+  done
+
+  local _desk
+  for _desk in "${_desktops[@]}"; do
+    if [[ -f "/etc/xdg/autostart/$_desk" ]]; then
+      if [[ ! -f "$_autostart_dir/$_desk" ]] || ! grep -q '^Hidden=true$' "$_autostart_dir/$_desk" 2>/dev/null; then
+        mkdir -p "$_autostart_dir"
+        cat > "$_autostart_dir/$_desk" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Disabled IME
+Hidden=true
+X-GNOME-Autostart-enabled=false
+EOF
+        chown "$_uid:$_gid" "$_autostart_dir" "$_autostart_dir/$_desk" 2>/dev/null || true
+        _changed=true
+      fi
+    elif [[ -f "$_autostart_dir/$_desk" ]]; then
+      mv -f "$_autostart_dir/$_desk" "$_autostart_dir/${_desk}.disabled"
+      chown "$_uid:$_gid" "$_autostart_dir/${_desk}.disabled" 2>/dev/null || true
+      _changed=true
+    fi
+  done
+
+  local _econf
+  for _econf in "${_env_confs[@]}"; do
+    if [[ -f "$_env_dir/$_econf" ]]; then
+      mv -f "$_env_dir/$_econf" "$_env_dir/${_econf}.disabled"
+      chown "$_uid:$_gid" "$_env_dir/${_econf}.disabled" 2>/dev/null || true
+      _changed=true
+    fi
+  done
+
+  local _env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_im_re}['\"]?|XMODIFIERS=['\"]?@im=${_im_re}['\"]?)[[:space:]]*(#.*)?$"
+  local _ef
+  for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.profile"; do
+    if [[ -f "$_ef" && -w "$_ef" ]] && grep -qE "$_env_line_re" "$_ef" 2>/dev/null; then
+      grep -Ev "$_env_line_re" "$_ef" > "${_ef}.tmp" || true
+      cat "${_ef}.tmp" > "$_ef"
+      rm -f "${_ef}.tmp"
+      if [[ "$_ef" != "/etc/environment" ]]; then
+        chown "$_uid:$_gid" "$_ef" 2>/dev/null || true
+      fi
+      _changed=true
+    fi
+  done
+
+  local _kwinrc="$_home/.config/kwinrc"
+  if [[ -f "$_kwinrc" ]] && grep -qE '^InputMethod(\[\$e\])?=.*'"${_kwin_re}" "$_kwinrc" 2>/dev/null; then
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_kwinrc" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_kwinrc" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    else
+      awk '
+        BEGIN { in_wayland=0 }
+        /^\[Wayland\]$/ { in_wayland=1; print; next }
+        /^\[/ { in_wayland=0; print; next }
+        in_wayland && /^InputMethod(\[\$e\])?=/ { next }
+        { print }
+      ' "$_kwinrc" > "${_kwinrc}.tmp" && cat "${_kwinrc}.tmp" > "$_kwinrc" && rm -f "${_kwinrc}.tmp"
+    fi
+    chown "$_uid:$_gid" "$_kwinrc" 2>/dev/null || true
+    if [[ -S "/run/user/$_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _qdbus=""
+      if command -v qdbus6 >/dev/null 2>&1; then _qdbus="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then _qdbus="qdbus"
+      fi
+      if [[ -n "$_qdbus" ]]; then
+        sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_uid/bus" \
+          "$_qdbus" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    _changed=true
+  fi
+
+  if [[ "$_changed" == "true" ]]; then
+    ok "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $_target_ime)"
   fi
 }
 
@@ -344,14 +551,7 @@ main() {
       ;;
   esac
 
-  if [[ "$EXISTING_IME" == *"fcitx"* || "$EXISTING_IME" == *"kime"* ]]; then
-    local _ime_warn=" ⚠️  참고: 기존 입력기(${EXISTING_IME})가 감지되었습니다. ibus와 충돌할 수 있으므로 필요 시 기존 입력기를 비활성화하세요."
-    if [[ -n "$_extra_warn" ]]; then
-      _extra_warn="${_extra_warn}\n${_ime_warn}"
-    else
-      _extra_warn="$_ime_warn"
-    fi
-  fi
+  _extra_warn=$(append_conflict_ime_warn "ibus" "$EXISTING_IME" "$_extra_warn")
   if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] && "$SESSION_TYPE" == "wayland" ]]; then
     local _kde_warn=" ⚠️  참고: KDE Plasma Wayland 환경에서는 IBus보다 Fcitx 5가 더 안정적으로 권장됩니다."
     if [[ -n "$_extra_warn" ]]; then
@@ -426,6 +626,7 @@ main() {
       ;;
   esac
   ok "패키지 설치 완료"
+  disable_conflicting_imes "ibus" "$USER" "$TARGET_HOME" "$TARGET_UID" "$DESKTOP"
 
   # 2. 입력 소스 등록, ibus 엔진 캐시 갱신 및 충돌 서비스 비활성화
   log "[2/3] 입력 소스('hangul') 등록 및 ibus 엔진 캐시 갱신..."
