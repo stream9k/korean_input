@@ -21,7 +21,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 ${distroName} 한글 입력기 설정이 완료되었습니다!
 
-${isKde ? "🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)\n\n" : ""}⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
+${isKde ? "🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)\n\n" : ""}⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -65,7 +65,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 ${distroName} 한글 입력기 설정이 완료되었습니다!
 
-⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Super+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space
 ⚙️  설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)
 🩺 진단: kime-check
 📝 로그: /var/log/install-kime-${scriptId}.log
@@ -1077,7 +1077,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -1313,7 +1313,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 로그아웃 후 다시 로그인하세요."
-  echo " 한/영 키, Ctrl+Space, Shift+Space 로 전환"
+  echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space 로 전환"
   echo " 설정: fcitx5-configtool"
   echo " 로그: $LOG_FILE"
   echo "============================================================"
@@ -1328,7 +1328,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1487,7 +1487,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo " 🎉 설치 완료! 재부팅 또는 재로그인 필요"
   echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " GNOME: 자동 적용 (환경변수 로드 후)"
-  echo " 전환: 한/영 키, Ctrl+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
   echo "============================================================"
@@ -1502,7 +1502,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1671,7 +1671,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재로그인 또는 재부팅 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
   echo "============================================================"
@@ -1686,7 +1686,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1857,7 +1857,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재부팅 또는 재로그인"
-  echo " 전환: 한/영 키, Ctrl+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
   echo "============================================================"
@@ -1949,7 +1949,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2312,7 +2312,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2766,6 +2766,80 @@ XMODIFIERS=@im=kime
 EOF
   chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
 
+  local KIME_CFG="$TARGET_HOME/.config/kime/config.yaml"
+  if [[ ! -f "$KIME_CFG" ]]; then
+    mkdir -p "$(dirname "$KIME_CFG")"
+    cat > "$KIME_CFG" <<'KIMECFG'
+engine:
+  default_category: Latin
+  global_category_state: false
+  global_hotkeys:
+    M-C-Backslash:
+      behavior: !Mode Math
+      result: ConsumeIfProcessed
+    M-C-E:
+      behavior: !Mode Emoji
+      result: ConsumeIfProcessed
+    Esc:
+      behavior: !Switch Latin
+      result: Bypass
+    C-Space:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+    Muhenkan:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+    AltR:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+    Hangul:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+  category_hotkeys:
+    Hangul:
+      ControlR:
+        behavior: !Mode Hanja
+        result: Consume
+      HangulHanja:
+        behavior: !Mode Hanja
+        result: Consume
+      F9:
+        behavior: !Mode Hanja
+        result: ConsumeIfProcessed
+  mode_hotkeys:
+    Math:
+      Enter:
+        behavior: Commit
+        result: ConsumeIfProcessed
+      Tab:
+        behavior: Commit
+        result: ConsumeIfProcessed
+    Hanja:
+      Enter:
+        behavior: Commit
+        result: ConsumeIfProcessed
+      Tab:
+        behavior: Commit
+        result: ConsumeIfProcessed
+    Emoji:
+      Enter:
+        behavior: Commit
+        result: ConsumeIfProcessed
+      Tab:
+        behavior: Commit
+        result: ConsumeIfProcessed
+KIMECFG
+    chown -R "$USER:$USER" "$(dirname "$KIME_CFG")"
+  fi
+
   if [[ "$_kime_family" == "debian" ]] && command -v im-config >/dev/null 2>&1 && [[ -f /usr/share/im-config/data/51_kime.rc ]]; then
     su - "$USER" -c "im-config -n kime" 2>/dev/null || warn "im-config -n kime 실패 (수동으로 입력기를 kime으로 선택하세요)"
   else
@@ -2862,7 +2936,7 @@ ${KIME_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   echo " 🎉 kime 설치 완료! 로그아웃 후 다시 로그인하세요."
   echo " KDE Wayland: 시스템 설정 → 입력 및 출력 → 키보드 → 가상 키보드 → kime 데몬 선택"
   echo " GNOME Wayland: Mutter 한계로 GTK/Qt IM 모듈 앱 위주 동작 (Wayland 네이티브 앱 제한)"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Super+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 진단: kime-check | 설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)"
   echo " 로그: $LOG_FILE"
   echo "============================================================"
@@ -2877,7 +2951,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3020,7 +3094,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde") || params.distr
   echo " 🎉 Fedora Atomic 설정 완료! 반드시 재부팅하세요."
   echo " 재부팅 명령: systemctl reboot"
   echo " KDE(Bazzite/Aurora/Kinoite): 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo "============================================================"
 }
 main "$@"
@@ -3033,7 +3107,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3211,7 +3285,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3332,7 +3406,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3495,7 +3569,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Void Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -3509,7 +3583,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -3641,7 +3715,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Alpine Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -3655,7 +3729,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3817,7 +3891,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Solus 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -3831,7 +3905,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3996,7 +4070,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Gentoo 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4010,7 +4084,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4193,7 +4267,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 ${params.distroName} 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4207,7 +4281,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4368,7 +4442,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(true)}
   echo "============================================================"
   echo " 🎉 KaOS 설치 완료! 재로그인 필요"
   echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo "============================================================"
 }
 main "$@"
@@ -4381,7 +4455,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4535,7 +4609,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 Vanilla OS 설정 완료! 반드시 재부팅하세요 (ABRoot 적용)."
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo "============================================================"
 }
 main "$@"
@@ -4548,7 +4622,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4712,7 +4786,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 ALT Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4726,7 +4800,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4882,7 +4956,7 @@ EOF
   echo "============================================================"
   echo " 🎉 Guix System 설치 완료! 재로그인 필요"
   echo " 선언적 설정을 원할 경우 /etc/config.scm 의 %desktop-services / home-environment 에도 추가하세요."
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo "============================================================"
 }
 main "$@"

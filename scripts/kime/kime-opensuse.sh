@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-kime-kime-opensuse.log"
 
 LOG_ENABLED=false
@@ -927,6 +927,80 @@ XMODIFIERS=@im=kime
 EOF
   chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
 
+  local KIME_CFG="$TARGET_HOME/.config/kime/config.yaml"
+  if [[ ! -f "$KIME_CFG" ]]; then
+    mkdir -p "$(dirname "$KIME_CFG")"
+    cat > "$KIME_CFG" <<'KIMECFG'
+engine:
+  default_category: Latin
+  global_category_state: false
+  global_hotkeys:
+    M-C-Backslash:
+      behavior: !Mode Math
+      result: ConsumeIfProcessed
+    M-C-E:
+      behavior: !Mode Emoji
+      result: ConsumeIfProcessed
+    Esc:
+      behavior: !Switch Latin
+      result: Bypass
+    C-Space:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+    Muhenkan:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+    AltR:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+    Hangul:
+      behavior: !Toggle
+      - Hangul
+      - Latin
+      result: Consume
+  category_hotkeys:
+    Hangul:
+      ControlR:
+        behavior: !Mode Hanja
+        result: Consume
+      HangulHanja:
+        behavior: !Mode Hanja
+        result: Consume
+      F9:
+        behavior: !Mode Hanja
+        result: ConsumeIfProcessed
+  mode_hotkeys:
+    Math:
+      Enter:
+        behavior: Commit
+        result: ConsumeIfProcessed
+      Tab:
+        behavior: Commit
+        result: ConsumeIfProcessed
+    Hanja:
+      Enter:
+        behavior: Commit
+        result: ConsumeIfProcessed
+      Tab:
+        behavior: Commit
+        result: ConsumeIfProcessed
+    Emoji:
+      Enter:
+        behavior: Commit
+        result: ConsumeIfProcessed
+      Tab:
+        behavior: Commit
+        result: ConsumeIfProcessed
+KIMECFG
+    chown -R "$USER:$USER" "$(dirname "$KIME_CFG")"
+  fi
+
   if [[ "$_kime_family" == "debian" ]] && command -v im-config >/dev/null 2>&1 && [[ -f /usr/share/im-config/data/51_kime.rc ]]; then
     su - "$USER" -c "im-config -n kime" 2>/dev/null || warn "im-config -n kime 실패 (수동으로 입력기를 kime으로 선택하세요)"
   else
@@ -1030,7 +1104,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 kime (Rust 기반 경량 입력기) 한글 입력기 설정이 완료되었습니다!
 
-⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Super+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space
 ⚙️  설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)
 🩺 진단: kime-check
 📝 로그: /var/log/install-kime-kime-opensuse.log
@@ -1065,7 +1139,7 @@ GUIDE_DSK_EOF
   echo " 🎉 kime 설치 완료! 로그아웃 후 다시 로그인하세요."
   echo " KDE Wayland: 시스템 설정 → 입력 및 출력 → 키보드 → 가상 키보드 → kime 데몬 선택"
   echo " GNOME Wayland: Mutter 한계로 GTK/Qt IM 모듈 앱 위주 동작 (Wayland 네이티브 앱 제한)"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Super+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 진단: kime-check | 설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)"
   echo " 로그: $LOG_FILE"
   echo "============================================================"

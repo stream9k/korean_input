@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-opensuse-aeon.log"
 
 LOG_ENABLED=false
@@ -696,7 +696,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재부팅 또는 재로그인"
-  echo " 전환: 한/영 키, Ctrl+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
   echo "============================================================"

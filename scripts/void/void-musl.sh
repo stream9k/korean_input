@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-void-musl.log"
 
 LOG_ENABLED=false
@@ -697,7 +697,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 Void Linux / AgarimOS / 파생 한글 입력기 설정이 완료되었습니다!
 
-⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -730,7 +730,7 @@ GUIDE_DSK_EOF
   echo
   echo "============================================================"
   echo " 🎉 Void Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }

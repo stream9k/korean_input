@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-generic-fedora-kde.log"
 
 LOG_ENABLED=false
@@ -684,7 +684,7 @@ EOF
   echo " 🎉 설치 완료! 재부팅 또는 재로그인 필요"
   echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " GNOME: 자동 적용 (환경변수 로드 후)"
-  echo " 전환: 한/영 키, Ctrl+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
   echo "============================================================"

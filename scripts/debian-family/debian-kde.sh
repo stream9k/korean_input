@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-debian-kde.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 
@@ -773,7 +773,7 @@ MSG="🎉 Debian 한글 입력기 설정이 완료되었습니다!
 
 🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)
 
-⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -806,7 +806,7 @@ GUIDE_DSK_EOF
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 로그아웃 후 다시 로그인하세요."
-  echo " 한/영 키, Ctrl+Space, Shift+Space 로 전환"
+  echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space 로 전환"
   echo " 설정: fcitx5-configtool"
   echo " 로그: $LOG_FILE"
   echo "============================================================"

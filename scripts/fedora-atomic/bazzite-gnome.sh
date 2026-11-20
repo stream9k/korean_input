@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-bazzite-gnome.log"
 
 LOG_ENABLED=false
@@ -668,7 +668,7 @@ EOF
   echo " 🎉 Fedora Atomic 설정 완료! 반드시 재부팅하세요."
   echo " 재부팅 명령: systemctl reboot"
   echo " KDE(Bazzite/Aurora/Kinoite): 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo "============================================================"
 }
 main "$@"

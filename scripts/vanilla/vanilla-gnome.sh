@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.3"
+SCRIPT_VERSION="1.3.4"
 LOG_FILE="/var/log/install-hangul-vanilla-gnome.log"
 
 LOG_ENABLED=false
@@ -623,7 +623,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 Vanilla OS 설정 완료! 반드시 재부팅하세요 (ABRoot 적용)."
-  echo " 전환: 한/영 키, Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
   echo "============================================================"
 }
 main "$@"

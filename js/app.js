@@ -19,6 +19,7 @@ const toast = document.getElementById("toast");
 let currentDistro = null;
 let currentEdition = null;
 let currentLang = "ko";
+const FORCE_IME_KEYS = new Set(["ibus", "kime"]);
 
 const I18N = {
   ko: {
@@ -32,6 +33,7 @@ const I18N = {
     btnCopyAutoOneliner: "📋 원라인 복사",
     btnDownloadAuto: "⬇️ 만능 install.sh 다운로드",
     step0Hint: "💡 파일로 직접 받으신 경우 권한 변경(<code>chmod +x</code>) 없이 <code>sudo bash ~/Downloads/install.sh</code> 로 바로 실행할 수 있습니다.<br>💡 IBus를 선호하시는 경우 실행 확인 단계에서 <code>ibus</code>를 입력하거나 <code>--ibus</code> 옵션(<code>... | sudo bash -s -- --ibus</code>)을 전달하세요.",
+    step1Kicker: "배포판/에디션 선택형",
     step1Title: "📋 1단계: 배포판 선택",
     searchLabel: "배포판·데스크톱 빠른 검색",
     searchPlaceholder: "배포판 또는 데스크톱 검색 (예: garuda, 가루다, mint, 민트, bazzite, kde...)",
@@ -60,7 +62,13 @@ const I18N = {
     },
     altKeyTipTitle: "💡 오른쪽 Alt 키 누를 때 Firefox 메뉴바(풀다운)와 한/영 전환이 동시에 작동하는 경우:",
     altKeyTipBody: "일부 노트북이나 키보드에서 오른쪽 Alt 키가 브라우저 메뉴 단축키(Alt)와 한/영 전환을 동시에 호출할 수 있습니다.<br><strong>해결 방법:</strong> 설정 → 키보드 → 키바인딩 (또는 레이아웃) → <strong>키보드 옵션 설정</strong> 체크 → <strong>한국어 한/영키 한자키</strong> → <strong>오른쪽 ALT키를 한/영키로 만들기</strong> 체크 후 적용하세요.",
-    step4Title: "📚 지원 현황",
+    step4Title: "📚 지원 현황 확인 후 선택 / 입력기 강제 선택",
+    forceImeOptgroup: "── ⌨️ 입력기 강제 선택 (배포판 무관 대안 입력기) ──",
+    forceImeSectionTitle: "⌨️ 입력기 강제 선택 (배포판 무관 대안 입력기)",
+    forceImeSectionDesc: "배포판별 기본 입력기 대신 원하는 한글 입력기를 직접 지정해 설치합니다.",
+    forceImeTag: "입력기 강제 선택",
+    legendImeBadge: "입력기 강제 선택 ⌨️",
+    legendImeDesc: "배포판 무관 대안 입력기",
     footerNote: "이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.",
     thProject: "프로젝트",
     thPurpose: "용도",
@@ -101,6 +109,7 @@ const I18N = {
     btnCopyAutoOneliner: "📋 Copy One-Liner",
     btnDownloadAuto: "⬇️ Download install.sh",
     step0Hint: "💡 If you downloaded the file manually, run <code>sudo bash ~/Downloads/install.sh</code> directly without <code>chmod +x</code>.<br>💡 Prefer IBus? Type <code>ibus</code> at the confirmation prompt or pass <code>--ibus</code> (<code>... | sudo bash -s -- --ibus</code>).",
+    step1Kicker: "Distro / Edition Selection",
     step1Title: "📋 Step 1: Select Distribution",
     searchLabel: "Quick Search (Distro / Desktop)",
     searchPlaceholder: "Search distro or desktop (e.g. garuda, mint, bazzite, kde, 가루다...)",
@@ -129,7 +138,13 @@ const I18N = {
     },
     altKeyTipTitle: "💡 Right Alt Conflict (Firefox menu dropdown & Korean toggle both triggering):",
     altKeyTipBody: "On some laptops or US keyboards, Right Alt triggers the browser menu bar while toggling Korean.<br><strong>Fix:</strong> Settings → Keyboard → Keybindings (or Layout) → <strong>Keyboard Options</strong> → <strong>Korean Hangul/Hanja keys</strong> → check <strong>Make Right Alt a Hangul key</strong> → Apply.",
-    step4Title: "📚 Supported Matrix",
+    step4Title: "📚 Select by Support Status / Force Input Method",
+    forceImeOptgroup: "── ⌨️ Force Input Method (Alternative IMEs) ──",
+    forceImeSectionTitle: "⌨️ Force Input Method (Distro-Independent Alternative IMEs)",
+    forceImeSectionDesc: "Directly install a specific Korean input method instead of the distro default.",
+    forceImeTag: "Force IME",
+    legendImeBadge: "Force IME ⌨️",
+    legendImeDesc: "Distro-independent alternative IME",
     footerNote: "Templates were created by referencing package setups, configuration order, and edge-case handling from these projects.",
     thProject: "Project",
     thPurpose: "Purpose",
@@ -249,7 +264,10 @@ function applyTranslations() {
   document.getElementById("btnDownloadAuto").textContent = t.btnDownloadAuto;
   document.getElementById("step0Hint").innerHTML = t.step0Hint;
 
-  document.getElementById("step1Title").textContent = t.step1Title;
+  const step1Kicker = document.getElementById("step1Kicker");
+  if (step1Kicker) step1Kicker.textContent = t.step1Kicker;
+  const step1HeadingMain = document.getElementById("step1HeadingMain");
+  if (step1HeadingMain) step1HeadingMain.textContent = t.step1Title;
   document.getElementById("searchLabel").textContent = t.searchLabel;
   document.getElementById("distroSearchInput").placeholder = t.searchPlaceholder;
   document.getElementById("btnSearch").textContent = t.btnSearch;
@@ -259,6 +277,9 @@ function applyTranslations() {
   document.getElementById("editionLabel").textContent = t.editionLabel;
   const hintEl = document.getElementById("editionHintText");
   if (hintEl) hintEl.textContent = currentLang === "en" ? "Click your desktop environment" : "원하시는 데스크톱을 클릭하세요";
+
+  const optgroupForceIme = document.getElementById("optgroupForceIme");
+  if (optgroupForceIme) optgroupForceIme.label = t.forceImeOptgroup;
 
   Array.from(distroSelect.options).forEach(opt => {
     if (!opt.value) return;
@@ -302,6 +323,10 @@ function applyTranslations() {
   if (legE) legE.textContent = currentLang === "en" ? "Manual setup / special" : "수동 설정/특수 환경";
   const legC = document.getElementById("legendCommDesc");
   if (legC) legC.textContent = currentLang === "en" ? "Dedicated section" : "별도 전용 항목";
+  const legImeBadge = document.getElementById("legendImeBadge");
+  if (legImeBadge) legImeBadge.textContent = t.legendImeBadge;
+  const legImeDesc = document.getElementById("legendImeDesc");
+  if (legImeDesc) legImeDesc.textContent = t.legendImeDesc;
 
   document.getElementById("footerNote").textContent = t.footerNote;
   document.getElementById("thProject").textContent = t.thProject;
@@ -361,6 +386,7 @@ function showToast(msg, type = "success") {
 function onDistroChange() {
   const t = I18N[currentLang];
   const key = distroSelect.value;
+  distroSelect.classList.toggle("ime-selected", FORCE_IME_KEYS.has(key));
   const editionSection = document.getElementById("editionSection");
   editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholder}</option>`;
   editionTags.innerHTML = "";
@@ -804,15 +830,21 @@ function downloadScript() {
 // ──────────────────────────────────────────────────────────────
 function renderSupportMatrix() {
   const t = I18N[currentLang];
-  let html = "";
-  Object.entries(DISTRO_DATA).forEach(([key, d]) => {
+  const entries = Object.entries(DISTRO_DATA);
+  const distroEntries = entries.filter(([key]) => !FORCE_IME_KEYS.has(key));
+  const imeEntries = entries.filter(([key]) => FORCE_IME_KEYS.has(key));
+
+  const renderMatrixEntry = (key, d, isForceIme) => {
     const verified = Object.values(d.editions).filter(e => e.status === "verified").length;
     const beta = Object.values(d.editions).filter(e => e.status === "beta").length;
     const exp = Object.values(d.editions).filter(e => e.status === "experimental").length;
-    html += `
-      <details style="margin-bottom:0.5rem; border:1px solid var(--border); border-radius:8px; padding:0.75rem; background:var(--card);">
-        <summary style="cursor:pointer; font-weight:600; display:flex; justify-content:space-between; align-items:center;">
-          <span>${tLabel(d.name)}</span>
+    const titleHtml = isForceIme
+      ? `<span class="matrix-item-title-wrap"><span class="matrix-item-name">${tLabel(d.name)}</span><span class="badge badge-ime">${t.forceImeTag}</span></span>`
+      : `<span>${tLabel(d.name)}</span>`;
+    return `
+      <details class="matrix-item${isForceIme ? " ime-override" : ""}">
+        <summary>
+          ${titleHtml}
           <span style="font-size:0.8rem; color:var(--muted);">${tLabel(d.base)} · ${d.pkgMgr}</span>
         </summary>
         <div style="margin-top:0.5rem; display:flex; flex-wrap:wrap; gap:0.4rem;">
@@ -830,7 +862,20 @@ function renderSupportMatrix() {
         </div>
       </details>
     `;
-  });
+  };
+
+  let html = distroEntries.map(([key, d]) => renderMatrixEntry(key, d, false)).join("");
+  if (imeEntries.length > 0) {
+    html += `
+      <div class="matrix-ime-section">
+        <div class="matrix-ime-header">
+          <h3 class="matrix-ime-title">${t.forceImeSectionTitle}</h3>
+          <p class="matrix-ime-desc">${t.forceImeSectionDesc}</p>
+        </div>
+        ${imeEntries.map(([key, d]) => renderMatrixEntry(key, d, true)).join("")}
+      </div>
+    `;
+  }
   supportMatrix.innerHTML = html;
 }
 
