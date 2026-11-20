@@ -83,6 +83,22 @@ Representative one-liners from our **190 pre-generated scripts across 18 familie
 
 ---
 
+## ✅ Verified Distributions (Hands-On Tested)
+
+Distributions directly tested for installation and Korean input functionality:
+
+### Listed Supported Distributions
+* **EndeavourOS**
+* **Omarchy**
+* **Garuda Linux**
+
+### Unlisted Distributions Confirmed Working (via Auto-Detect `install.sh`)
+* **Bodhi Linux**
+* **Loc-OS**
+* **SparkyLinux Multimedia**
+
+---
+
 ## ⚙️ Key Automatic Configurations
 
 1. **Removes Conflicting IMEs**: Automatically purges legacy `fcitx4` remnants and disables conflicting `ibus` user services.
