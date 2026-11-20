@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.1.3"
+SCRIPT_VERSION="1.1.4"
 LOG_FILE="/var/log/install-hangul-void-musl.log"
 
 log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }
