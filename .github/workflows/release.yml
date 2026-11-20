@@ -1,0 +1,37 @@
+name: Release Installer Script
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify install.sh syntax
+        run: bash -n install.sh
+
+      - name: Package release assets
+        run: |
+          mkdir -p dist
+          cp install.sh README.md README.en.md dist/
+          (cd dist && sha256sum install.sh > SHA256SUMS.txt)
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-script-release
+          path: dist/*
+
+      - name: Publish GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

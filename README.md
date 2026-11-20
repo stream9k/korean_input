@@ -149,15 +149,15 @@ sudo cat /var/log/install-hangul-auto.log
 
 ---
 
-## 📦 대안 바이너리 실행 파일 (`hangul-installer`)
+## 📦 버전 고정 스크립트 다운로드 및 무결성 검증 (GitHub Releases)
 
-인터넷 파이프라인(`curl | bash`) 없이 오프라인 실행 파일이 필요한 경우, [GitHub Releases](https://github.com/stream9k/korean_input/releases/latest)에서 빌드된 단일 실행 파일을 받아 실행할 수 있습니다:
+`curl | bash` 파이프라인 대신 코드를 먼저 검토하거나 체크섬을 검증한 뒤 실행하려면, [GitHub Releases](https://github.com/stream9k/korean_input/releases/latest)에서 릴리즈 버전의 `install.sh`, `SHA256SUMS.txt`, `README.md`, `README.en.md`를 내려받을 수 있습니다:
 
 ```bash
-# x86_64 PC 환경
-curl -LO https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-amd64
-chmod +x hangul-installer-linux-amd64
-./hangul-installer-linux-amd64
+curl -LO https://github.com/stream9k/korean_input/releases/latest/download/install.sh
+curl -LO https://github.com/stream9k/korean_input/releases/latest/download/SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt
+sudo bash install.sh
 ```
 
 ---
@@ -167,7 +167,6 @@ chmod +x hangul-installer-linux-amd64
 * **`index.html`**: 단일 정적 HTML 웹 생성기 (한국어/영어 다국어 지원, `DISTRO_DATA` 및 `SCRIPT_TEMPLATES` 내장)
 * **`install.sh`**: 18개 패밀리를 자동 감지해 설치하는 만능 올인원 스크립트
 * **`generate_scripts.js` & `scripts/`**: `index.html`의 템플릿을 기반으로 `scripts/<family>/` 아래 190개 배포판별 `.sh` / `.nix` 파일을 일괄 생성
-* **`cmd/hangul-installer/` & `embed.go`**: `install.sh`를 내장(`go:embed`)해 자동 `sudo` 승격을 처리하는 Go 단일 실행 바이너리 소스
 
 <details>
 <summary>📋 18개 패밀리별 구현 차이 및 미지원 OS 40종 기준 펼치기</summary>

@@ -131,15 +131,15 @@ Add `--enable-wayland-ime` to `~/.config/chrome-flags.conf` or `~/.config/code-f
 
 ---
 
-## 📦 Standalone Binary (`hangul-installer`)
+## 📦 Versioned Release Script & Checksum Verification
 
-For environments without direct `curl | bash` execution:
+If you prefer inspecting the script and verifying its checksum instead of piping `curl | bash`, download `install.sh`, `SHA256SUMS.txt`, and the release README files (`README.md`, `README.en.md`) from [GitHub Releases](https://github.com/stream9k/korean_input/releases/latest):
 
 ```bash
-# x86_64
-curl -LO https://github.com/stream9k/korean_input/releases/latest/download/hangul-installer-linux-amd64
-chmod +x hangul-installer-linux-amd64
-./hangul-installer-linux-amd64
+curl -LO https://github.com/stream9k/korean_input/releases/latest/download/install.sh
+curl -LO https://github.com/stream9k/korean_input/releases/latest/download/SHA256SUMS.txt
+sha256sum -c SHA256SUMS.txt
+sudo bash install.sh
 ```
 
 ---
