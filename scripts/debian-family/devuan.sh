@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.1.1"
+SCRIPT_VERSION="1.1.2"
 LOG_FILE="/var/log/install-hangul-devuan.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

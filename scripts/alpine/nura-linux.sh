@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.1.1"
+SCRIPT_VERSION="1.1.2"
 LOG_FILE="/var/log/install-hangul-nura-linux.log"
 
 log() { echo "[$(date '+%F %T')] $*" | tee -a "$LOG_FILE"; }

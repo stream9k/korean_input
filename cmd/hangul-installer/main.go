@@ -10,7 +10,7 @@ import (
 	installer "github.com/stream9k/korean_input"
 )
 
-const version = "1.1.1"
+const version = "1.1.2"
 
 func main() {
 	showVersion := flag.Bool("version", false, "버전 정보 출력")
