@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.1.5"
+SCRIPT_VERSION="1.2.1"
 LOG_FILE="/var/log/install-hangul-alpine-desktop.log"
 
 LOG_ENABLED=false

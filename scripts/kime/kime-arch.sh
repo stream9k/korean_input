@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.1.5"
+SCRIPT_VERSION="1.2.1"
 LOG_FILE="/var/log/install-kime-kime-arch.log"
 
 LOG_ENABLED=false
@@ -230,7 +230,261 @@ detect_user() {
   [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
   u=$(who | awk '{print $1}' | head -1)
   [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
-  err "대상 사용자 탐지 실패";
+  err "대상 사용자 탐지 실패"
+}
+
+http_get() {
+  local _url="$1"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$_url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$_url"
+  else
+    err "curl 또는 wget이 필요합니다."
+  fi
+}
+
+http_latest_tag() {
+  local _url="$1"
+  if command -v curl >/dev/null 2>&1; then
+    local _eff
+    _eff=$(curl -fsSLI -o /dev/null -w '%{url_effective}' "$_url" 2>/dev/null || true)
+    if [[ -n "$_eff" && "$_eff" == */tag/* ]]; then
+      echo "${_eff##*/}"
+    fi
+  elif command -v wget >/dev/null 2>&1; then
+    local _loc
+    _loc=$(wget --spider -S "$_url" 2>&1 | awk '/^[[:space:]]*[Ll]ocation:/ {u=$2} END {gsub(/\r/,"",u); print u}' || true)
+    if [[ -n "$_loc" && "$_loc" == */tag/* ]]; then
+      echo "${_loc##*/}"
+    fi
+  fi
+}
+
+http_download() {
+  local _url="$1" _out="$2"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fSL --retry 2 -o "$_out" "$_url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -O "$_out" "$_url"
+  else
+    err "curl 또는 wget이 필요합니다."
+  fi
+}
+
+detect_kime_family() {
+  local _id="${1,,}" _like="${2,,}" _deb_ver_file="${3:-/etc/debian_version}"
+  case "$_id" in
+    arch|manjaro|endeavouros|garuda|cachyos|artix|arcolinux|rebornos|biglinux|bluestar|archcraft)
+      echo "arch"; return ;;
+    fedora|nobara|ultramarine|bazzite|aurora|bluefin)
+      echo "fedora"; return ;;
+    opensuse*|suse*)
+      echo "opensuse"; return ;;
+    ubuntu|debian|linuxmint|lmde|pop|zorin|elementary|neon|kali|mx|antix|sparky|tuxedo|bodhi|peppermint|voyager|devuan|parrot|raspbian|deepin|pureos|tails|anduinos|bunsenlabs|cuerdos|solydxk)
+      echo "debian"; return ;;
+  esac
+  case " $_like " in
+    *" arch "*) echo "arch"; return ;;
+    *" fedora "*) echo "fedora"; return ;;
+    *" opensuse "*|*" suse "*) echo "opensuse"; return ;;
+    *" debian "*|*" ubuntu "*) echo "debian"; return ;;
+  esac
+  if [[ -f "$_deb_ver_file" ]]; then
+    echo "debian"; return
+  fi
+  echo "unknown"
+}
+
+ubuntu_codename_to_ver() {
+  case "${1,,}" in
+    bionic) echo "18.04" ;;
+    focal) echo "20.04" ;;
+    jammy) echo "22.04" ;;
+    noble) echo "24.04" ;;
+    oracular) echo "24.10" ;;
+    plucky) echo "25.04" ;;
+    questing) echo "25.10" ;;
+    resolute) echo "26.04" ;;
+    *) echo "" ;;
+  esac
+}
+
+debian_ver_to_codename() {
+  local _v="${1,,}"
+  _v=$(printf '%s' "$_v" | tr -d '[:space:]')
+  _v="${_v%%/*}"
+  case "$_v" in
+    14|14.*|forky*) echo "forky" ;;
+    13|13.*|trixie*) echo "trixie" ;;
+    12|12.*|bookworm*) echo "bookworm" ;;
+    11|11.*|bullseye*) echo "bullseye" ;;
+    10|10.*|buster*) echo "buster" ;;
+    *) echo "" ;;
+  esac
+}
+
+read_upstream_lsb() {
+  local _file="$1"
+  if [[ -f "$_file" ]]; then
+    (
+      # shellcheck disable=SC1090
+      . "$_file" 2>/dev/null || true
+      printf '%s|%s|%s\n' "${DISTRIB_ID:-}" "${DISTRIB_RELEASE:-}" "${DISTRIB_CODENAME:-}"
+    )
+  fi
+}
+
+resolve_kime_deb_target() {
+  local _id="${1,,}" _ver="$2" _os_cn="${3,,}" _ubuntu_cn="${4,,}" _debian_cn="${5,,}"
+  local _upstream_lsb="${6:-/etc/upstream-release/lsb-release}"
+  local _debian_ver_file="${7:-/etc/debian_version}"
+  local _uver="" _dcn="" _up_id="" _up_rel="" _up_cn=""
+
+  if [[ "$_id" == "ubuntu" ]]; then
+    if [[ "$_ver" =~ ^[0-9]+\.[0-9]+$ ]]; then
+      echo "ubuntu-${_ver}"; return
+    fi
+    _uver=$(ubuntu_codename_to_ver "${_ubuntu_cn:-$_os_cn}")
+    if [[ -n "$_uver" ]]; then
+      echo "ubuntu-${_uver}"; return
+    fi
+  fi
+
+  if [[ -n "$_ubuntu_cn" ]]; then
+    if [[ -f "$_upstream_lsb" ]]; then
+      IFS='|' read -r _up_id _up_rel _up_cn < <(read_upstream_lsb "$_upstream_lsb")
+      if [[ "${_up_id,,}" == "ubuntu" && "$_up_rel" =~ ^[0-9]+\.[0-9]+$ ]]; then
+        echo "ubuntu-${_up_rel}"; return
+      fi
+    fi
+    _uver=$(ubuntu_codename_to_ver "$_ubuntu_cn")
+    if [[ -n "$_uver" ]]; then
+      echo "ubuntu-${_uver}"; return
+    fi
+  fi
+
+  if [[ "$_id" == "debian" ]]; then
+    if [[ -n "$_os_cn" ]]; then
+      echo "debian-${_os_cn}"; return
+    fi
+    _dcn=$(debian_ver_to_codename "$_ver")
+    if [[ -z "$_dcn" && -f "$_debian_ver_file" ]]; then
+      local _dv=""
+      IFS= read -r _dv < "$_debian_ver_file" || true
+      _dcn=$(debian_ver_to_codename "$_dv")
+    fi
+    if [[ -n "$_dcn" ]]; then
+      echo "debian-${_dcn}"; return
+    fi
+  fi
+
+  if [[ -n "$_debian_cn" ]]; then
+    echo "debian-${_debian_cn}"; return
+  fi
+
+  if [[ -f "$_upstream_lsb" ]]; then
+    IFS='|' read -r _up_id _up_rel _up_cn < <(read_upstream_lsb "$_upstream_lsb")
+    if [[ "${_up_id,,}" == "ubuntu" ]]; then
+      if [[ "$_up_rel" =~ ^[0-9]+\.[0-9]+$ ]]; then
+        echo "ubuntu-${_up_rel}"; return
+      fi
+      _uver=$(ubuntu_codename_to_ver "$_up_cn")
+      if [[ -n "$_uver" ]]; then
+        echo "ubuntu-${_uver}"; return
+      fi
+    elif [[ "${_up_id,,}" == "debian" && -n "$_up_cn" ]]; then
+      echo "debian-${_up_cn,,}"; return
+    fi
+  fi
+
+  if [[ -f "$_debian_ver_file" ]]; then
+    local _dv=""
+    IFS= read -r _dv < "$_debian_ver_file" || true
+    _dcn=$(debian_ver_to_codename "$_dv")
+    if [[ -n "$_dcn" ]]; then
+      echo "debian-${_dcn}"; return
+    fi
+  fi
+
+  if [[ -n "$_os_cn" ]]; then
+    _dcn=$(debian_ver_to_codename "$_os_cn")
+    if [[ -n "$_dcn" ]]; then
+      echo "debian-${_dcn}"; return
+    fi
+  fi
+
+  echo ""
+}
+
+resolve_kime_deb_release() {
+  local _deb_arch="$1" _deb_target="$2"
+  local _api_url="${KIME_RELEASE_API_URL:-https://api.github.com/repos/Riey/kime/releases/latest}"
+  local _latest_url="${KIME_RELEASE_LATEST_URL:-https://github.com/Riey/kime/releases/latest}"
+  local _api_json="" _tag="" _urls="" _html="" _paths="" _matched="" _avail="" _u _fname _re
+
+  _api_json=$(http_get "$_api_url" 2>/dev/null || true)
+  if [[ -n "$_api_json" ]]; then
+    _tag=$(printf '%s\n' "$_api_json" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -n1 || true)
+    _urls=$(printf '%s\n' "$_api_json" | grep -oE 'https://github\.com/Riey/kime/releases/download/[^"]+\.deb' | sort -u || true)
+  fi
+
+  if [[ -z "$_urls" ]]; then
+    _tag=$(http_latest_tag "$_latest_url" || true)
+    if [[ -n "$_tag" ]]; then
+      _html=$(http_get "https://github.com/Riey/kime/releases/expanded_assets/${_tag}" 2>/dev/null || true)
+      _paths=$(printf '%s\n' "$_html" | grep -oE '/Riey/kime/releases/download/[^"]+\.deb' | sort -u || true)
+      if [[ -n "$_paths" ]]; then
+        _urls=$(printf '%s\n' "$_paths" | sed 's|^|https://github.com|')
+      fi
+    fi
+  fi
+
+  _re="(_${_deb_arch}_${_deb_target}\.deb$|_${_deb_target}_[^/]+_${_deb_arch}\.deb$)"
+  for _u in $_urls; do
+    _fname="${_u##*/}"
+    if [[ -n "$_avail" ]]; then
+      _avail="${_avail} ${_fname}"
+    else
+      _avail="$_fname"
+    fi
+    if [[ -z "$_matched" && "$_fname" =~ $_re ]]; then
+      _matched="$_u"
+    fi
+  done
+
+  printf '%s|%s|%s\n' "$_tag" "$_matched" "$_avail"
+}
+
+check_fedora_copr_support() {
+  local _ver="$1" _arch="$2" _pretty="$3"
+  local _copr_url="${KIME_COPR_API_URL:-https://copr.fedorainfracloud.org/api_3/project?ownername=toroidalfox&projectname=kime}"
+  local _api_json="" _chroots="" _target_chroot _avail_line=""
+
+  _api_json=$(http_get "$_copr_url" 2>/dev/null || true)
+  if [[ -z "$_api_json" ]]; then
+    warn "Fedora COPR API 조회 실패 — dnf로 직접 시도합니다." >&2
+    return 0
+  fi
+
+  _chroots=$(printf '%s\n' "$_api_json" | grep -oE '"fedora-[a-z0-9]+-[a-z0-9_]+"' | tr -d '"' | sort -u || true)
+  if [[ -z "$_chroots" ]]; then
+    warn "Fedora COPR 지원 목록 파싱 실패 — dnf로 직접 시도합니다." >&2
+    return 0
+  fi
+
+  _target_chroot="fedora-${_ver}-${_arch}"
+  if [[ "${_pretty,,}" == *"rawhide"* ]]; then
+    _target_chroot="fedora-rawhide-${_arch}"
+  fi
+
+  if printf '%s\n' "$_chroots" | grep -qxF "$_target_chroot"; then
+    return 0
+  fi
+
+  _avail_line=$(printf '%s\n' "$_chroots" | paste -sd ', ' - || true)
+  echo "$_avail_line"
+  return 1
 }
 
 main() {
@@ -245,73 +499,171 @@ main() {
   SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
   EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
 
-  local _kime_id="" _aur_helper="" _pkg_summary=""
+  local _os_id="" _os_like="" _os_ver="" _os_codename="" _ubuntu_codename="" _debian_codename=""
   if [[ -f /etc/os-release ]]; then
-    _kime_id=$( ( . /etc/os-release; echo "${ID:-}" ) )
+    IFS='|' read -r _os_id _os_like _os_ver _os_codename _ubuntu_codename _debian_codename < <(
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      printf '%s|%s|%s|%s|%s|%s\n' \
+        "${ID:-}" "${ID_LIKE:-}" "${VERSION_ID:-}" "${VERSION_CODENAME:-}" \
+        "${UBUNTU_CODENAME:-}" "${DEBIAN_CODENAME:-}"
+    )
   fi
-  case "$_kime_id" in
-    arch|manjaro|endeavouros|garuda)
-      if command -v yay &>/dev/null; then
+
+  local _kime_family _aur_helper="" _pkg_summary=""
+  local _deb_arch="" _deb_target="" _kime_tag="" _deb_url="" _deb_avail="" _deb_name=""
+  _kime_family=$(detect_kime_family "$_os_id" "$_os_like")
+
+  case "$_kime_family" in
+    arch)
+      local _arch_m
+      _arch_m=$(uname -m)
+      if [[ "$_arch_m" != "x86_64" ]]; then
+        err "AUR kime 패키지는 x86_64 아키텍처만 지원합니다 (현재: $_arch_m). 수동 빌드: https://github.com/Riey/kime"
+      fi
+      if command -v yay >/dev/null 2>&1 || su - "$USER" -c 'command -v yay >/dev/null 2>&1'; then
         _aur_helper="yay"
         _pkg_summary="   - AUR (yay): su - $USER -c \"yay -S --noconfirm kime\""
-      elif command -v paru &>/dev/null; then
+      elif command -v paru >/dev/null 2>&1 || su - "$USER" -c 'command -v paru >/dev/null 2>&1'; then
         _aur_helper="paru"
         _pkg_summary="   - AUR (paru): su - $USER -c \"paru -S --noconfirm kime\""
       else
-        err "AUR 헬퍼 없음. 수동 설치 필요: https://github.com/kime-ime/kime"
+        err "AUR 헬퍼(yay 또는 paru)가 없습니다. 수동 설치 필요: https://github.com/Riey/kime"
       fi
       ;;
     fedora)
-      _pkg_summary="   - dnf copr enable -y toroidalfox/kime && dnf install -y kime"
+      if [[ -e /run/ostree-booted ]]; then
+        err "Fedora Atomic(Silverblue/Kinoite 등) 환경은 dnf/COPR 대신 rpm-ostree 레이어링이 필요합니다. 수동 설치: https://github.com/Riey/kime"
+      fi
+      local _fedora_arch _copr_target _copr_avail=""
+      _fedora_arch=$(uname -m)
+      _copr_target="fedora-${_os_ver}-${_fedora_arch}"
+      if [[ "${OS_NAME,,}" == *"rawhide"* ]]; then
+        _copr_target="fedora-rawhide-${_fedora_arch}"
+      fi
+      if ! _copr_avail=$(check_fedora_copr_support "$_os_ver" "$_fedora_arch" "$OS_NAME"); then
+        err "Fedora COPR(toroidalfox/kime)에서 현재 버전(${_copr_target})을 지원하지 않습니다. 지원 대상: ${_copr_avail:-없음} | 수동 빌드: https://github.com/Riey/kime"
+      fi
+      _pkg_summary="   - Fedora COPR (toroidalfox/kime, ${_copr_target}): dnf copr enable -y toroidalfox/kime && dnf install -y kime"
       ;;
-    opensuse*)
-      _pkg_summary="   - zypper --non-interactive install -y kime"
+    opensuse)
+      if [[ "$_os_id" == "opensuse-microos" || "$_os_id" == "opensuse-aeon" || "$_os_id" == "opensuse-kalpa" ]] || \
+         { [[ ! -w /usr ]] && command -v transactional-update >/dev/null 2>&1; }; then
+        err "불변형 openSUSE(${OS_NAME})는 일반 zypper 설치 대신 transactional-update가 필요합니다. 수동 확인: https://github.com/Riey/kime"
+      fi
+      if ! zypper --non-interactive se -x kime >/dev/null 2>&1; then
+        err "현재 설정된 openSUSE 저장소(${OS_NAME})에 kime 패키지가 없습니다. 공식 저장소에서는 openSUSE Tumbleweed만 kime을 기본 제공합니다. 수동 설치/OBS 저장소 확인: https://github.com/Riey/kime 또는 https://software.opensuse.org/package/kime"
+      fi
+      _pkg_summary="   - openSUSE (${_os_id}): zypper --non-interactive install -y kime"
       ;;
-    ubuntu|debian|linuxmint|pop|zorin|elementary|neon)
-      _pkg_summary="   - GitHub Releases에서 kime-$(uname -m).deb 다운로드(/tmp) 후 apt-get install -y"
+    debian)
+      if command -v dpkg >/dev/null 2>&1; then
+        _deb_arch=$(dpkg --print-architecture 2>/dev/null || true)
+      fi
+      if [[ -z "$_deb_arch" ]]; then
+        case "$(uname -m)" in
+          x86_64|amd64) _deb_arch="amd64" ;;
+          aarch64|arm64) _deb_arch="arm64" ;;
+          *) _deb_arch=$(uname -m) ;;
+        esac
+      fi
+      _deb_target=$(resolve_kime_deb_target "$_os_id" "$_os_ver" "$_os_codename" "$_ubuntu_codename" "$_debian_codename")
+      if [[ -z "$_deb_target" ]]; then
+        err "현재 OS(${OS_NAME})의 기반 Debian/Ubuntu 버전을 판별할 수 없습니다 (/etc/os-release, /etc/debian_version 확인 필요). 수동 설치: https://github.com/Riey/kime/releases"
+      fi
+      local _rel_info
+      _rel_info=$(resolve_kime_deb_release "$_deb_arch" "$_deb_target")
+      IFS='|' read -r _kime_tag _deb_url _deb_avail <<< "$_rel_info"
+      if [[ -z "$_deb_url" ]]; then
+        err "Riey/kime 최신 릴리스(${_kime_tag:-unknown})에서 호환되는 .deb를 찾지 못했습니다 (감지된 OS: ${OS_NAME} -> 대상: ${_deb_target}, 아키텍처: ${_deb_arch}). 제공 중인 패키지: ${_deb_avail:-조회 실패} | 수동 확인: https://github.com/Riey/kime/releases"
+      fi
+      _deb_name="${_deb_url##*/}"
+      _pkg_summary="   - 감지된 패키지 대상: ${_deb_target} (${_deb_arch}) / 최신 릴리스: ${_kime_tag:-latest}\n   - 다운로드: ${_deb_name}\n   - 설치: apt-get update && apt-get install -y ${_deb_name}"
       ;;
     *)
-      err "지원하지 않는 배포판: ${_kime_id:-unknown}. 수동 설치: https://github.com/kime-ime/kime"
+      err "지원하지 않는 배포판: ${_os_id:-unknown} (ID_LIKE=${_os_like:-none}). 수동 설치: https://github.com/Riey/kime"
       ;;
   esac
 
-  local _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf\n   - $TARGET_HOME/.config/autostart/kime.desktop 및 첫 로그인 1회 안내 등록"
+  local _kde_will _cfg_summary _extra_warn=""
+  _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
+  _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf"
+  if [[ "$_kime_family" == "debian" ]]; then
+    _cfg_summary="${_cfg_summary}\n   - im-config -n kime (im-config 사용 가능 시)"
+  else
+    _cfg_summary="${_cfg_summary}\n   - $TARGET_HOME/.xprofile (X11 세션 호환)"
+  fi
+  _cfg_summary="${_cfg_summary}\n   - /etc/xdg/autostart/kime.desktop 확인 (없을 경우 $TARGET_HOME/.config/autostart/kime.desktop 생성)"
+  if [[ "$_kde_will" == "true" ]]; then
+    _cfg_summary="${_cfg_summary}\n   - KDE Plasma 가상 키보드 설정: $TARGET_HOME/.config/kwinrc ([Wayland] InputMethod=/usr/share/applications/kime.desktop)"
+  fi
+  _cfg_summary="${_cfg_summary}\n   - 첫 로그인 1회 안내 팝업 등록 ($TARGET_HOME/.local/bin/hangul-first-login-guide.sh)"
 
-  confirm_before_changes     "kime (Rust 기반 경량 입력기) Arch / Manjaro / Endeavour (AUR) (kime)"     "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME"     "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME"     "$_pkg_summary" "$_cfg_summary" ""
+  if [[ "$EXISTING_IME" == *"fcitx"* || "$EXISTING_IME" == *"ibus"* ]]; then
+    _extra_warn=" ⚠️  참고: 기존 입력기(${EXISTING_IME})가 감지되었습니다. kime과 충돌할 수 있으므로 필요 시 기존 입력기를 비활성화하세요."
+  fi
+  if [[ "${DESKTOP,,}" == *"gnome"* && "$SESSION_TYPE" == "wayland" ]]; then
+    local _gnome_warn=" ⚠️  참고: GNOME Wayland(Mutter)는 zwp_input_method_v2를 지원하지 않아 Wayland 네이티브/샌드박스 앱에서 kime 동작이 제한될 수 있습니다 (GTK/Qt IM 모듈 앱은 정상 동작, 참고: https://github.com/Riey/kime/issues/422)."
+    if [[ -n "$_extra_warn" ]]; then
+      _extra_warn="${_extra_warn}\n${_gnome_warn}"
+    else
+      _extra_warn="$_gnome_warn"
+    fi
+  fi
+
+  confirm_before_changes \
+    "kime (Rust 기반 경량 입력기) Arch / Manjaro / Endeavour (AUR) (kime)" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
 
   mkdir -p "$(dirname "$LOG_FILE")"
   LOG_ENABLED=true
   log "=== kime (Rust 기반 경량 입력기) Arch / Manjaro / Endeavour (AUR) kime 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
-  info "감지된 OS: $OS_NAME"
+  info "감지된 OS: $OS_NAME (family=$_kime_family, id=${_os_id:-unknown})"
   info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
   info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
 
-  # 배포판별 설치
-  case "$_kime_id" in
-    arch|manjaro|endeavouros|garuda)
-      log "[1/3] kime 설치 (pacman/AUR)..."
+  # 1. 배포판별 설치
+  case "$_kime_family" in
+    arch)
+      log "[1/3] kime 설치 (AUR: $_aur_helper)..."
       su - "$USER" -c "$_aur_helper -S --noconfirm kime"
       ;;
     fedora)
-      log "[1/3] kime 설치 (COPR)..."
+      log "[1/3] kime 설치 (Fedora COPR)..."
+      if ! dnf copr --help >/dev/null 2>&1; then
+        dnf install -y 'dnf-command(copr)'
+      fi
       dnf copr enable -y toroidalfox/kime
       dnf install -y kime
       ;;
-    opensuse*)
+    opensuse)
       log "[1/3] kime 설치 (zypper)..."
       zypper --non-interactive install -y kime
       ;;
-    ubuntu|debian|linuxmint|pop|zorin|elementary|neon)
-      log "[1/3] kime 설치 (.deb 다운로드)..."
-      cd /tmp
-      wget -q "https://github.com/kime-ime/kime/releases/latest/download/kime-$(uname -m).deb"
-      apt-get install -y ./kime-*.deb
+    debian)
+      log "[1/3] kime 설치 (${_deb_target} / ${_deb_name} 다운로드)..."
+      local _tmp_dir _deb_path
+      _tmp_dir=$(mktemp -d)
+      _deb_path="${_tmp_dir}/${_deb_name}"
+      if ! http_download "$_deb_url" "$_deb_path"; then
+        rm -rf "$_tmp_dir"
+        err "kime .deb 다운로드 실패: $_deb_url"
+      fi
+      export DEBIAN_FRONTEND=noninteractive
+      if ! (apt-get update -qq && apt-get install -y "$_deb_path"); then
+        rm -rf "$_tmp_dir"
+        err "apt-get을 통한 kime 패키지 설치에 실패했습니다: $_deb_path"
+      fi
+      rm -rf "$_tmp_dir"
       ;;
   esac
-  ok "kime 설치 완료"
+  command -v kime >/dev/null 2>&1 || err "kime 바이너리를 찾을 수 없습니다. 설치 로그를 확인하세요: $LOG_FILE"
+  ok "kime 설치 완료 ($(kime --version 2>/dev/null || echo installed))"
 
-  # 2. 환경변수
-  log "[2/3] 환경변수 설정..."
+  # 2. 환경변수 및 입력기 프레임워크 설정
+  log "[2/3] 환경변수 및 입력기 설정..."
   local ENV_FILE="$TARGET_HOME/.config/environment.d/kime.conf"
   mkdir -p "$(dirname "$ENV_FILE")"
   cat > "$ENV_FILE" <<'EOF'
@@ -320,23 +672,97 @@ QT_IM_MODULE=kime
 XMODIFIERS=@im=kime
 EOF
   chown -R "$USER:$USER" "$(dirname "$ENV_FILE")"
+
+  if [[ "$_kime_family" == "debian" ]] && command -v im-config >/dev/null 2>&1 && [[ -f /usr/share/im-config/data/51_kime.rc ]]; then
+    su - "$USER" -c "im-config -n kime" 2>/dev/null || warn "im-config -n kime 실패 (수동으로 입력기를 kime으로 선택하세요)"
+  else
+    local XPROFILE_FILE="$TARGET_HOME/.xprofile"
+    if ! grep -q "GTK_IM_MODULE=kime" "$XPROFILE_FILE" 2>/dev/null; then
+      cat >> "$XPROFILE_FILE" <<'EOF'
+
+# kime 환경변수 (X11 / Non-systemd 세션 호환)
+export GTK_IM_MODULE=kime
+export QT_IM_MODULE=kime
+export XMODIFIERS=@im=kime
+EOF
+      chown "$USER:$USER" "$XPROFILE_FILE"
+    fi
+  fi
+
+  if [[ "$_kde_will" == "true" && -f /usr/share/applications/kime.desktop ]]; then
+    local _kime_desktop="/usr/share/applications/kime.desktop"
+    local _kwinrc="$TARGET_HOME/.config/kwinrc"
+    mkdir -p "$TARGET_HOME/.config"
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_kwinrc" --group Wayland --key InputMethod "$_kime_desktop" 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_kwinrc" --group Wayland --key InputMethod "$_kime_desktop" 2>/dev/null || true
+    elif [[ -f "$_kwinrc" ]]; then
+      awk -v im="$_kime_desktop" '
+        BEGIN { in_wayland=0; found_wayland=0; updated=0 }
+        /^\[Wayland\]$/ { in_wayland=1; found_wayland=1; print; next }
+        /^\[/ {
+          if (in_wayland && !updated) { print "InputMethod=" im; updated=1 }
+          in_wayland=0; print; next
+        }
+        in_wayland && /^InputMethod(\[\$e\])?=/ {
+          if (!updated) { print "InputMethod=" im; updated=1 }
+          next
+        }
+        { print }
+        END {
+          if (in_wayland && !updated) { print "InputMethod=" im }
+          else if (!found_wayland) { print ""; print "[Wayland]"; print "InputMethod=" im }
+        }
+      ' "$_kwinrc" > "${_kwinrc}.tmp" && mv "${_kwinrc}.tmp" "$_kwinrc"
+    else
+      printf '[Wayland]\nInputMethod=%s\n' "$_kime_desktop" > "$_kwinrc"
+    fi
+    chown "$USER:$USER" "$TARGET_HOME/.config" "$_kwinrc" 2>/dev/null || true
+    local _kde_uid
+    _kde_uid=$(id -u "$USER" 2>/dev/null || echo "")
+    if [[ -n "$_kde_uid" && -S "/run/user/$_kde_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _qdbus=""
+      if command -v qdbus6 >/dev/null 2>&1; then _qdbus="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then _qdbus="qdbus"
+      fi
+      if [[ -n "$_qdbus" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_kde_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_kde_uid/bus" \
+          "$_qdbus" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    ok "KDE Plasma 가상 키보드 설정 완료 ($_kime_desktop)"
+  fi
   ok "환경변수 설정"
 
-  # 3. 자동시작
-  log "[3/3] 자동시작 등록..."
+  # 3. 자동시작 확인 및 등록
+  log "[3/3] 자동시작 확인 및 등록..."
   local ADIR="$TARGET_HOME/.config/autostart"
-  mkdir -p "$ADIR"
-  cat > "$ADIR/kime.desktop" <<'EOF'
+  if [[ -f "$ADIR/kime.desktop" ]] && grep -q "Exec=kime-daemon" "$ADIR/kime.desktop" 2>/dev/null; then
+    rm -f "$ADIR/kime.desktop"
+  fi
+  if [[ -f /etc/xdg/autostart/kime.desktop ]]; then
+    ok "시스템 자동시작 확인됨 (/etc/xdg/autostart/kime.desktop)"
+  else
+    local _kime_exec
+    if [[ -x /usr/bin/kime-xdg-autostart ]]; then
+      _kime_exec="/usr/bin/kime-xdg-autostart"
+    else
+      _kime_exec=$(command -v kime || echo "/usr/bin/kime")
+    fi
+    mkdir -p "$ADIR"
+    cat > "$ADIR/kime.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Name=Kime
-Exec=kime-daemon
+Exec=${_kime_exec}
 X-GNOME-Autostart-enabled=true
 Hidden=false
 NoDisplay=false
 EOF
-  chown -R "$USER:$USER" "$ADIR"
-  ok "자동시작 등록"
+    chown -R "$USER:$USER" "$ADIR"
+    ok "자동시작 등록 ($_kime_exec)"
+  fi
 
   # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
   local GUIDE_DIR="$TARGET_HOME/.local/bin"
@@ -350,10 +776,10 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 kime (Rust 기반 경량 입력기) 한글 입력기 설정이 완료되었습니다!
 
-⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space
-💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
-⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
-📝 로그: $LOG_FILE
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Super+Space
+⚙️  설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)
+🩺 진단: kime-check
+📝 로그: /var/log/install-kime-kime-arch.log
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -382,11 +808,12 @@ GUIDE_DSK_EOF
 
   echo
   echo "============================================================"
-  echo " 🎉 kime 설치 완료! 재로그인 필요"
-  echo " KDE: 시스템설정 → 입력장치 → 가상키보드 → Kime 선택"
-  echo " GNOME: 설정 → 키보드 → 입력 소스 → 한국어 (Kime) 추가"
-  echo " 전환: 한/영 키 (우측 Alt), Shift+Space"
-  echo " 설정: kime-config (GUI) 또는 ~/.config/kime/config.toml"
+  echo " 🎉 kime 설치 완료! 로그아웃 후 다시 로그인하세요."
+  echo " KDE Wayland: 시스템 설정 → 입력 및 출력 → 키보드 → 가상 키보드 → kime 데몬 선택"
+  echo " GNOME Wayland: Mutter 한계로 GTK/Qt IM 모듈 앱 위주 동작 (Wayland 네이티브 앱 제한)"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Super+Space"
+  echo " 진단: kime-check | 설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)"
+  echo " 로그: $LOG_FILE"
   echo "============================================================"
 }
 main "$@"
