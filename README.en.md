@@ -38,7 +38,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 
 If you prefer selecting your exact Linux distribution and desktop environment (GNOME, KDE, Xfce, etc.):
 
-* 🔗 **Web Generator**: **[https://is.gd/korean_input](https://is.gd/korean_input)** (or [GitHub Pages](https://stream9k.github.io/korean_input/index-en.html))
+* 🔗 **Web Generator**: **[https://is.gd/korean_input](https://is.gd/korean_input)** (or [GitHub Pages](https://stream9k.github.io/korean_input/?lang=en))
 
 The Web Generator offers two execution choices:
 * **Option A (Terminal One-Liner)**: Copy and paste the one-liner command directly into your terminal (no download needed).

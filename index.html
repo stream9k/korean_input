@@ -119,9 +119,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
       <button type="button" class="lang-btn" id="btnLangKo" onclick="setLang('ko')">🇰🇷 한국어</button>
       <button type="button" class="lang-btn" id="btnLangEn" onclick="setLang('en')">🇺🇸 English</button>
       <span class="lang-sep">·</span>
-      <a class="lang-link" id="langAltLink" href="index-en.html">English Page</a>
-      <span class="lang-sep">·</span>
-      <a class="lang-link" href="https://is.gd/korean_input" target="_blank" rel="noopener" title="단축 주소">🔗 is.gd/korean_input</a>
+      <a class="lang-link" id="shortUrlLink" href="https://is.gd/korean_input" target="_blank" rel="noopener" title="단축 주소">🔗 is.gd/korean_input</a>
       <span class="lang-sep">·</span>
       <a class="lang-link" href="https://github.com/stream9k/korean_input" target="_blank" rel="noopener">GitHub</a>
     </div>
@@ -4216,8 +4214,8 @@ const I18N = {
     pageTitle: "리눅스 한글 입력기 자동 설치 스크립트 생성기",
     heroTitle: "한글 입력기 자동 설치 스크립트",
     heroSubtitle: "배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.",
-    altLinkText: "English Page",
-    altLinkHref: "index-en.html",
+    shortUrlTitle: "단축 주소",
+    heroTitleTooltip: "초기 화면으로 돌아가기",
     step0Title: "⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)",
     step0Desc: "<code>git</code> 설치도, 실행 권한(<code>chmod +x</code>) 변경도 필요 없습니다. 터미널에 아래 명령어 한 줄만 붙여넣으면 사용 중인 배포판(Garuda, Arch, Mint, Ubuntu, Fedora 등)을 자동 감지해 설치합니다. <strong style=\"color:var(--success);\">대부분 0단계 스크립트로 한방에 설치가 끝나며, 설치가 완료되면 1단계로 가실 필요가 없습니다.</strong>",
     btnCopyAutoOneliner: "📋 원라인 복사",
@@ -4285,8 +4283,8 @@ const I18N = {
     pageTitle: "Linux Korean Input Method Auto-Installer Generator",
     heroTitle: "Linux Korean Input Method Installer",
     heroSubtitle: "Select your Linux distribution and edition to generate a tailored fcitx5-hangul or kime setup script.",
-    altLinkText: "한국어 페이지",
-    altLinkHref: "index.html",
+    shortUrlTitle: "Short URL",
+    heroTitleTooltip: "Reset to home",
     step0Title: "⚡ Step 0: One-Line Auto-Detect Installer (Recommended)",
     step0Desc: "No <code>git</code> required, no <code>chmod +x</code> needed. Paste this single command into your terminal to auto-detect your distro (Garuda, Arch, Mint, Ubuntu, Fedora, etc.) and install Korean input + Noto CJK fonts. <strong style=\"color:var(--success);\">For most users, this Step 0 script finishes everything in one shot — if it succeeds, you do not need to proceed to Step 1.</strong>",
     btnCopyAutoOneliner: "📋 Copy One-Liner",
@@ -4425,11 +4423,12 @@ function applyTranslations() {
 
   document.getElementById("btnLangKo").classList.toggle("active", currentLang === "ko");
   document.getElementById("btnLangEn").classList.toggle("active", currentLang === "en");
-  const altLink = document.getElementById("langAltLink");
-  altLink.textContent = t.altLinkText;
-  altLink.href = t.altLinkHref;
+  const shortUrlLink = document.getElementById("shortUrlLink");
+  if (shortUrlLink) shortUrlLink.title = t.shortUrlTitle;
 
-  document.getElementById("heroTitle").textContent = t.heroTitle;
+  const heroTitleEl = document.getElementById("heroTitle");
+  heroTitleEl.textContent = t.heroTitle;
+  heroTitleEl.title = t.heroTitleTooltip;
   document.getElementById("heroSubtitle").textContent = t.heroSubtitle;
   document.getElementById("step0Title").textContent = t.step0Title;
   document.getElementById("step0Desc").innerHTML = t.step0Desc;
@@ -4529,6 +4528,13 @@ function setLang(lang, persist = true) {
   currentLang = lang === "en" ? "en" : "ko";
   if (persist) {
     try { localStorage.setItem("hangul_installer_lang", currentLang); } catch {}
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has("lang")) {
+        url.searchParams.set("lang", currentLang);
+        window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+      }
+    } catch {}
   }
   applyTranslations();
 }
