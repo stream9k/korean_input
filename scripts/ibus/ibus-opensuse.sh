@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.4"
+SCRIPT_VERSION="1.3.5"
 LOG_FILE="/var/log/install-ibus-ibus-opensuse.log"
 
 LOG_ENABLED=false

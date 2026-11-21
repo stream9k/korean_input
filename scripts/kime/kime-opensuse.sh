@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.4"
+SCRIPT_VERSION="1.3.5"
 LOG_FILE="/var/log/install-kime-kime-opensuse.log"
 
 LOG_ENABLED=false
@@ -742,6 +742,130 @@ check_fedora_copr_support() {
   return 1
 }
 
+_KIME_AUR_TMP=""
+
+cleanup_kime_aur_tmp() {
+  if [[ -n "${_KIME_AUR_TMP:-}" && -d "$_KIME_AUR_TMP" ]]; then
+    rm -rf "$_KIME_AUR_TMP"
+    _KIME_AUR_TMP=""
+  fi
+}
+
+run_as_target_user() {
+  local _u="$1" _home="$2"
+  shift 2
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$_u" -- env \
+      HOME="$_home" \
+      USER="$_u" \
+      LOGNAME="$_u" \
+      PATH="${_home}/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin" \
+      "$@" </dev/null
+  else
+    local _cmd=""
+    printf -v _cmd '%q ' env \
+      "HOME=$_home" \
+      "USER=$_u" \
+      "LOGNAME=$_u" \
+      "PATH=${_home}/.cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/bin:/bin" \
+      "$@"
+    su - "$_u" -c "$_cmd" </dev/null
+  fi
+}
+
+parse_srcinfo_deps() {
+  awk '
+    /^[[:space:]]*(depends|depends_x86_64|makedepends|makedepends_x86_64|checkdepends|checkdepends_x86_64)[[:space:]]*=/ {
+      sub(/^[^=]*=[[:space:]]*/, "")
+      sub(/[[:space:]]+$/, "")
+      if ($0 != "") print
+    }
+  '
+}
+
+install_kime_aur_arch() {
+  local _user="$1" _home="$2" _uid="$3"
+  local _aur_pkg="${KIME_AUR_PKG:-kime}"
+  local _aur_url="${KIME_AUR_GIT_URL:-https://aur.archlinux.org/${_aur_pkg}.git}"
+  local _gid
+  _gid=$(id -g "$_user" 2>/dev/null || echo "$_uid")
+
+  log "   → 빌드 필수 도구 확인/설치 (pacman: base-devel, git)..."
+  pacman -Sy --needed --noconfirm base-devel git </dev/null || err "base-devel/git 설치에 실패했습니다. 인터넷 연결과 pacman 상태를 확인하세요."
+
+  local _aur_tmp
+  _aur_tmp=$(mktemp -d /var/tmp/kime-aur-build.XXXXXX)
+  _KIME_AUR_TMP="$_aur_tmp"
+  trap cleanup_kime_aur_tmp EXIT
+
+  local _aur_src="${_aur_tmp}/src"
+  local _aur_out="${_aur_tmp}/pkg"
+  local _aur_build="${_aur_tmp}/build"
+  local _aur_log="${_aur_tmp}/log"
+  mkdir -p "$_aur_out" "$_aur_build" "$_aur_log"
+  chown -R "${_uid}:${_gid}" "$_aur_tmp"
+
+  log "   → AUR 저장소 클론 (${_aur_pkg}, 사용자: ${_user})..."
+  if ! run_as_target_user "$_user" "$_home" git clone --depth=1 "$_aur_url" "$_aur_src"; then
+    err "AUR 저장소 클론 실패: $_aur_url"
+  fi
+
+  local _srcinfo=""
+  _srcinfo=$(run_as_target_user "$_user" "$_home" env -C "$_aur_src" makepkg --printsrcinfo 2>/dev/null || true)
+  if [[ -z "$_srcinfo" && -f "${_aur_src}/.SRCINFO" ]]; then
+    _srcinfo=$(cat "${_aur_src}/.SRCINFO")
+  fi
+
+  local -a _aur_deps=()
+  if [[ -n "$_srcinfo" ]]; then
+    mapfile -t _aur_deps < <(printf '%s\n' "$_srcinfo" | parse_srcinfo_deps | sort -u)
+  fi
+
+  if [[ ${#_aur_deps[@]} -gt 0 ]]; then
+    local _missing_raw=""
+    _missing_raw=$(pacman -T "${_aur_deps[@]}" 2>/dev/null || true)
+    if [[ -n "$_missing_raw" ]]; then
+      local -a _missing_pkgs=()
+      mapfile -t _missing_pkgs < <(printf '%s\n' "$_missing_raw" | sed 's/[<>=].*$//' | awk 'NF' | sort -u)
+      if [[ ${#_missing_pkgs[@]} -gt 0 ]]; then
+        log "   → AUR 빌드/런타임 의존성 설치 (pacman): ${_missing_pkgs[*]}"
+        pacman -S --needed --noconfirm --asdeps "${_missing_pkgs[@]}" </dev/null || err "kime 의존성 패키지 설치에 실패했습니다: ${_missing_pkgs[*]}"
+      fi
+    fi
+  fi
+
+  log "   → AUR 패키지 빌드 (makepkg, 사용자: ${_user})..."
+  if ! run_as_target_user "$_user" "$_home" env -C "$_aur_src" \
+       makepkg --noconfirm --nosign --clean \
+       "PKGDEST=${_aur_out}" \
+       "SRCDEST=${_aur_src}" \
+       "BUILDDIR=${_aur_build}" \
+       "LOGDEST=${_aur_log}"; then
+    err "makepkg를 통한 kime 빌드에 실패했습니다. 빌드 로그와 네트워크 상태를 확인하세요."
+  fi
+
+  local -a _pkg_files=()
+  local _f
+  shopt -s nullglob
+  for _f in "${_aur_out}"/*.pkg.tar*; do
+    case "$_f" in
+      *.sig|*-debug-*.pkg.tar*) continue ;;
+      *) _pkg_files+=("$_f") ;;
+    esac
+  done
+  shopt -u nullglob
+
+  if [[ ${#_pkg_files[@]} -eq 0 ]]; then
+    err "빌드된 kime 패키지 파일(.pkg.tar*)을 찾을 수 없습니다."
+  fi
+
+  log "   → 빌드된 패키지 설치 (pacman -U)..."
+  pacman -U --noconfirm "${_pkg_files[@]}" </dev/null || err "pacman -U를 통한 kime 패키지 설치에 실패했습니다."
+
+  cleanup_kime_aur_tmp
+  trap - EXIT
+}
+
 main() {
   require_root
 
@@ -765,25 +889,25 @@ main() {
     )
   fi
 
-  local _kime_family _aur_helper="" _pkg_summary=""
+  local _kime_family _kime_arch_installed="false" _pkg_summary=""
   local _deb_arch="" _deb_target="" _kime_tag="" _deb_url="" _deb_avail="" _deb_name=""
   _kime_family=$(detect_kime_family "$_os_id" "$_os_like")
 
   case "$_kime_family" in
     arch)
+      if ! command -v pacman >/dev/null 2>&1; then
+        err "pacman을 찾을 수 없습니다. Arch 계열 배포판에서만 실행할 수 있습니다."
+      fi
       local _arch_m
       _arch_m=$(uname -m)
       if [[ "$_arch_m" != "x86_64" ]]; then
         err "AUR kime 패키지는 x86_64 아키텍처만 지원합니다 (현재: $_arch_m). 수동 빌드: https://github.com/Riey/kime"
       fi
-      if command -v yay >/dev/null 2>&1 || su - "$USER" -c 'command -v yay >/dev/null 2>&1'; then
-        _aur_helper="yay"
-        _pkg_summary="   - AUR (yay): su - $USER -c \"yay -S --noconfirm kime\""
-      elif command -v paru >/dev/null 2>&1 || su - "$USER" -c 'command -v paru >/dev/null 2>&1'; then
-        _aur_helper="paru"
-        _pkg_summary="   - AUR (paru): su - $USER -c \"paru -S --noconfirm kime\""
+      if pacman -T kime >/dev/null 2>&1 && command -v kime >/dev/null 2>&1; then
+        _kime_arch_installed="true"
+        _pkg_summary="   - AUR (kime): 이미 설치됨 ($(kime --version 2>/dev/null | head -n1 || echo installed)) — 빌드·설치 건너뜀 (설정만 적용)"
       else
-        err "AUR 헬퍼(yay 또는 paru)가 없습니다. 수동 설치 필요: https://github.com/Riey/kime"
+        _pkg_summary="   - pacman -Sy --needed --noconfirm base-devel git (root)\n   - AUR (kime): 일반 사용자($USER) 권한으로 git clone 및 makepkg 빌드 (sudo 재호출 없음)\n   - pacman -U --noconfirm kime-*.pkg.tar.* (root, paru/yay 호환 — 별도 AUR 헬퍼 불필요)"
       fi
       ;;
     fedora)
@@ -880,8 +1004,12 @@ main() {
   # 1. 배포판별 설치
   case "$_kime_family" in
     arch)
-      log "[1/3] kime 설치 (AUR: $_aur_helper)..."
-      su - "$USER" -c "$_aur_helper -S --noconfirm kime"
+      if [[ "$_kime_arch_installed" == "true" ]]; then
+        log "[1/3] 이미 kime이 설치되어 있어 AUR 빌드를 건너뜁니다."
+      else
+        log "[1/3] kime 설치 (Arch AUR: root 의존성/설치 + 일반 사용자 makepkg 빌드)..."
+        install_kime_aur_arch "$USER" "$TARGET_HOME" "$TARGET_UID"
+      fi
       ;;
     fedora)
       log "[1/3] kime 설치 (Fedora COPR)..."
