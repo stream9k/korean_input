@@ -286,6 +286,70 @@ detect_mandriva_pkg_mgr() {
   fi
 }
 
+is_readable_tty_fd() {
+  local _fd="$1" _k="" _v="" _flags=""
+  [[ -t "$_fd" ]] || return 1
+  if [[ -r "/proc/self/fdinfo/$_fd" ]]; then
+    while read -r _k _v _; do
+      if [[ "$_k" == "flags:" ]]; then
+        _flags="$_v"
+        break
+      fi
+    done < "/proc/self/fdinfo/$_fd"
+    [[ -n "$_flags" && "$_flags" =~ ^[0-7]+$ ]] || return 1
+    if (( (8#$_flags & 3) == 0 || (8#$_flags & 3) == 2 )); then
+      return 0
+    fi
+    return 1
+  fi
+  return 1
+}
+
+resolve_confirm_tty() {
+  _CONFIRM_TTY_MODE=""
+  if ( : </dev/tty ) 2>/dev/null; then
+    _CONFIRM_TTY_MODE="devtty"
+    return 0
+  fi
+  if [[ -t 0 ]]; then
+    _CONFIRM_TTY_MODE="fd0"
+    return 0
+  fi
+  if is_readable_tty_fd 1; then
+    _CONFIRM_TTY_MODE="fd1"
+    return 0
+  fi
+  if is_readable_tty_fd 2; then
+    _CONFIRM_TTY_MODE="fd2"
+    return 0
+  fi
+  local _t1="" _t2="" _tpath=""
+  if [[ -t 1 ]]; then
+    exec 9<&1
+    _t1=$(readlink /proc/self/fd/9 2>/dev/null || tty <&9 2>/dev/null || true)
+    exec 9<&-
+    [[ "$_t1" == /* && -c "$_t1" ]] || _t1=""
+  fi
+  if [[ -t 2 ]]; then
+    exec 9<&2
+    _t2=$(readlink /proc/self/fd/9 2>/dev/null || tty <&9 2>/dev/null || true)
+    exec 9<&-
+    [[ "$_t2" == /* && -c "$_t2" ]] || _t2=""
+  fi
+  if [[ -n "$_t1" && "$_t1" == "$_t2" ]]; then
+    _tpath="$_t1"
+  elif [[ ! -r /proc/self/fdinfo/1 && -n "$_t1" ]]; then
+    _tpath="$_t1"
+  elif [[ ! -r /proc/self/fdinfo/2 && -n "$_t2" ]]; then
+    _tpath="$_t2"
+  fi
+  if [[ -n "$_tpath" ]] && ( : <"$_tpath" ) 2>/dev/null; then
+    _CONFIRM_TTY_MODE="path:$_tpath"
+    return 0
+  fi
+  return 1
+}
+
 print_preflight_summary_and_confirm() {
   local pretty_name="$1"
   local family="$2"
@@ -656,9 +720,10 @@ print_preflight_summary_and_confirm() {
       return 0
     fi
 
-    if ! ( : </dev/tty ) 2>/dev/null; then
+    local _CONFIRM_TTY_MODE=""
+    if ! resolve_confirm_tty; then
       echo " $(msg "❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." "❌ No interactive terminal (/dev/tty) available for confirmation.")" >&2
-      echo "    $(msg "대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." "Run interactively or pass --yes (-y).")" >&2
+      echo "    $(msg "대화형 터미널에서 실행하거나, 파이프 실행 시 '| sudo bash -s -- --yes' (로컬 실행 시 '--yes' / '-y') 옵션을 전달하세요." "Run in an interactive terminal, or pass '| sudo bash -s -- --yes' when piped (or '--yes' / '-y' locally).")" >&2
       exit 1
     fi
 
@@ -672,8 +737,41 @@ print_preflight_summary_and_confirm() {
     fi
 
     local reply=""
-    printf " %s" "$prompt_text"
-    IFS= read -r reply </dev/tty || reply=""
+    case "$_CONFIRM_TTY_MODE" in
+      devtty)
+        if [[ -t 1 ]]; then
+          printf " %s" "$prompt_text"
+        elif ( : >/dev/tty ) 2>/dev/null; then
+          printf " %s" "$prompt_text" >/dev/tty
+        else
+          printf " %s" "$prompt_text" >&2
+        fi
+        IFS= read -r reply </dev/tty || reply=""
+        ;;
+      fd0)
+        printf " %s" "$prompt_text"
+        IFS= read -r reply || reply=""
+        ;;
+      fd1)
+        printf " %s" "$prompt_text"
+        IFS= read -r reply <&1 || reply=""
+        ;;
+      fd2)
+        printf " %s" "$prompt_text" >&2
+        IFS= read -r reply <&2 || reply=""
+        ;;
+      path:*)
+        local _tty_path="${_CONFIRM_TTY_MODE#path:}"
+        if [[ -t 1 ]]; then
+          printf " %s" "$prompt_text"
+        elif [[ -t 2 ]]; then
+          printf " %s" "$prompt_text" >&2
+        else
+          printf " %s" "$prompt_text" >"$_tty_path"
+        fi
+        IFS= read -r reply <"$_tty_path" || reply=""
+        ;;
+    esac
     case "$reply" in
       y|Y|yes|YES)
         echo
@@ -1425,11 +1523,16 @@ EOF
   done
 
   # 5. /etc/environment 및 사용자 셸/세션 프로필에서 충돌 IM 환경변수·단독 실행 줄 정리
+  if [[ -f "$target_home/.xim" ]] && grep -q '^# korean_input: managed xim' "$target_home/.xim" 2>/dev/null && \
+     ! grep -qE "^# korean_input: managed xim \(${target_ime}\)\$" "$target_home/.xim" 2>/dev/null; then
+    rm -f "$target_home/.xim"
+    changed=true
+  fi
   local env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${im_re}['\"]?|INPUT_METHOD=['\"]?${im_re}['\"]?|QT_IM_MODULES=('[^']*${im_re}[^']*'|\"[^\"]*${im_re}[^\"]*\"|[^[:space:]'\";]*${im_re}[^[:space:]'\";]*)|XMODIFIERS=['\"]?@im=${im_re}['\"]?)[[:space:]]*(#.*)?$"
   local etc_env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${im_re}['\"]?|INPUT_METHOD=['\"]?${im_re}['\"]?|QT_IM_MODULES=('[^']*${im_re}[^']*'|\"[^\"]*${im_re}[^\"]*\"|[^[:space:]'\"]*${im_re}[^[:space:]'\"]*)|XMODIFIERS=['\"]?@im=${im_re}['\"]?)[[:space:]]*(#.*)?$"
   local cmd_line_re="^[[:space:]]*((/usr(/local)?/bin/)?${cmd_re})([[:space:]]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([[:space:]]*&)?[[:space:]]*(#.*)?$"
   local ef
-  for ef in /etc/environment "$target_home/.xsessionrc" "$target_home/.xprofile" "$target_home/.bash_profile" "$target_home/.zprofile" "$target_home/.profile"; do
+  for ef in /etc/environment "$target_home/.xsessionrc" "$target_home/.xprofile" "$target_home/.bash_profile" "$target_home/.zprofile" "$target_home/.profile" "$target_home/.xim"; do
     if [[ -f "$ef" && -w "$ef" ]]; then
       if [[ "$ef" == "/etc/environment" ]]; then
         if grep -qE "$etc_env_line_re" "$ef" 2>/dev/null; then
@@ -1685,6 +1788,9 @@ GTK_IM_MODULE=ibus
 QT_IM_MODULE=ibus
 XMODIFIERS=@im=ibus
 EOF
+  if [[ "$family" == "opensuse" || "$family" == "opensuse-transactional" ]]; then
+    echo "INPUT_METHOD=ibus" >> "$ibus_env"
+  fi
   chown -R "$target_uid:$target_gid" "$(dirname "$ibus_env")"
 
   case "$family" in
@@ -1704,9 +1810,15 @@ EOF
       else
         run_as_user_sh "$target_user" "systemctl --user enable ibus 2>/dev/null || true" || true
       fi
-      local ibus_prof="$target_home/.bash_profile"
-      [[ -f "$target_home/.profile" && ! -f "$ibus_prof" ]] && ibus_prof="$target_home/.profile"
-      append_profile_env "$ibus_prof" "$target_uid" "$target_gid" "ibus"
+      local ibus_prof="$target_home/.bash_profile" ibus_include_im="false"
+      if [[ "$family" == "opensuse" || "$family" == "opensuse-transactional" ]]; then
+        ibus_prof="$target_home/.profile"
+        [[ ! -f "$ibus_prof" && -f "$target_home/.bash_profile" ]] && ibus_prof="$target_home/.bash_profile"
+        ibus_include_im="true"
+      else
+        [[ -f "$target_home/.profile" && ! -f "$ibus_prof" ]] && ibus_prof="$target_home/.profile"
+      fi
+      append_profile_env "$ibus_prof" "$target_uid" "$target_gid" "ibus" "$ibus_include_im"
       ;;
     rhel-family|fedora-atomic)
       local ibus_prof="$target_home/.bash_profile"
@@ -1798,8 +1910,12 @@ install_ibus_for_family() {
       ;;
     opensuse)
       log "$(msg "[1/3] ibus-hangul 및 한글 폰트 패키지 설치 (zypper)..." "[1/3] Installing ibus-hangul + Korean fonts (zypper)...")"
-      zypper --non-interactive install -y ibus ibus-hangul
-      zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
+      if ! zypper --non-interactive --gpg-auto-import-keys install -y ibus ibus-hangul; then
+        warn "$(msg "zypper 설치 실패 — 미러 메타데이터 강제 갱신(refresh -f) 후 재시도합니다..." "zypper install failed — forcing repository metadata refresh (refresh -f) and retrying...")"
+        zypper --non-interactive --gpg-auto-import-keys refresh -f || true
+        zypper --non-interactive --gpg-auto-import-keys install -y ibus ibus-hangul
+      fi
+      zypper --non-interactive --gpg-auto-import-keys install -y google-noto-sans-cjk-fonts 2>/dev/null || true
       ;;
     opensuse-transactional)
       need_reboot=true

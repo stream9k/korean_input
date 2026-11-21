@@ -58,7 +58,7 @@ const I18N = {
     verifyCode: {
       fcitx5: `# 1. fcitx5 상세 진단 (재로그인 후 실행)\nfcitx5-diagnose\n\n# 2. 환경변수 확인 (fcitx 가 출력되어야 함)\nenv | grep -i im_module\n\n# 3. 프로세스 확인\npgrep -af fcitx5\n\n# 4. 설정 확인\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# 5. 강제 재시작\nfcitx5 -r`,
       ibus: `# 1. ibus 데몬 프로세스 확인\npgrep -af ibus-daemon\n\n# 2. 환경변수 확인 (ibus 가 출력되어야 함)\nenv | grep -i im_module\n\n# 3. GNOME 입력 소스 한글 등록 확인\ngsettings get org.gnome.desktop.input-sources sources\n\n# 4. ibus 한글 엔진 등록 확인\nibus list-engine | grep hangul\n\n# 5. ibus 설정 창 열기 (단축키 및 세부 설정)\nibus-setup`,
-      kime: `# 1. kime 시스템 상태 진단\nkime-check\n\n# 2. kime 프로세스 확인\npgrep -af kime\n\n# 3. 환경변수 확인\nenv | grep -i im_module\n\n# 4. kime 설정 파일 확인\ncat ~/.config/kime/config.ron`
+      kime: `# 1. kime 시스템 상태 진단\nkime-check\n\n# 2. kime 프로세스 확인\npgrep -af kime\n\n# 3. 환경변수 확인\nenv | grep -i im_module\n\n# 4. kime 설정 파일 확인\ncat ~/.config/kime/config.yaml`
     },
     altKeyTipTitle: "💡 오른쪽 Alt 키 누를 때 Firefox 메뉴바(풀다운)와 한/영 전환이 동시에 작동하는 경우:",
     altKeyTipBody: "일부 노트북이나 키보드에서 오른쪽 Alt 키가 브라우저 메뉴 단축키(Alt)와 한/영 전환을 동시에 호출할 수 있습니다.<br><strong>해결 방법:</strong> 설정 → 키보드 → 키바인딩 (또는 레이아웃) → <strong>키보드 옵션 설정</strong> 체크 → <strong>한국어 한/영키 한자키</strong> → <strong>오른쪽 ALT키를 한/영키로 만들기</strong> 체크 후 적용하세요.",
@@ -146,7 +146,7 @@ const I18N = {
     verifyCode: {
       fcitx5: `# 1. fcitx5 diagnostics (run after re-login)\nfcitx5-diagnose\n\n# 2. Check environment variables (should show fcitx)\nenv | grep -i im_module\n\n# 3. Check running process\npgrep -af fcitx5\n\n# 4. Inspect config files\ncat ~/.config/fcitx5/profile\ncat ~/.config/fcitx5/config\n\n# 5. Force restart\nfcitx5 -r`,
       ibus: `# 1. Check ibus daemon process\npgrep -af ibus-daemon\n\n# 2. Check environment variables (should show ibus)\nenv | grep -i im_module\n\n# 3. Check GNOME input sources\ngsettings get org.gnome.desktop.input-sources sources\n\n# 4. Check ibus Hangul engine\nibus list-engine | grep hangul\n\n# 5. Open ibus setup dialog\nibus-setup`,
-      kime: `# 1. Run kime system diagnostics\nkime-check\n\n# 2. Check kime process\npgrep -af kime\n\n# 3. Check environment variables\nenv | grep -i im_module\n\n# 4. Inspect kime config file\ncat ~/.config/kime/config.ron`
+      kime: `# 1. Run kime system diagnostics\nkime-check\n\n# 2. Check kime process\npgrep -af kime\n\n# 3. Check environment variables\nenv | grep -i im_module\n\n# 4. Inspect kime config file\ncat ~/.config/kime/config.yaml`
     },
     altKeyTipTitle: "💡 Right Alt Conflict (Firefox menu dropdown & Korean toggle both triggering):",
     altKeyTipBody: "On some laptops or US keyboards, Right Alt triggers the browser menu bar while toggling Korean.<br><strong>Fix:</strong> Settings → Keyboard → Keybindings (or Layout) → <strong>Keyboard Options</strong> → <strong>Korean Hangul/Hanja keys</strong> → check <strong>Make Right Alt a Hangul key</strong> → Apply.",

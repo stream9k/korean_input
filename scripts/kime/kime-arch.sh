@@ -395,11 +395,17 @@ EOF
     fi
   done
 
+  if [[ -f "$_home/.xim" ]] && grep -q '^# korean_input: managed xim' "$_home/.xim" 2>/dev/null && \
+     ! grep -qE "^# korean_input: managed xim \(${_target_ime}\)$" "$_home/.xim" 2>/dev/null; then
+    rm -f "$_home/.xim"
+    _changed=true
+  fi
+
   local _env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_im_re}['\"]?|INPUT_METHOD=['\"]?${_im_re}['\"]?|QT_IM_MODULES=('[^']*${_im_re}[^']*'|\"[^\"]*${_im_re}[^\"]*\"|[^[:space:]'\";]*${_im_re}[^[:space:]'\";]*)|XMODIFIERS=['\"]?@im=${_im_re}['\"]?)[[:space:]]*(#.*)?$"
   local _etc_env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_im_re}['\"]?|INPUT_METHOD=['\"]?${_im_re}['\"]?|QT_IM_MODULES=('[^']*${_im_re}[^']*'|\"[^\"]*${_im_re}[^\"]*\"|[^[:space:]'\"]*${_im_re}[^[:space:]'\"]*)|XMODIFIERS=['\"]?@im=${_im_re}['\"]?)[[:space:]]*(#.*)?$"
   local _cmd_line_re="^[[:space:]]*((/usr(/local)?/bin/)?${_cmd_re})([[:space:]]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([[:space:]]*&)?[[:space:]]*(#.*)?$"
   local _ef
-  for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.zprofile" "$_home/.profile"; do
+  for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.zprofile" "$_home/.profile" "$_home/.xim"; do
     if [[ -f "$_ef" && -w "$_ef" ]]; then
       if [[ "$_ef" == "/etc/environment" ]]; then
         if grep -qE "$_etc_env_line_re" "$_ef" 2>/dev/null; then
@@ -789,6 +795,70 @@ append_fcitx5_overwrite_warn() {
   fi
 }
 
+is_readable_tty_fd() {
+  local _fd="$1" _k="" _v="" _flags=""
+  [[ -t "$_fd" ]] || return 1
+  if [[ -r "/proc/self/fdinfo/$_fd" ]]; then
+    while read -r _k _v _; do
+      if [[ "$_k" == "flags:" ]]; then
+        _flags="$_v"
+        break
+      fi
+    done < "/proc/self/fdinfo/$_fd"
+    [[ -n "$_flags" && "$_flags" =~ ^[0-7]+$ ]] || return 1
+    if (( (8#$_flags & 3) == 0 || (8#$_flags & 3) == 2 )); then
+      return 0
+    fi
+    return 1
+  fi
+  return 1
+}
+
+resolve_confirm_tty() {
+  _CONFIRM_TTY_MODE=""
+  if ( : </dev/tty ) 2>/dev/null; then
+    _CONFIRM_TTY_MODE="devtty"
+    return 0
+  fi
+  if [[ -t 0 ]]; then
+    _CONFIRM_TTY_MODE="fd0"
+    return 0
+  fi
+  if is_readable_tty_fd 1; then
+    _CONFIRM_TTY_MODE="fd1"
+    return 0
+  fi
+  if is_readable_tty_fd 2; then
+    _CONFIRM_TTY_MODE="fd2"
+    return 0
+  fi
+  local _t1="" _t2="" _tpath=""
+  if [[ -t 1 ]]; then
+    exec 9<&1
+    _t1=$(readlink /proc/self/fd/9 2>/dev/null || tty <&9 2>/dev/null || true)
+    exec 9<&-
+    [[ "$_t1" == /* && -c "$_t1" ]] || _t1=""
+  fi
+  if [[ -t 2 ]]; then
+    exec 9<&2
+    _t2=$(readlink /proc/self/fd/9 2>/dev/null || tty <&9 2>/dev/null || true)
+    exec 9<&-
+    [[ "$_t2" == /* && -c "$_t2" ]] || _t2=""
+  fi
+  if [[ -n "$_t1" && "$_t1" == "$_t2" ]]; then
+    _tpath="$_t1"
+  elif [[ ! -r /proc/self/fdinfo/1 && -n "$_t1" ]]; then
+    _tpath="$_t1"
+  elif [[ ! -r /proc/self/fdinfo/2 && -n "$_t2" ]]; then
+    _tpath="$_t2"
+  fi
+  if [[ -n "$_tpath" ]] && ( : <"$_tpath" ) 2>/dev/null; then
+    _CONFIRM_TTY_MODE="path:$_tpath"
+    return 0
+  fi
+  return 1
+}
+
 confirm_before_changes() {
   local _title="$1"
   local _os_name="$2"
@@ -830,15 +900,50 @@ confirm_before_changes() {
     return 0
   fi
 
-  if ! ( : </dev/tty ) 2>/dev/null; then
+  local _CONFIRM_TTY_MODE=""
+  if ! resolve_confirm_tty; then
     echo " ❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." >&2
-    echo "    대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." >&2
+    echo "    대화형 터미널에서 실행하거나, 파이프 실행 시 '| sudo bash -s -- --yes' (로컬 실행 시 '--yes' / '-y') 옵션을 전달하세요." >&2
     exit 1
   fi
 
   local _reply=""
-  printf " 이대로 설치를 진행하시겠습니까? [y/N]: "
-  IFS= read -r _reply </dev/tty || _reply=""
+  local _prompt=" 이대로 설치를 진행하시겠습니까? [y/N]: "
+  case "$_CONFIRM_TTY_MODE" in
+    devtty)
+      if [[ -t 1 ]]; then
+        printf "%s" "$_prompt"
+      elif ( : >/dev/tty ) 2>/dev/null; then
+        printf "%s" "$_prompt" >/dev/tty
+      else
+        printf "%s" "$_prompt" >&2
+      fi
+      IFS= read -r _reply </dev/tty || _reply=""
+      ;;
+    fd0)
+      printf "%s" "$_prompt"
+      IFS= read -r _reply || _reply=""
+      ;;
+    fd1)
+      printf "%s" "$_prompt"
+      IFS= read -r _reply <&1 || _reply=""
+      ;;
+    fd2)
+      printf "%s" "$_prompt" >&2
+      IFS= read -r _reply <&2 || _reply=""
+      ;;
+    path:*)
+      local _tty_path="${_CONFIRM_TTY_MODE#path:}"
+      if [[ -t 1 ]]; then
+        printf "%s" "$_prompt"
+      elif [[ -t 2 ]]; then
+        printf "%s" "$_prompt" >&2
+      else
+        printf "%s" "$_prompt" >"$_tty_path"
+      fi
+      IFS= read -r _reply <"$_tty_path" || _reply=""
+      ;;
+  esac
   case "$_reply" in
     y|Y|yes|YES)
       echo
@@ -1557,7 +1662,7 @@ main() {
       if ! zypper --non-interactive se -x kime >/dev/null 2>&1; then
         err "현재 설정된 openSUSE 저장소(${OS_NAME})에 kime 패키지가 없습니다. 공식 저장소에서는 openSUSE Tumbleweed만 kime을 기본 제공합니다. 수동 설치/OBS 저장소 확인: https://github.com/Riey/kime 또는 https://software.opensuse.org/package/kime"
       fi
-      _pkg_summary="   - openSUSE (${_os_id}): zypper --non-interactive install -y kime"
+      _pkg_summary="   - openSUSE (${_os_id}): zypper --non-interactive --gpg-auto-import-keys install -y kime (+ google-noto-sans-cjk-fonts 사용 가능 시)"
       ;;
     debian)
       if command -v dpkg >/dev/null 2>&1; then
@@ -1598,11 +1703,16 @@ main() {
       _cfg_summary="${_cfg_summary}\n   - $TARGET_HOME/.xsessionrc (X11 세션 폴백)"
     else
       _cfg_summary="${_cfg_summary}\n   - $TARGET_HOME/.xprofile (X11 세션 호환)"
+      if [[ "$_kime_family" == "opensuse" ]]; then
+        _cfg_summary="${_cfg_summary}, $TARGET_HOME/.xim"
+      fi
     fi
   else
     _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf, /etc/environment"
     if [[ "$_kime_family" == "debian" ]]; then
       _cfg_summary="${_cfg_summary}\n   - im-config -n kime (im-config 사용 가능 시)"
+    elif [[ "$_kime_family" == "opensuse" ]]; then
+      _cfg_summary="${_cfg_summary}\n   - ~/.profile (또는 ~/.bash_profile / ~/.zprofile), $TARGET_HOME/.xprofile, $TARGET_HOME/.xim"
     else
       _cfg_summary="${_cfg_summary}\n   - ~/.bash_profile (또는 ~/.zprofile / ~/.profile), $TARGET_HOME/.xprofile"
     fi
@@ -1664,7 +1774,16 @@ main() {
       ;;
     opensuse)
       log "[1/3] kime 설치 (zypper)..."
-      zypper --non-interactive install -y kime
+      local _kime_suse_pkgs=(kime)
+      if zypper --non-interactive --no-refresh se -x -t package google-noto-sans-cjk-fonts >/dev/null 2>&1 || \
+         zypper --non-interactive se -x -t package google-noto-sans-cjk-fonts >/dev/null 2>&1; then
+        _kime_suse_pkgs+=(google-noto-sans-cjk-fonts)
+      fi
+      if ! zypper --non-interactive --gpg-auto-import-keys install -y "${_kime_suse_pkgs[@]}"; then
+        warn "zypper 설치 실패 — 미러 메타데이터 강제 갱신(refresh -f) 후 재시도합니다..."
+        zypper --non-interactive --gpg-auto-import-keys refresh -f || true
+        zypper --non-interactive --gpg-auto-import-keys install -y "${_kime_suse_pkgs[@]}"
+      fi
       ;;
     debian)
       log "[1/3] kime 설치 (${_deb_target} / ${_deb_name} 다운로드)..."
@@ -1862,12 +1981,18 @@ EOF
       _user_shell=$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || true)
       if [[ "$_user_shell" == */zsh ]]; then
         PROFILE_FILE="$TARGET_HOME/.zprofile"
+      elif [[ "$_kime_family" == "opensuse" ]]; then
+        PROFILE_FILE="$TARGET_HOME/.profile"
+        [[ ! -f "$PROFILE_FILE" && -f "$TARGET_HOME/.bash_profile" ]] && PROFILE_FILE="$TARGET_HOME/.bash_profile"
       elif [[ -f "$TARGET_HOME/.bash_profile" || "$_user_shell" == */bash ]]; then
         PROFILE_FILE="$TARGET_HOME/.bash_profile"
       else
         PROFILE_FILE="$TARGET_HOME/.profile"
       fi
       if ! grep -q "GTK_IM_MODULE=kime" "$PROFILE_FILE" 2>/dev/null; then
+        if [[ -s "$PROFILE_FILE" ]] && [[ -n "$(tail -c 1 "$PROFILE_FILE" 2>/dev/null | tr -d '\n')" ]]; then
+          printf '\n' >> "$PROFILE_FILE"
+        fi
         cat >> "$PROFILE_FILE" <<'EOF'
 
 # kime 환경변수
@@ -1878,6 +2003,17 @@ EOF
         chown "$TARGET_UID:$TARGET_GID" "$PROFILE_FILE"
       fi
     fi
+  fi
+
+  if [[ "$_kime_family" == "opensuse" ]]; then
+    local XIM_FILE="$TARGET_HOME/.xim"
+    cat > "$XIM_FILE" <<'EOF'
+# korean_input: managed xim (kime)
+export GTK_IM_MODULE=kime
+export QT_IM_MODULE=kime
+export XMODIFIERS=@im=kime
+EOF
+    chown "$TARGET_UID:$TARGET_GID" "$XIM_FILE"
   fi
 
   if [[ "$_kde_will" == "true" && -f /usr/share/applications/kime.desktop ]]; then
