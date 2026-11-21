@@ -212,6 +212,8 @@ function tLabel(str) {
     .replace("GNOME 네이티브 통합 / 대안 입력기", "GNOME-native Integration / Alternative IME")
     .replace("kime (Rust 기반 경량 입력기)", "kime (Lightweight Rust IME)")
     .replace("Wayland 네이티브 대안 입력기", "Wayland-native Alternative IME")
+    .replace("소스 빌드(EL)", "Source Build (EL)")
+    .replace("(소스 빌드)", "(Source Build)")
     .replace("Ubuntu/Debian 주요 파생", "Ubuntu/Debian Derivatives")
     .replace("Ubuntu / Debian 주요 파생", "Ubuntu / Debian Derivatives")
     .replace("보안 데비안", "Security Debian")

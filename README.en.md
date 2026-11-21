@@ -82,7 +82,7 @@ Representative one-liners from our **194 pre-generated scripts across 19 familie
 * **Enterprise RHEL Family (5 scripts)**: RHEL, Rocky Linux, AlmaLinux, CentOS Stream, Oreon (`ibus-hangul` standard stack)
 * **Independent / Lightweight (24 scripts)**: Void Linux, Alpine Linux, Solus, Gentoo, Mageia, KaOS, Guix, etc.
 * **ibus-hangul Alternative IME (4 scripts)**: GNOME-friendly universal `ibus-hangul` scripts for Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE
-* **kime Alternative IME (4 scripts)**: Rust-based `kime` scripts for Debian, Fedora, Arch, openSUSE
+* **kime Alternative IME (4 scripts)**: Rust-based `kime` scripts for Debian, Fedora/RHEL (EL source build), Arch, openSUSE
 
 </details>
 

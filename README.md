@@ -81,7 +81,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 * **엔터프라이즈 RHEL 계열 (5개)**: RHEL, Rocky Linux, AlmaLinux, CentOS Stream, Oreon (`ibus-hangul` 표준 구성)
 * **독립/경량 배포판 (24개)**: Void Linux, Alpine Linux, Solus, Gentoo, Mageia, KaOS, Guix 등
 * **ibus-hangul 대안 입력기 (4개)**: GNOME 친화 `ibus-hangul` 범용 스크립트 (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE)
-* **kime 대안 입력기 (4개)**: Rust 기반의 `kime` 전용 스크립트 (Debian, Fedora, Arch, openSUSE)
+* **kime 대안 입력기 (4개)**: Rust 기반의 `kime` 전용 스크립트 (Debian, Fedora/RHEL(EL 소스 빌드), Arch, openSUSE)
 
 </details>
 
@@ -198,7 +198,7 @@ sudo bash install.sh
 | **alt** | ALT Linux | `apt-get` (`apt-rpm`) | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.xprofile` | `apt-rpm` 패키지 구성 적용 |
 | **guix** | Guix System | `guix` | 수동 (`guix install`) | `~/.bash_profile` (`GUIX_PROFILE`) | GNU Guix 사용자 프로필 설치 및 `config.scm` 안내 |
 | **ibus** | 전체 (GNOME 친화 대안) | 각자 | `im-config` / `gsettings` / `alternatives` | `~/.config/environment.d/ibus.conf` | GNOME 통합 친화 대안, Debian/Fedora/Arch/openSUSE 범용 분기 |
-| **kime** | 전체 (대안) | 각자 | 수동 | `~/.config/environment.d/kime.conf` | Rust 기반, Wayland 네이티브, AUR/COPR/.deb/zypper 분기 |
+| **kime** | 전체 (대안) | 각자 | 수동 | `~/.config/environment.d/kime.conf` | Rust 기반, Wayland 네이티브, AUR/COPR/.deb/zypper/EL 소스 빌드 분기 |
 
 ### 제외(미지원) 대상 40종 및 사유
 * **비리눅스 (12종)**: FreeBSD, GhostBSD, NetBSD, OpenBSD, MidnightBSD, SmartOS, OpenIndiana, ChromeOS, FydeOS, ReactOS, Haiku, CalyxOS

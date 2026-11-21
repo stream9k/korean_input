@@ -567,11 +567,11 @@ const DISTRO_DATA = {
   kime: {
     name: "kime (Rust 기반 경량 입력기)",
     base: "Wayland 네이티브 대안 입력기",
-    pkgMgr: "AUR / COPR / zypper / .deb",
+    pkgMgr: "AUR / COPR / zypper / .deb / 소스 빌드(EL)",
     imConfig: "im-config (Debian) / environment.d + autostart",
     editions: {
       debian: { label: "Debian / Ubuntu / Mint (.deb)", status: "beta", script: "kime-debian" },
-      fedora: { label: "Fedora (COPR)", status: "beta", script: "kime-fedora" },
+      fedora: { label: "Fedora (COPR) / RHEL·Rocky·Alma (소스 빌드)", status: "beta", script: "kime-fedora" },
       arch: { label: "Arch / Manjaro / Endeavour (AUR)", status: "beta", script: "kime-arch" },
       opensuse: { label: "openSUSE (zypper)", status: "beta", script: "kime-opensuse" }
     },

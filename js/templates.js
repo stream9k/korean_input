@@ -2780,6 +2780,8 @@ detect_kime_family() {
   case "$_id" in
     arch|manjaro|endeavouros|garuda|cachyos|artix|arcolinux|rebornos|biglinux|bluestar|archcraft)
       echo "arch"; return ;;
+    rhel|almalinux|rocky|centos|ol|oreon|eurolinux|scientific|springdale|virtuozzo|circle|navy|miraclelinux)
+      echo "rhel"; return ;;
     fedora|nobara|ultramarine|bazzite|aurora|bluefin)
       echo "fedora"; return ;;
     opensuse*|suse*)
@@ -2789,6 +2791,7 @@ detect_kime_family() {
   esac
   case " $_like " in
     *" arch "*) echo "arch"; return ;;
+    *" rhel "*|*" centos "*|*" rocky "*|*" almalinux "*) echo "rhel"; return ;;
     *" fedora "*) echo "fedora"; return ;;
     *" opensuse "*|*" suse "*) echo "opensuse"; return ;;
     *" debian "*|*" ubuntu "*) echo "debian"; return ;;
@@ -2985,7 +2988,7 @@ check_fedora_copr_support() {
     return 0
   fi
 
-  _avail_line=$(printf '%s\\n' "$_chroots" | paste -sd ', ' - || true)
+  _avail_line=$(printf '%s\\n' "$_chroots" | awk 'NR>1{printf ", "} {printf "%s", $0}' || true)
   echo "$_avail_line"
   return 1
 }
@@ -3125,6 +3128,199 @@ install_kime_aur_arch() {
   trap - EXIT
 }
 
+ver_ge() {
+  local _v1="$1" _v2="$2"
+  [[ "$(printf '%s\\n%s\\n' "$_v2" "$_v1" | sort -V | head -n1)" == "$_v2" ]]
+}
+
+resolve_kime_latest_tag() {
+  if [[ -n "\${KIME_SOURCE_TAG:-}" ]]; then
+    echo "$KIME_SOURCE_TAG"
+    return 0
+  fi
+  local _api_url="\${KIME_RELEASE_API_URL:-https://api.github.com/repos/Riey/kime/releases/latest}"
+  local _latest_url="\${KIME_RELEASE_LATEST_URL:-https://github.com/Riey/kime/releases/latest}"
+  local _api_json="" _tag=""
+  _api_json=$(http_get "$_api_url" 2>/dev/null || true)
+  if [[ -n "$_api_json" ]]; then
+    _tag=$(printf '%s\\n' "$_api_json" | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\\([^"]*\\)".*/\\1/p' | head -n1 || true)
+  fi
+  if [[ -z "$_tag" ]]; then
+    _tag=$(http_latest_tag "$_latest_url" || true)
+  fi
+  echo "$_tag"
+}
+
+_KIME_SRC_TMP=""
+
+cleanup_kime_src_tmp() {
+  if [[ -n "\${_KIME_SRC_TMP:-}" && -d "$_KIME_SRC_TMP" ]]; then
+    rm -rf "$_KIME_SRC_TMP"
+    _KIME_SRC_TMP=""
+  fi
+}
+
+enable_el_crb_repo() {
+  if ! dnf config-manager --help >/dev/null 2>&1; then
+    dnf install -y 'dnf-command(config-manager)' </dev/null 2>/dev/null || \\
+      dnf install -y dnf-plugins-core </dev/null 2>/dev/null || true
+  fi
+  local _crb_repo=""
+  _crb_repo=$(dnf repolist --all 2>/dev/null | awk '
+    {
+      id = $1
+      lid = tolower(id)
+      if (lid == "" || lid == "repo") next
+      if (lid ~ /debug/ || lid ~ /source/) next
+      if (lid == "crb" || lid ~ /codeready-builder/ || lid ~ /_codeready_builder$/ || lid == "powertools") {
+        print id
+        exit
+      }
+    }
+  ' || true)
+  if [[ -n "$_crb_repo" ]]; then
+    if ! dnf repolist --enabled 2>/dev/null | awk '{print $1}' | grep -qxF "$_crb_repo"; then
+      log "   → CRB/CodeReady 저장소 활성화 (\${_crb_repo})..."
+      if command -v crb >/dev/null 2>&1 && [[ "\${_crb_repo,,}" == "crb" ]]; then
+        crb enable >/dev/null 2>&1 || true
+      fi
+      if ! dnf repolist --enabled 2>/dev/null | awk '{print $1}' | grep -qxF "$_crb_repo"; then
+        dnf config-manager --set-enabled "$_crb_repo" </dev/null 2>/dev/null || \\
+          dnf config-manager setopt "\${_crb_repo}.enabled=1" </dev/null 2>/dev/null || \\
+          warn "CRB 저장소(\${_crb_repo}) 자동 활성화 실패 — 기존 활성 저장소로 진행합니다."
+      fi
+    fi
+  fi
+}
+
+install_kime_source_rhel() {
+  local _user="$1" _home="$2" _uid="$3" _tag="$4"
+  local _gid
+  _gid=$(id -g "$_user" 2>/dev/null || echo "$_uid")
+
+  enable_el_crb_repo
+
+  log "   → 빌드 필수 도구 및 코어 라이브러리 설치 (dnf)..."
+  dnf install -y </dev/null \\
+    gcc gcc-c++ clang-devel pkgconf-pkg-config ninja-build rust cargo tar gzip \\
+    dbus-devel libxcb-devel fontconfig-devel freetype-devel libxkbcommon-devel wayland-devel \\
+    || err "kime 소스 빌드에 필요한 기본 개발 패키지 설치에 실패했습니다."
+  dnf install -y meson </dev/null 2>/dev/null || true
+
+  local -a _opt_pkgs=()
+  local _op
+  for _op in gtk3-devel gtk4-devel qt6-qtbase-devel qt6-qtbase-private-devel qt5-qtbase-devel qt5-qtbase-private-devel; do
+    if rpm -q "$_op" >/dev/null 2>&1 || dnf -q -C info "$_op" >/dev/null 2>&1 || dnf -q info "$_op" >/dev/null 2>&1; then
+      _opt_pkgs+=("$_op")
+    fi
+  done
+  if [[ \${#_opt_pkgs[@]} -gt 0 ]]; then
+    log "   → GUI 프론트엔드 개발 패키지 설치 (dnf): \${_opt_pkgs[*]}"
+    dnf install -y "\${_opt_pkgs[@]}" </dev/null || err "GUI 프론트엔드 개발 패키지 설치에 실패했습니다: \${_opt_pkgs[*]}"
+  else
+    warn "사용 가능한 GTK/Qt 개발 패키지를 찾지 못했습니다. Wayland/XIM 백엔드 위주로 빌드합니다."
+  fi
+
+  dnf install -y -q google-noto-sans-cjk-ttc-fonts </dev/null 2>/dev/null || \\
+    dnf install -y -q google-noto-sans-cjk-fonts </dev/null 2>/dev/null || \\
+    dnf install -y -q google-noto-cjk-fonts </dev/null 2>/dev/null || true
+
+  local _src_tmp
+  _src_tmp=$(mktemp -d /var/tmp/kime-src-build.XXXXXX)
+  _KIME_SRC_TMP="$_src_tmp"
+  trap cleanup_kime_src_tmp EXIT
+
+  mkdir -p "\${_src_tmp}/extract" "\${_src_tmp}/build"
+  chown -R "\${_uid}:\${_gid}" "$_src_tmp"
+
+  local _meson_bin="" _meson_ver="0"
+  _meson_bin=$(command -v meson || true)
+  if [[ -n "$_meson_bin" ]]; then
+    _meson_ver=$("$_meson_bin" --version 2>/dev/null | head -n1 || echo "0")
+  fi
+  if [[ -z "$_meson_bin" ]] || ! ver_ge "$_meson_ver" "1.1"; then
+    log "   → Meson 1.1+ 필요 (현재: \${_meson_ver:-미설치}) — 임시 venv에 meson 설치 중..."
+    command -v python3 >/dev/null 2>&1 || err "Meson 1.1+ 및 python3가 없어 kime 빌드를 진행할 수 없습니다."
+    run_as_target_user "$_user" "$_home" python3 -m venv "\${_src_tmp}/meson-venv" || err "임시 Python venv 생성 실패 (meson 설치 불가)"
+    run_as_target_user "$_user" "$_home" "\${_src_tmp}/meson-venv/bin/pip" install --quiet 'meson>=1.1' || err "임시 venv에 meson>=1.1 설치 실패"
+    _meson_bin="\${_src_tmp}/meson-venv/bin/meson"
+  fi
+
+  local _ninja_bin=""
+  _ninja_bin=$(command -v ninja || command -v ninja-build || true)
+  [[ -n "$_ninja_bin" ]] || err "ninja 빌드 도구를 찾을 수 없습니다."
+  run_as_target_user "$_user" "$_home" sh -c 'command -v cargo >/dev/null 2>&1' || err "사용자($_user) 환경에서 cargo를 찾을 수 없습니다."
+
+  local _tar_url="\${KIME_SOURCE_TARBALL_URL:-https://github.com/Riey/kime/archive/refs/tags/\${_tag}.tar.gz}"
+  local _tar_path="\${_src_tmp}/kime-\${_tag}.tar.gz"
+  log "   → kime 소스 아카이브 다운로드 (\${_tag})..."
+  http_download "$_tar_url" "$_tar_path" || err "kime 소스 아카이브 다운로드 실패: $_tar_url"
+  chown "\${_uid}:\${_gid}" "$_tar_path"
+
+  run_as_target_user "$_user" "$_home" tar -xzf "$_tar_path" -C "\${_src_tmp}/extract" || err "kime 소스 아카이브 압축 해제 실패"
+  local _src_dir=""
+  _src_dir=$(find "\${_src_tmp}/extract" -mindepth 1 -maxdepth 1 -type d | head -n1 || true)
+  [[ -n "$_src_dir" && -f "\${_src_dir}/meson.build" ]] || err "압축 해제된 kime 소스 디렉터리에서 meson.build를 찾을 수 없습니다."
+
+  local _libdir="lib"
+  [[ -d /usr/lib64 ]] && _libdir="lib64"
+
+  local -a _build_env=("NINJA=\${_ninja_bin}")
+  if [[ -x "\${_home}/.cargo/bin/cargo" ]]; then
+    _build_env+=("CARGO_HOME=\${_home}/.cargo" "RUSTUP_HOME=\${_home}/.rustup")
+  else
+    mkdir -p "\${_src_tmp}/cargo-home"
+    chown "\${_uid}:\${_gid}" "\${_src_tmp}/cargo-home"
+    _build_env+=("CARGO_HOME=\${_src_tmp}/cargo-home")
+  fi
+  if [[ -n "\${LIBCLANG_PATH:-}" ]]; then
+    _build_env+=("LIBCLANG_PATH=\${LIBCLANG_PATH}")
+  elif [[ -d "/usr/\${_libdir}" ]] && compgen -G "/usr/\${_libdir}/libclang.so*" >/dev/null; then
+    _build_env+=("LIBCLANG_PATH=/usr/\${_libdir}")
+  fi
+
+  log "   → Meson 빌드 구성 (사용자: \${_user}, libdir=\${_libdir})..."
+  run_as_target_user "$_user" "$_home" env "\${_build_env[@]}" \\
+    "$_meson_bin" setup "\${_src_tmp}/build" "$_src_dir" \\
+    --prefix=/usr \\
+    --sysconfdir=/etc \\
+    --libdir="$_libdir" \\
+    --buildtype=release \\
+    -Dcargo_profile=release \\
+    -Dinstall_headers=true \\
+    -Dinstall_docs=true \\
+    || err "kime Meson 구성(meson setup)에 실패했습니다. 빌드 로그를 확인하세요."
+
+  log "   → kime 컴파일 중 (Rust + C/C++, 수 분 소요될 수 있음)..."
+  run_as_target_user "$_user" "$_home" env "\${_build_env[@]}" \\
+    "$_ninja_bin" -C "\${_src_tmp}/build" \\
+    || err "kime 소스 빌드(ninja)에 실패했습니다."
+
+  log "   → 빌드된 kime 시스템 설치 (meson install --no-rebuild)..."
+  "$_meson_bin" install -C "\${_src_tmp}/build" --no-rebuild \\
+    || err "kime 설치(meson install)에 실패했습니다."
+
+  ldconfig 2>/dev/null || true
+  if command -v gtk-query-immodules-3.0-64 >/dev/null 2>&1; then
+    gtk-query-immodules-3.0-64 --update-cache 2>/dev/null || true
+  elif command -v gtk-query-immodules-3.0 >/dev/null 2>&1; then
+    gtk-query-immodules-3.0 --update-cache 2>/dev/null || true
+  fi
+  if [[ -d "/usr/\${_libdir}/gtk-4.0/4.0.0/immodules" ]]; then
+    if command -v gio-querymodules-64 >/dev/null 2>&1; then
+      gio-querymodules-64 "/usr/\${_libdir}/gtk-4.0/4.0.0/immodules" 2>/dev/null || true
+    elif command -v gio-querymodules >/dev/null 2>&1; then
+      gio-querymodules "/usr/\${_libdir}/gtk-4.0/4.0.0/immodules" 2>/dev/null || true
+    fi
+  fi
+  if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+    gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
+  fi
+
+  cleanup_kime_src_tmp
+  trap - EXIT
+}
+
 main() {
   require_root
 
@@ -3149,7 +3345,7 @@ main() {
     )
   fi
 
-  local _kime_family _kime_arch_installed="false" _pkg_summary=""
+  local _kime_family _kime_arch_installed="false" _kime_rhel_installed="false" _pkg_summary="" _extra_warn=""
   local _deb_arch="" _deb_target="" _kime_tag="" _deb_url="" _deb_avail="" _deb_name=""
   _kime_family=$(detect_kime_family "$_os_id" "$_os_like")
 
@@ -3184,6 +3380,25 @@ main() {
         err "Fedora COPR(toroidalfox/kime)에서 현재 버전(\${_copr_target})을 지원하지 않습니다. 지원 대상: \${_copr_avail:-없음} | 수동 빌드: https://github.com/Riey/kime"
       fi
       _pkg_summary="   - Fedora COPR (toroidalfox/kime, \${_copr_target}): dnf copr enable -y toroidalfox/kime && dnf install -y kime"
+      ;;
+    rhel)
+      if [[ -e /run/ostree-booted ]]; then
+        err "불변형 EL/Atomic 환경에서는 dnf 소스 자동 빌드를 지원하지 않습니다. 수동 확인: https://github.com/Riey/kime"
+      fi
+      if ! command -v dnf >/dev/null 2>&1; then
+        err "dnf를 찾을 수 없습니다. RHEL/Rocky/AlmaLinux 계열에서만 실행할 수 있습니다."
+      fi
+      if [[ "\${KIME_FORCE_REBUILD:-0}" != "1" ]] && command -v kime >/dev/null 2>&1 && command -v kime-wayland >/dev/null 2>&1 && [[ -f /usr/share/applications/kime.desktop ]]; then
+        _kime_rhel_installed="true"
+        _pkg_summary="   - kime (EL 소스 빌드): 이미 설치됨 ($(kime --version 2>/dev/null | head -n1 || echo installed)) — 빌드·설치 건너뜀 (설정만 적용)"
+      else
+        _kime_tag=$(resolve_kime_latest_tag)
+        if [[ -z "$_kime_tag" ]]; then
+          err "Riey/kime 최신 릴리스 버전을 조회하지 못했습니다. 네트워크 연결을 확인하거나 수동 빌드를 진행하세요: https://github.com/Riey/kime"
+        fi
+        _pkg_summary="   - CRB(CodeReady Builder) 저장소 활성화 (미활성화 시) 및 빌드 의존성 설치 (dnf: gcc-c++, clang-devel, meson, ninja-build, rust, cargo, dbus/xcb/wayland/xkbcommon/fontconfig/freetype-devel)\\n   - 사용 가능한 GUI 프론트엔드 개발 패키지(gtk3-devel, gtk4-devel, qt6-qtbase-devel, qt6-qtbase-private-devel 등) 및 Noto CJK 폰트 설치\\n   - Riey/kime (\${_kime_tag}) 소스 다운로드 후 일반 사용자(\${USER}) 권한으로 /var/tmp 에서 Meson/Cargo 릴리스 빌드\\n   - /usr 설치 (meson install --no-rebuild) 및 ldconfig / GTK immodule 캐시 갱신 (임시 빌드 디렉터리 자동 정리)"
+        _extra_warn=" ⚠️  참고: RHEL/Rocky/AlmaLinux 등 EL 계열은 공식 저장소 및 Fedora COPR에 kime 패키지가 없어 소스를 직접 컴파일합니다 (CPU/네트워크 환경에 따라 수 분 소요, 임시 빌드 파일은 설치 후 자동 삭제)."
+      fi
       ;;
     opensuse)
       if [[ "$_os_id" == "opensuse-microos" || "$_os_id" == "opensuse-aeon" || "$_os_id" == "opensuse-kalpa" ]] || \\
@@ -3224,7 +3439,7 @@ main() {
       ;;
   esac
 
-  local _kde_will _kde6_wayland _cfg_summary _extra_warn=""
+  local _kde_will _kde6_wayland _cfg_summary
   _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
   _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
   if [[ "$_kde6_wayland" == "true" ]]; then
@@ -3285,10 +3500,18 @@ main() {
     fedora)
       log "[1/3] kime 설치 (Fedora COPR)..."
       if ! dnf copr --help >/dev/null 2>&1; then
-        dnf install -y 'dnf-command(copr)'
+        dnf install -y 'dnf-command(copr)' </dev/null
       fi
-      dnf copr enable -y toroidalfox/kime
-      dnf install -y kime
+      dnf copr enable -y toroidalfox/kime </dev/null
+      dnf install -y kime </dev/null
+      ;;
+    rhel)
+      if [[ "$_kime_rhel_installed" == "true" ]]; then
+        log "[1/3] 이미 kime이 설치되어 있어 소스 빌드를 건너뜁니다."
+      else
+        log "[1/3] kime 설치 (EL 소스 빌드: Riey/kime \${_kime_tag})..."
+        install_kime_source_rhel "$USER" "$TARGET_HOME" "$TARGET_UID" "$_kime_tag"
+      fi
       ;;
     opensuse)
       log "[1/3] kime 설치 (zypper)..."
