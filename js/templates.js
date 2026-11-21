@@ -510,6 +510,7 @@ disable_conflicting_imes() {
       _procs=(fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
       [[ "$_is_gnome" != "true" ]] && _procs+=(ibus-daemon)
       _desktops=(ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop)
+      [[ "$_is_gnome" != "true" ]] && _desktops+=(ibus-autostart.desktop)
       _env_confs=(ibus.conf kime.conf fcitx.conf)
       _im_re="(ibus|kime)"
       _kwin_re="(ibus|kime)"
@@ -517,7 +518,7 @@ disable_conflicting_imes() {
       [[ "$_is_gnome" != "true" ]] && _cmd_re="(ibus-daemon|kime|kime-daemon|kime-wayland|kime-xim|kime-xdg-autostart|fcitx)"
       ;;
     ibus)
-      _target_desktops=(ibus.desktop ibus-daemon.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop)
+      _target_desktops=(ibus.desktop ibus-daemon.desktop ibus-autostart.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop)
       _svcs=(fcitx5 fcitx kime kime-daemon)
       _procs=(fcitx5 fcitx5-wayland-launcher fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
       _desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop kime.desktop)
@@ -532,6 +533,7 @@ disable_conflicting_imes() {
       _procs=(fcitx5 fcitx5-wayland-launcher fcitx)
       [[ "$_is_gnome" != "true" ]] && _procs+=(ibus-daemon)
       _desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop ibus.desktop ibus-daemon.desktop)
+      [[ "$_is_gnome" != "true" ]] && _desktops+=(ibus-autostart.desktop)
       _env_confs=(fcitx5.conf fcitx.conf ibus.conf)
       _im_re="(fcitx5|fcitx|ibus)"
       _kwin_re="(fcitx|ibus)"
@@ -641,8 +643,8 @@ EOF
     fi
   done
 
-  local _env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_im_re}[^']*'|\\"[^\\"]*\${_im_re}[^\\"]*\\"|[^[:space:]'\\";]*\${_im_re}[^[:space:]'\\";]*)|XMODIFIERS=['\\"]?@im=\${_im_re}['\\"]?)[[:space:]]*(#.*)?$"
-  local _etc_env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_im_re}[^']*'|\\"[^\\"]*\${_im_re}[^\\"]*\\"|[^[:space:]'\\"]*\${_im_re}[^[:space:]'\\"]*)|XMODIFIERS=['\\"]?@im=\${_im_re}['\\"]?)[[:space:]]*(#.*)?$"
+  local _env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_im_re}['\\"]?|INPUT_METHOD=['\\"]?\${_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_im_re}[^']*'|\\"[^\\"]*\${_im_re}[^\\"]*\\"|[^[:space:]'\\";]*\${_im_re}[^[:space:]'\\";]*)|XMODIFIERS=['\\"]?@im=\${_im_re}['\\"]?)[[:space:]]*(#.*)?$"
+  local _etc_env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_im_re}['\\"]?|INPUT_METHOD=['\\"]?\${_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_im_re}[^']*'|\\"[^\\"]*\${_im_re}[^\\"]*\\"|[^[:space:]'\\"]*\${_im_re}[^[:space:]'\\"]*)|XMODIFIERS=['\\"]?@im=\${_im_re}['\\"]?)[[:space:]]*(#.*)?$"
   local _cmd_line_re="^[[:space:]]*((/usr(/local)?/bin/)?\${_cmd_re})([[:space:]]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([[:space:]]*&)?[[:space:]]*(#.*)?$"
   local _ef
   for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.zprofile" "$_home/.profile"; do
@@ -664,7 +666,7 @@ EOF
         "$_chk_sh" -n "$_ef" >/dev/null 2>&1 && _orig_valid=true
         if awk -v im_re="$_im_re" -v cmd_re="$_cmd_re" '
           BEGIN {
-            env_re = "^[ \\t]*(export[ \\t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\\047\\"]?" im_re "[\\047\\"]?|QT_IM_MODULES=(\\047[^\\047]*" im_re "[^\\047]*\\047|\\\"[^\\\"]*" im_re "[^\\\"]*\\\"|[^ \\t\\047\\\";]*" im_re "[^ \\t\\047\\\";]*)|XMODIFIERS=[\\047\\"]?@im=" im_re "[\\047\\"]?)[ \\t]*(#.*)?$"
+            env_re = "^[ \\t]*(export[ \\t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\\047\\"]?" im_re "[\\047\\"]?|INPUT_METHOD=[\\047\\"]?" im_re "[\\047\\"]?|QT_IM_MODULES=(\\047[^\\047]*" im_re "[^\\047]*\\047|\\\"[^\\\"]*" im_re "[^\\\"]*\\\"|[^ \\t\\047\\\";]*" im_re "[^ \\t\\047\\\";]*)|XMODIFIERS=[\\047\\"]?@im=" im_re "[\\047\\"]?)[ \\t]*(#.*)?$"
             cmd_re_full = "^[ \\t]*((/usr(/local)?/bin/)?" cmd_re ")([ \\t]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([ \\t]*&)?[ \\t]*(#.*)?$"
             mark = "^[ \\t]*:[ \\t]*#[ \\t]*korean_input: disabled conflicting IME([ \\t]+env)?[ \\t]*$"
             prev = 0
@@ -888,7 +890,7 @@ is_kde6_wayland() {
 
 write_fcitx5_env() {
   local _kde6_wl="$1" _home="$2" _uid="$3" _gid="$4"
-  local _write_etc="$5" _write_envd="$6" _x11_profile="\${7:-}" _allow_pending="\${8:-false}"
+  local _write_etc="$5" _write_envd="$6" _x11_profile="\${7:-}" _allow_pending="\${8:-false}" _include_im="\${9:-false}"
   local _use_kde6_wl="false"
   if [[ "$_kde6_wl" == "true" ]]; then
     if [[ "$_allow_pending" == "true" ]] || \\
@@ -910,7 +912,7 @@ EOF
       chown -R "$_uid:$_gid" "$(dirname "$_env_file")"
     fi
     if [[ "$_write_etc" == "true" ]]; then
-      local _etc_im_re="^[[:space:]]*(GTK|QT)_IM_MODULE=['\\"]?fcitx['\\"]?[[:space:]]*(#.*)?$"
+      local _etc_im_re="^[[:space:]]*((GTK|QT)_IM_MODULE=['\\"]?fcitx['\\"]?|INPUT_METHOD=['\\"]?fcitx5?['\\"]?)[[:space:]]*(#.*)?$"
       local _etc_xm_re="^[[:space:]]*XMODIFIERS=['\\"]?@im=fcitx['\\"]?"
       if [[ -f /etc/environment && -w /etc/environment ]]; then
         if grep -qE "$_etc_im_re" /etc/environment 2>/dev/null; then
@@ -921,6 +923,9 @@ EOF
       fi
       if [[ -w /etc/environment || ( ! -e /etc/environment && -w /etc ) ]]; then
         if ! grep -qE "$_etc_xm_re" /etc/environment 2>/dev/null; then
+          if [[ -s /etc/environment ]] && [[ -n "$(tail -c 1 /etc/environment 2>/dev/null | tr -d '\\n')" ]]; then
+            printf '\\n' >> /etc/environment
+          fi
           cat >> /etc/environment <<'EOF'
 
 # fcitx5 환경변수 (XWayland)
@@ -950,19 +955,36 @@ GTK_IM_MODULE=fcitx
 QT_IM_MODULE=fcitx
 XMODIFIERS=@im=fcitx
 EOF
+      if [[ "$_include_im" == "true" ]]; then
+        echo "INPUT_METHOD=fcitx" >> "$_env_file"
+      fi
       chown -R "$_uid:$_gid" "$(dirname "$_env_file")"
     fi
-    if [[ "$_write_etc" == "true" ]]; then
-      grep -q "GTK_IM_MODULE=fcitx" /etc/environment 2>/dev/null || cat >> /etc/environment <<'EOF'
+    if [[ "$_write_etc" == "true" ]] && [[ -w /etc/environment || ( ! -e /etc/environment && -w /etc ) ]]; then
+      if ! grep -q "GTK_IM_MODULE=fcitx" /etc/environment 2>/dev/null; then
+        if [[ -s /etc/environment ]] && [[ -n "$(tail -c 1 /etc/environment 2>/dev/null | tr -d '\\n')" ]]; then
+          printf '\\n' >> /etc/environment
+        fi
+        cat >> /etc/environment <<'EOF'
 
 # fcitx5 환경변수
 GTK_IM_MODULE=fcitx
 QT_IM_MODULE=fcitx
 XMODIFIERS=@im=fcitx
 EOF
+      fi
+      if [[ "$_include_im" == "true" ]] && ! grep -qE '^[[:space:]]*INPUT_METHOD=['\\''"]?fcitx5?['\\''"]?[[:space:]]*(#.*)?$' /etc/environment 2>/dev/null; then
+        if [[ -s /etc/environment ]] && [[ -n "$(tail -c 1 /etc/environment 2>/dev/null | tr -d '\\n')" ]]; then
+          printf '\\n' >> /etc/environment
+        fi
+        echo "INPUT_METHOD=fcitx" >> /etc/environment
+      fi
     fi
     if [[ -n "$_x11_profile" ]]; then
       if ! grep -q "GTK_IM_MODULE=fcitx" "$_x11_profile" 2>/dev/null; then
+        if [[ -s "$_x11_profile" ]] && [[ -n "$(tail -c 1 "$_x11_profile" 2>/dev/null | tr -d '\\n')" ]]; then
+          printf '\\n' >> "$_x11_profile"
+        fi
         cat >> "$_x11_profile" <<'EOF'
 
 # fcitx5 환경변수
@@ -970,6 +992,14 @@ export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx
 export XMODIFIERS=@im=fcitx
 EOF
+        if [[ "$_include_im" == "true" ]] && ! grep -qE '^[[:space:]]*(export[[:space:]]+)?INPUT_METHOD=['\\''"]?fcitx5?['\\''"]?[[:space:]]*(#.*)?$' "$_x11_profile" 2>/dev/null; then
+          echo "export INPUT_METHOD=fcitx" >> "$_x11_profile"
+        fi
+      elif [[ "$_include_im" == "true" ]] && ! grep -qE '^[[:space:]]*(export[[:space:]]+)?INPUT_METHOD=['\\''"]?fcitx5?['\\''"]?[[:space:]]*(#.*)?$' "$_x11_profile" 2>/dev/null; then
+        if [[ -s "$_x11_profile" ]] && [[ -n "$(tail -c 1 "$_x11_profile" 2>/dev/null | tr -d '\\n')" ]]; then
+          printf '\\n' >> "$_x11_profile"
+        fi
+        echo "export INPUT_METHOD=fcitx" >> "$_x11_profile"
       fi
       chown "$_uid:$_gid" "$_x11_profile"
     fi
@@ -1379,6 +1409,7 @@ disable_conflicting_imes() {
       _dc_procs="fcitx kime kime-daemon kime-indicator kime-wayland kime-xim"
       [ "$_dc_gnome" != "true" ] && _dc_procs="$_dc_procs ibus-daemon"
       _dc_desks="ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop"
+      [ "$_dc_gnome" != "true" ] && _dc_desks="$_dc_desks ibus-autostart.desktop"
       _dc_econfs="ibus.conf kime.conf fcitx.conf"
       _dc_im_re="(ibus|kime)"
       _dc_kwin_re="(ibus|kime)"
@@ -1386,7 +1417,7 @@ disable_conflicting_imes() {
       [ "$_dc_gnome" != "true" ] && _dc_cmd_re="(ibus-daemon|kime|kime-daemon|kime-wayland|kime-xim|kime-xdg-autostart|fcitx)"
       ;;
     ibus)
-      _dc_tdesks="ibus.desktop ibus-daemon.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop"
+      _dc_tdesks="ibus.desktop ibus-daemon.desktop ibus-autostart.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop"
       _dc_svcs="fcitx5 fcitx kime kime-daemon"
       _dc_procs="fcitx5 fcitx5-wayland-launcher fcitx kime kime-daemon kime-indicator kime-wayland kime-xim"
       _dc_desks="fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop kime.desktop"
@@ -1401,6 +1432,7 @@ disable_conflicting_imes() {
       _dc_procs="fcitx5 fcitx5-wayland-launcher fcitx"
       [ "$_dc_gnome" != "true" ] && _dc_procs="$_dc_procs ibus-daemon"
       _dc_desks="fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop ibus.desktop ibus-daemon.desktop"
+      [ "$_dc_gnome" != "true" ] && _dc_desks="$_dc_desks ibus-autostart.desktop"
       _dc_econfs="fcitx5.conf fcitx.conf ibus.conf"
       _dc_im_re="(fcitx5|fcitx|ibus)"
       _dc_kwin_re="(fcitx|ibus)"
@@ -1503,8 +1535,8 @@ EOF
     fi
   done
 
-  _dc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_dc_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_dc_im_re}[^']*'|\\"[^\\"]*\${_dc_im_re}[^\\"]*\\"|[^[:space:]'\\";]*\${_dc_im_re}[^[:space:]'\\";]*)|XMODIFIERS=['\\"]?@im=\${_dc_im_re}['\\"]?)[[:space:]]*(#.*)?$"
-  _dc_etc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_dc_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_dc_im_re}[^']*'|\\"[^\\"]*\${_dc_im_re}[^\\"]*\\"|[^[:space:]'\\"]*\${_dc_im_re}[^[:space:]'\\"]*)|XMODIFIERS=['\\"]?@im=\${_dc_im_re}['\\"]?)[[:space:]]*(#.*)?$"
+  _dc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_dc_im_re}['\\"]?|INPUT_METHOD=['\\"]?\${_dc_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_dc_im_re}[^']*'|\\"[^\\"]*\${_dc_im_re}[^\\"]*\\"|[^[:space:]'\\";]*\${_dc_im_re}[^[:space:]'\\";]*)|XMODIFIERS=['\\"]?@im=\${_dc_im_re}['\\"]?)[[:space:]]*(#.*)?$"
+  _dc_etc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_dc_im_re}['\\"]?|INPUT_METHOD=['\\"]?\${_dc_im_re}['\\"]?|QT_IM_MODULES=('[^']*\${_dc_im_re}[^']*'|\\"[^\\"]*\${_dc_im_re}[^\\"]*\\"|[^[:space:]'\\"]*\${_dc_im_re}[^[:space:]'\\"]*)|XMODIFIERS=['\\"]?@im=\${_dc_im_re}['\\"]?)[[:space:]]*(#.*)?$"
   _dc_cmd_re_grep="^[[:space:]]*((/usr(/local)?/bin/)?\${_dc_cmd_re})([[:space:]]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([[:space:]]*&)?[[:space:]]*(#.*)?$"
   for _dc_ef in /etc/environment "$_dc_home/.xsessionrc" "$_dc_home/.xprofile" "$_dc_home/.bash_profile" "$_dc_home/.zprofile" "$_dc_home/.profile"; do
     if [ -f "$_dc_ef" ] && [ -w "$_dc_ef" ]; then
@@ -1525,7 +1557,7 @@ EOF
         "$_dc_chk" -n "$_dc_ef" >/dev/null 2>&1 && _dc_valid=true
         if awk -v im_re="$_dc_im_re" -v cmd_re="$_dc_cmd_re" '
           BEGIN {
-            env_re = "^[ \\t]*(export[ \\t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\\047\\"]?" im_re "[\\047\\"]?|QT_IM_MODULES=(\\047[^\\047]*" im_re "[^\\047]*\\047|\\\"[^\\\"]*" im_re "[^\\\"]*\\\"|[^ \\t\\047\\\";]*" im_re "[^ \\t\\047\\\";]*)|XMODIFIERS=[\\047\\"]?@im=" im_re "[\\047\\"]?)[ \\t]*(#.*)?$"
+            env_re = "^[ \\t]*(export[ \\t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\\047\\"]?" im_re "[\\047\\"]?|INPUT_METHOD=[\\047\\"]?" im_re "[\\047\\"]?|QT_IM_MODULES=(\\047[^\\047]*" im_re "[^\\047]*\\047|\\\"[^\\\"]*" im_re "[^\\\"]*\\\"|[^ \\t\\047\\\";]*" im_re "[^ \\t\\047\\\";]*)|XMODIFIERS=[\\047\\"]?@im=" im_re "[\\047\\"]?)[ \\t]*(#.*)?$"
             cmd_re_full = "^[ \\t]*((/usr(/local)?/bin/)?" cmd_re ")([ \\t]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([ \\t]*&)?[ \\t]*(#.*)?$"
             mark = "^[ \\t]*:[ \\t]*#[ \\t]*korean_input: disabled conflicting IME([ \\t]+env)?[ \\t]*$"
             prev = 0
@@ -2029,10 +2061,10 @@ main() {
   _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
   _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
   local _kde6_wayland
-  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE" "$DESKTOP")
 
   local _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk,\\n     fcitx5-qt, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
-  local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - ~/.bash_profile (또는 ~/.profile) 환경변수 추가"
+  local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 환경변수 추가"
   _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary" "$_kde6_wayland")
   local _extra_warn
   _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME")
@@ -2131,11 +2163,12 @@ SkipFirst=False
 0=Hangul
 1=Control+space
 EOF
-  # 환경변수 (KDE6 Wayland 안전 모드 또는 ~/.bash_profile / ~/.profile)
+  # 환경변수 (KDE6 Wayland 안전 모드 또는 environment.d + /etc/environment + ~/.bash_profile / ~/.profile)
   if [[ "$_kde6_wayland" == "true" ]]; then
     write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "false"
     chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   else
+    write_fcitx5_env "false" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "" "false" "false"
     local PROFILE_FILE="$TARGET_HOME/.bash_profile"
     [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
     grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null || cat >> "$PROFILE_FILE" <<'EOF'
@@ -2394,7 +2427,7 @@ main() {
   _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
   _kde_will=$(will_configure_kde "${params.editionKey.includes("kde") ? "true" : "false"}" "$TARGET_HOME" "$DESKTOP")
   local _kde6_wayland
-  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE" "$DESKTOP")
 
   local _is_transactional=false _pkg_summary="" _extra_warn=""
   if command -v transactional-update >/dev/null 2>&1; then
@@ -2404,7 +2437,7 @@ main() {
   else
     _pkg_summary="   - zypper install -y: fcitx5, fcitx5-hangul, fcitx5-configtool\\n     (+ 사용 가능한 fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
   fi
-  local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - ~/.bash_profile (또는 ~/.profile) 환경변수 추가"
+  local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.profile (또는 ~/.bash_profile, INPUT_METHOD=fcitx 포함)\\n   - $TARGET_HOME/.config/autostart/org.fcitx.Fcitx5.desktop (비-KDE6-Wayland) 및 첫 로그인 1회 안내 등록"
   _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary" "$_kde6_wayland")
   _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
   _extra_warn=$(append_conflict_ime_warn "fcitx5" "$EXISTING_IME" "$_extra_warn" "$DESKTOP")
@@ -2438,7 +2471,11 @@ main() {
     transactional-update --non-interactive pkg install "\${_suse_pkgs[@]}"
     info "Aeon / MicroOS 감지: transactional-update 적용을 위해 설치 후 재부팅이 필요합니다."
   else
-    zypper --non-interactive --gpg-auto-import-keys install -y "\${_suse_pkgs[@]}"
+    if ! zypper --non-interactive --gpg-auto-import-keys install -y "\${_suse_pkgs[@]}"; then
+      warn "zypper 설치 실패 — 미러 메타데이터 강제 갱신(refresh -f) 후 재시도합니다..."
+      zypper --non-interactive --gpg-auto-import-keys refresh -f || true
+      zypper --non-interactive --gpg-auto-import-keys install -y "\${_suse_pkgs[@]}"
+    fi
   fi
   ok "패키지 설치 완료"
   disable_conflicting_imes "fcitx5" "$USER" "$TARGET_HOME" "$TARGET_UID" "$DESKTOP"
@@ -2513,23 +2550,49 @@ SkipFirst=False
 0=Hangul
 1=Control+space
 EOF
-  # 환경변수
+  # 환경변수 및 자동시작
+  local _o_pending="false"
+  [[ "$_is_transactional" == "true" ]] && _o_pending="true"
   if [[ "$_kde6_wayland" == "true" ]]; then
-    local _o_pending="false"
-    [[ "$_is_transactional" == "true" ]] && _o_pending="true"
-    write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "$_o_pending"
+    write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "$_o_pending" "false"
     chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   else
-    local PROFILE_FILE="$TARGET_HOME/.bash_profile"
-    [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
-    grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null || cat >> "$PROFILE_FILE" <<'EOF'
+    write_fcitx5_env "false" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "" "$_o_pending" "true"
+    local PROFILE_FILE="$TARGET_HOME/.profile"
+    [[ ! -f "$PROFILE_FILE" && -f "$TARGET_HOME/.bash_profile" ]] && PROFILE_FILE="$TARGET_HOME/.bash_profile"
+    if ! grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null; then
+      if [[ -s "$PROFILE_FILE" ]] && [[ -n "$(tail -c 1 "$PROFILE_FILE" 2>/dev/null | tr -d '\\n')" ]]; then
+        printf '\\n' >> "$PROFILE_FILE"
+      fi
+      cat >> "$PROFILE_FILE" <<'EOF'
 
 # fcitx5 환경변수
 export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx
 export XMODIFIERS=@im=fcitx
+export INPUT_METHOD=fcitx
 EOF
-    chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR" "$PROFILE_FILE"
+    elif ! grep -qE '^[[:space:]]*(export[[:space:]]+)?INPUT_METHOD=['\\''"]?fcitx5?['\\''"]?[[:space:]]*(#.*)?$' "$PROFILE_FILE" 2>/dev/null; then
+      if [[ -s "$PROFILE_FILE" ]] && [[ -n "$(tail -c 1 "$PROFILE_FILE" 2>/dev/null | tr -d '\\n')" ]]; then
+        printf '\\n' >> "$PROFILE_FILE"
+      fi
+      echo "export INPUT_METHOD=fcitx" >> "$PROFILE_FILE"
+    fi
+    local ADIR="$TARGET_HOME/.config/autostart"
+    mkdir -p "$ADIR"
+    cat > "$ADIR/org.fcitx.Fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+    chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR" "$PROFILE_FILE" "$ADIR"
+    if command -v systemctl >/dev/null 2>&1 && [[ -S "/run/user/$TARGET_UID/bus" ]]; then
+      run_as_user_sh "$USER" 'systemctl --user daemon-reload 2>/dev/null || true' || true
+    fi
   fi
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
     local _svc
@@ -2543,6 +2606,7 @@ EOF
   # 5. KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
   log "[5/5] 마무리..."
 ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
+${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))}
 
   echo
   echo "============================================================"
@@ -2747,7 +2811,7 @@ main() {
   _fcitx5_family=$(detect_fcitx5_family "$_os_id" "$_os_like")
   _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
   _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
-  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE" "$DESKTOP")
 
   case "$_fcitx5_family" in
     debian)
@@ -2800,7 +2864,7 @@ main() {
       else
         _pkg_summary="   - zypper --non-interactive install -y: fcitx5, fcitx5-hangul, fcitx5-configtool (+ 사용 가능한 fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
       fi
-      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\\n   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\\n   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.profile (또는 ~/.bash_profile, INPUT_METHOD=fcitx 포함)\\n   - $TARGET_HOME/.config/autostart/org.fcitx.Fcitx5.desktop (비-KDE6-Wayland) 및 첫 로그인 1회 안내 팝업 등록"
       ;;
   esac
 
@@ -2918,7 +2982,11 @@ main() {
         transactional-update --non-interactive pkg install "\${_suse_pkgs[@]}"
       else
         log "[1/5] fcitx5 및 한글 폰트 설치 (zypper)..."
-        zypper --non-interactive --gpg-auto-import-keys install -y "\${_suse_pkgs[@]}"
+        if ! zypper --non-interactive --gpg-auto-import-keys install -y "\${_suse_pkgs[@]}"; then
+          warn "zypper 설치 실패 — 미러 메타데이터 강제 갱신(refresh -f) 후 재시도합니다..."
+          zypper --non-interactive --gpg-auto-import-keys refresh -f || true
+          zypper --non-interactive --gpg-auto-import-keys install -y "\${_suse_pkgs[@]}"
+        fi
       fi
       ;;
   esac
@@ -3058,15 +3126,24 @@ EOF
       write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "false"
       ;;
     fedora|rhel|opensuse|opensuse-transactional)
-      local _allow_pending="false"
+      local _allow_pending="false" _is_suse_im="false"
       [[ "$_fcitx5_family" == "opensuse-transactional" ]] && _allow_pending="true"
+      [[ "$_fcitx5_family" == "opensuse" || "$_fcitx5_family" == "opensuse-transactional" ]] && _is_suse_im="true"
       if [[ "$_kde6_wayland" == "true" ]]; then
-        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "$_allow_pending"
+        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "$_allow_pending" "false"
       else
-        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "" "$_allow_pending"
+        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "" "$_allow_pending" "$_is_suse_im"
         local PROFILE_FILE="$TARGET_HOME/.bash_profile"
-        [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+        if [[ "$_is_suse_im" == "true" ]]; then
+          PROFILE_FILE="$TARGET_HOME/.profile"
+          [[ ! -f "$PROFILE_FILE" && -f "$TARGET_HOME/.bash_profile" ]] && PROFILE_FILE="$TARGET_HOME/.bash_profile"
+        else
+          [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+        fi
         if ! grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null; then
+          if [[ -s "$PROFILE_FILE" ]] && [[ -n "$(tail -c 1 "$PROFILE_FILE" 2>/dev/null | tr -d '\\n')" ]]; then
+            printf '\\n' >> "$PROFILE_FILE"
+          fi
           cat >> "$PROFILE_FILE" <<'EOF'
 
 # fcitx5 환경변수
@@ -3074,6 +3151,14 @@ export GTK_IM_MODULE=fcitx
 export QT_IM_MODULE=fcitx
 export XMODIFIERS=@im=fcitx
 EOF
+          if [[ "$_is_suse_im" == "true" ]] && ! grep -qE '^[[:space:]]*(export[[:space:]]+)?INPUT_METHOD=['\\''"]?fcitx5?['\\''"]?[[:space:]]*(#.*)?$' "$PROFILE_FILE" 2>/dev/null; then
+            echo "export INPUT_METHOD=fcitx" >> "$PROFILE_FILE"
+          fi
+        elif [[ "$_is_suse_im" == "true" ]] && ! grep -qE '^[[:space:]]*(export[[:space:]]+)?INPUT_METHOD=['\\''"]?fcitx5?['\\''"]?[[:space:]]*(#.*)?$' "$PROFILE_FILE" 2>/dev/null; then
+          if [[ -s "$PROFILE_FILE" ]] && [[ -n "$(tail -c 1 "$PROFILE_FILE" 2>/dev/null | tr -d '\\n')" ]]; then
+            printf '\\n' >> "$PROFILE_FILE"
+          fi
+          echo "export INPUT_METHOD=fcitx" >> "$PROFILE_FILE"
         fi
         chown "$TARGET_UID:$TARGET_GID" "$PROFILE_FILE"
       fi
@@ -3083,7 +3168,24 @@ EOF
 
   # 5. 자동시작 등록 및 KDE / 첫 로그인 안내 마무리
   log "[5/5] 자동시작 등록 및 마무리..."
-  if [[ "$_fcitx5_family" == "debian" || "$_fcitx5_family" == "vanilla" || "$_fcitx5_family" == "arch" || "$_fcitx5_family" == "steamos" || "$_fcitx5_family" == "kaos" ]] || \\
+  if [[ ( "$_fcitx5_family" == "opensuse" || "$_fcitx5_family" == "opensuse-transactional" ) && "$_kde6_wayland" != "true" ]]; then
+    local ADIR="$TARGET_HOME/.config/autostart"
+    mkdir -p "$ADIR"
+    cat > "$ADIR/org.fcitx.Fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+    chown -R "$TARGET_UID:$TARGET_GID" "$ADIR"
+    if command -v systemctl >/dev/null 2>&1 && [[ -S "/run/user/$TARGET_UID/bus" ]]; then
+      run_as_user_sh "$USER" 'systemctl --user daemon-reload 2>/dev/null || true' || true
+    fi
+    ok "자동시작 등록"
+  elif [[ "$_fcitx5_family" == "debian" || "$_fcitx5_family" == "vanilla" || "$_fcitx5_family" == "arch" || "$_fcitx5_family" == "steamos" || "$_fcitx5_family" == "kaos" ]] || \\
      { [[ "$_kde6_wayland" != "true" && ! -f /etc/xdg/autostart/org.fcitx.Fcitx5.desktop && ! -f /etc/xdg/autostart/fcitx5-wayland-launcher.desktop ]]; }; then
     local ADIR="$TARGET_HOME/.config/autostart"
     mkdir -p "$ADIR"
@@ -6110,7 +6212,7 @@ main() {
   _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
   local _kde_will _kde6_wayland
   _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
-  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE" "$DESKTOP")
 
   local _pkg_summary="   - abroot pkg add: fcitx5, fcitx5-hangul, fcitx5-config-qt,\\n     fcitx5-frontend-gtk3, fcitx5-frontend-gtk4, fcitx5-frontend-qt5, fcitx5-frontend-qt6"
   local _cfg_summary="   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, $TARGET_HOME/.config/autostart/fcitx5.desktop"

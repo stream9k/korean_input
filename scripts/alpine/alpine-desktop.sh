@@ -315,6 +315,7 @@ disable_conflicting_imes() {
       _dc_procs="fcitx kime kime-daemon kime-indicator kime-wayland kime-xim"
       [ "$_dc_gnome" != "true" ] && _dc_procs="$_dc_procs ibus-daemon"
       _dc_desks="ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop"
+      [ "$_dc_gnome" != "true" ] && _dc_desks="$_dc_desks ibus-autostart.desktop"
       _dc_econfs="ibus.conf kime.conf fcitx.conf"
       _dc_im_re="(ibus|kime)"
       _dc_kwin_re="(ibus|kime)"
@@ -322,7 +323,7 @@ disable_conflicting_imes() {
       [ "$_dc_gnome" != "true" ] && _dc_cmd_re="(ibus-daemon|kime|kime-daemon|kime-wayland|kime-xim|kime-xdg-autostart|fcitx)"
       ;;
     ibus)
-      _dc_tdesks="ibus.desktop ibus-daemon.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop"
+      _dc_tdesks="ibus.desktop ibus-daemon.desktop ibus-autostart.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop"
       _dc_svcs="fcitx5 fcitx kime kime-daemon"
       _dc_procs="fcitx5 fcitx5-wayland-launcher fcitx kime kime-daemon kime-indicator kime-wayland kime-xim"
       _dc_desks="fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop kime.desktop"
@@ -337,6 +338,7 @@ disable_conflicting_imes() {
       _dc_procs="fcitx5 fcitx5-wayland-launcher fcitx"
       [ "$_dc_gnome" != "true" ] && _dc_procs="$_dc_procs ibus-daemon"
       _dc_desks="fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop ibus.desktop ibus-daemon.desktop"
+      [ "$_dc_gnome" != "true" ] && _dc_desks="$_dc_desks ibus-autostart.desktop"
       _dc_econfs="fcitx5.conf fcitx.conf ibus.conf"
       _dc_im_re="(fcitx5|fcitx|ibus)"
       _dc_kwin_re="(fcitx|ibus)"
@@ -439,8 +441,8 @@ EOF
     fi
   done
 
-  _dc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_dc_im_re}['\"]?|QT_IM_MODULES=('[^']*${_dc_im_re}[^']*'|\"[^\"]*${_dc_im_re}[^\"]*\"|[^[:space:]'\";]*${_dc_im_re}[^[:space:]'\";]*)|XMODIFIERS=['\"]?@im=${_dc_im_re}['\"]?)[[:space:]]*(#.*)?$"
-  _dc_etc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_dc_im_re}['\"]?|QT_IM_MODULES=('[^']*${_dc_im_re}[^']*'|\"[^\"]*${_dc_im_re}[^\"]*\"|[^[:space:]'\"]*${_dc_im_re}[^[:space:]'\"]*)|XMODIFIERS=['\"]?@im=${_dc_im_re}['\"]?)[[:space:]]*(#.*)?$"
+  _dc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_dc_im_re}['\"]?|INPUT_METHOD=['\"]?${_dc_im_re}['\"]?|QT_IM_MODULES=('[^']*${_dc_im_re}[^']*'|\"[^\"]*${_dc_im_re}[^\"]*\"|[^[:space:]'\";]*${_dc_im_re}[^[:space:]'\";]*)|XMODIFIERS=['\"]?@im=${_dc_im_re}['\"]?)[[:space:]]*(#.*)?$"
+  _dc_etc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_dc_im_re}['\"]?|INPUT_METHOD=['\"]?${_dc_im_re}['\"]?|QT_IM_MODULES=('[^']*${_dc_im_re}[^']*'|\"[^\"]*${_dc_im_re}[^\"]*\"|[^[:space:]'\"]*${_dc_im_re}[^[:space:]'\"]*)|XMODIFIERS=['\"]?@im=${_dc_im_re}['\"]?)[[:space:]]*(#.*)?$"
   _dc_cmd_re_grep="^[[:space:]]*((/usr(/local)?/bin/)?${_dc_cmd_re})([[:space:]]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([[:space:]]*&)?[[:space:]]*(#.*)?$"
   for _dc_ef in /etc/environment "$_dc_home/.xsessionrc" "$_dc_home/.xprofile" "$_dc_home/.bash_profile" "$_dc_home/.zprofile" "$_dc_home/.profile"; do
     if [ -f "$_dc_ef" ] && [ -w "$_dc_ef" ]; then
@@ -461,7 +463,7 @@ EOF
         "$_dc_chk" -n "$_dc_ef" >/dev/null 2>&1 && _dc_valid=true
         if awk -v im_re="$_dc_im_re" -v cmd_re="$_dc_cmd_re" '
           BEGIN {
-            env_re = "^[ \t]*(export[ \t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\047\"]?" im_re "[\047\"]?|QT_IM_MODULES=(\047[^\047]*" im_re "[^\047]*\047|\"[^\"]*" im_re "[^\"]*\"|[^ \t\047\";]*" im_re "[^ \t\047\";]*)|XMODIFIERS=[\047\"]?@im=" im_re "[\047\"]?)[ \t]*(#.*)?$"
+            env_re = "^[ \t]*(export[ \t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\047\"]?" im_re "[\047\"]?|INPUT_METHOD=[\047\"]?" im_re "[\047\"]?|QT_IM_MODULES=(\047[^\047]*" im_re "[^\047]*\047|\"[^\"]*" im_re "[^\"]*\"|[^ \t\047\";]*" im_re "[^ \t\047\";]*)|XMODIFIERS=[\047\"]?@im=" im_re "[\047\"]?)[ \t]*(#.*)?$"
             cmd_re_full = "^[ \t]*((/usr(/local)?/bin/)?" cmd_re ")([ \t]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([ \t]*&)?[ \t]*(#.*)?$"
             mark = "^[ \t]*:[ \t]*#[ \t]*korean_input: disabled conflicting IME([ \t]+env)?[ \t]*$"
             prev = 0
