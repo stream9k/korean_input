@@ -110,7 +110,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 1. **충돌 방지**: 기존 구버전 fcitx4 잔여 패키지 정리 및 ibus 데몬 충돌 자동 비활성화
 2. **입력기 & Noto CJK 한글 폰트 설치**: 한글 깨짐(□ 네모 박스 현상) 방지 폰트 동시 설치
 3. **환경변수 및 세션 자동 구성**: Wayland 및 X11 환경에 맞는 `GTK_IM_MODULE`, `QT_IM_MODULE`, `XMODIFIERS` 주입
-4. **기본 프로필 사전 구성**: `영문(US)` + `한글(Hangul)` 레이아웃 및 `한/영`, `Ctrl+Space`, `Shift+Space` 전환 단축키 자동 등록
+4. **기본 프로필 사전 구성**: `영문(US)` + `한글(Hangul)` 레이아웃 및 `한/영`, `Ctrl+Space` 전환 단축키 자동 등록
 5. **재부팅 후 1회성 안내 팝업**: 설치 후 첫 로그인 시 바탕화면에 필수 단축키 및 데스크톱별 추가 설정 팁을 1회 안내한 뒤 자동 삭제
 
 ---

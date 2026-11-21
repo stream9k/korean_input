@@ -21,7 +21,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 ${distroName} 한글 입력기 설정이 완료되었습니다!
 
-${isKde ? "🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)\n\n" : ""}⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
+${isKde ? "🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)\n\n" : ""}⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -110,7 +110,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 ${distroName} 한글 입력기(ibus-hangul) 설정이 완료되었습니다!
 
-⌨️  전환: Shift+Space / Ctrl+Space 또는 한/영 키
+⌨️  전환: Ctrl+Space 또는 한/영 키
 ⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)
 📝 로그: /var/log/install-ibus-${scriptId}.log
 
@@ -1483,7 +1483,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -1617,7 +1617,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -1699,7 +1698,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 로그아웃 후 다시 로그인하세요."
-  echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space 로 전환"
+  echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space 로 전환"
   echo " 설정: fcitx5-configtool"
   echo " 로그: $LOG_FILE"
   echo "============================================================"
@@ -1714,7 +1713,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1845,7 +1844,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   # 환경변수 (KDE6 Wayland 안전 모드 또는 ~/.bash_profile / ~/.profile)
   if [[ "$_kde6_wayland" == "true" ]]; then
@@ -1896,7 +1894,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2022,7 +2020,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -2066,7 +2063,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재로그인 또는 재부팅 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
   echo "============================================================"
@@ -2081,7 +2078,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2226,7 +2223,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   # 환경변수
   if [[ "$_kde6_wayland" == "true" ]]; then
@@ -2331,7 +2327,6 @@ main "$@"
   #       [Hotkey/TriggerKeys]
   #       0=Hangul
   #       1=Control+space
-  #       2=Shift+space
   #     '';
   #   };
   # };
@@ -2354,7 +2349,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2571,9 +2566,10 @@ main() {
   # 2. 입력 소스 등록, ibus 엔진 캐시 갱신 및 충돌 서비스 비활성화
   log "[2/3] 입력 소스('hangul') 등록 및 ibus 엔진 캐시 갱신..."
   ibus write-cache --system 2>/dev/null || true
-  local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
-  local preload="['xkb:us::eng', 'hangul']"
-  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
+  local sources="[('ibus', 'hangul')]"
+  local preload="['hangul']"
+  local triggers="['<Control>space', 'Hangul']"
+  local hangul_switch_keys="Hangul,Control+space"
   if [[ -S "/run/user/$TARGET_UID/bus" ]]; then
     local bus="unix:path=/run/user/$TARGET_UID/bus"
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
@@ -2582,6 +2578,10 @@ main() {
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
       gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      gsettings set org.freedesktop.ibus.engine.hangul switch-keys "$hangul_switch_keys" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin' 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
       ibus write-cache 2>/dev/null || true
     if command -v systemctl >/dev/null 2>&1; then
@@ -2596,6 +2596,8 @@ main() {
     run_as_user_sh "$USER" "gsettings set org.gnome.desktop.input-sources sources \\"$sources\\"" 2>/dev/null || true
     run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.general preload-engines \\"$preload\\"" 2>/dev/null || true
     run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.general.hotkey triggers \\"$triggers\\"" 2>/dev/null || true
+    run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.engine.hangul switch-keys \\"$hangul_switch_keys\\"" 2>/dev/null || true
+    run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin'" 2>/dev/null || true
     run_as_user_sh "$USER" "ibus write-cache" 2>/dev/null || true
     run_as_user_sh "$USER" "systemctl --user disable fcitx5 2>/dev/null || true" || true
   fi
@@ -2706,7 +2708,7 @@ ${IBUS_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   else
     echo " 🎉 ibus-hangul 설치 완료! 로그아웃 후 다시 로그인하세요."
   fi
-  echo " 전환: Shift+Space / Ctrl+Space 또는 한/영 키"
+  echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)"
   echo " 로그: $LOG_FILE"
   echo "============================================================"
@@ -2721,7 +2723,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3789,7 +3791,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3906,7 +3908,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -3928,7 +3929,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde") || params.distr
   echo " 🎉 Fedora Atomic 설정 완료! 반드시 재부팅하세요."
   echo " 재부팅 명령: systemctl reboot"
   echo " KDE(Bazzite/Aurora/Kinoite): 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo "============================================================"
 }
 main "$@"
@@ -3941,7 +3942,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4070,7 +4071,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -4118,7 +4118,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4175,9 +4175,10 @@ main() {
   # 2. 입력 소스 등록 및 ibus 엔진 캐시 갱신 (GNOME + 비-GNOME 대응)
   log "[2/3] 입력 소스 및 ibus 엔진 캐시 등록 (Hangul)..."
   ibus write-cache --system 2>/dev/null || true
-  local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
-  local preload="['xkb:us::eng', 'hangul']"
-  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
+  local sources="[('ibus', 'hangul')]"
+  local preload="['hangul']"
+  local triggers="['<Control>space', 'Hangul']"
+  local hangul_switch_keys="Hangul,Control+space"
   if [ -S "/run/user/$TARGET_UID/bus" ]; then
     local bus="unix:path=/run/user/$TARGET_UID/bus"
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
@@ -4186,6 +4187,10 @@ main() {
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
       gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      gsettings set org.freedesktop.ibus.engine.hangul switch-keys "$hangul_switch_keys" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
+      gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin' 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \\
       ibus write-cache 2>/dev/null || true
     if pgrep -u "$TARGET_UID" -x ibus-daemon >/dev/null 2>&1; then
@@ -4196,6 +4201,8 @@ main() {
     run_as_user_sh "$USER" "gsettings set org.gnome.desktop.input-sources sources \\"$sources\\"" 2>/dev/null || true
     run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.general preload-engines \\"$preload\\"" 2>/dev/null || true
     run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.general.hotkey triggers \\"$triggers\\"" 2>/dev/null || true
+    run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.engine.hangul switch-keys \\"$hangul_switch_keys\\"" 2>/dev/null || true
+    run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin'" 2>/dev/null || true
     run_as_user_sh "$USER" "ibus write-cache" 2>/dev/null || true
   fi
   ok "입력 소스 및 엔진 캐시 설정 완료"
@@ -4226,7 +4233,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 ibus-hangul 설치 완료! 재로그인 또는 재부팅 필요"
-  echo " 전환: Shift+Space / Ctrl+Space 또는 한/영 키"
+  echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup"
   echo "============================================================"
 }
@@ -4240,7 +4247,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4360,7 +4367,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -4391,7 +4397,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Void Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4405,7 +4411,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -4514,7 +4520,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
 
@@ -4538,7 +4543,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Alpine Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4552,7 +4557,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4672,7 +4677,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -4703,7 +4707,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Solus 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4717,7 +4721,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4839,7 +4843,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -4870,7 +4873,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo
   echo "============================================================"
   echo " 🎉 Gentoo 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -4884,7 +4887,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5024,7 +5027,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -5055,7 +5057,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 ${params.distroName} 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -5069,7 +5071,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5192,7 +5194,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -5224,7 +5225,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(true)}
   echo "============================================================"
   echo " 🎉 KaOS 설치 완료! 재로그인 필요"
   echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo "============================================================"
 }
 main "$@"
@@ -5237,7 +5238,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5355,7 +5356,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -5389,7 +5389,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 Vanilla OS 설정 완료! 반드시 재부팅하세요 (ABRoot 적용)."
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo "============================================================"
 }
 main "$@"
@@ -5402,7 +5402,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5523,7 +5523,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -5554,7 +5553,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo
   echo "============================================================"
   echo " 🎉 ALT Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
@@ -5568,7 +5567,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5694,7 +5693,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -5725,7 +5723,7 @@ EOF
   echo "============================================================"
   echo " 🎉 Guix System 설치 완료! 재로그인 필요"
   echo " 선언적 설정을 원할 경우 /etc/config.scm 의 %desktop-services / home-environment 에도 추가하세요."
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo "============================================================"
 }
 main "$@"

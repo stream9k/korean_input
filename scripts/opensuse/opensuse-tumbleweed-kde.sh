@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-opensuse-tumbleweed-kde.log"
 
 LOG_ENABLED=false
@@ -847,7 +847,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   # 환경변수
   if [[ "$_kde6_wayland" == "true" ]]; then

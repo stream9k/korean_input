@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -806,7 +806,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
 
   chown -R "$uid:$gid" "$fcitx5_dir"
@@ -941,10 +940,10 @@ register_first_login_guide() {
       msg+="🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드에서 확인)\n"
     fi
     if [[ "$selected_ime" == "ibus" ]]; then
-      msg+="⌨️  전환 단축키: Shift+Space / Ctrl+Space 또는 한/영 키\n"
+      msg+="⌨️  전환 단축키: Ctrl+Space 또는 한/영 키\n"
       msg+="⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)\n"
     else
-      msg+="⌨️  전환 단축키: 한/영 키, Ctrl+Space, Shift+Space\n"
+      msg+="⌨️  전환 단축키: 한/영 키, Ctrl+Space\n"
       msg+="💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\n"
       msg+="   (Firefox 메뉴와 Alt키 충돌 시: 설정→키보드→키바인딩→키보드옵션에서 '오른쪽 ALT를 한/영키로 만들기' 체크)\n"
       msg+="⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\n"
@@ -958,10 +957,10 @@ register_first_login_guide() {
       msg+="🖥️  KDE Plasma Virtual Keyboard (Fcitx 5) auto-configured (if inactive, check System Settings -> Input Devices -> Virtual Keyboard)\n"
     fi
     if [[ "$selected_ime" == "ibus" ]]; then
-      msg+="⌨️  Toggle: Shift+Space / Ctrl+Space or Hangul key\n"
+      msg+="⌨️  Toggle: Ctrl+Space or Hangul key\n"
       msg+="⚙️  Config: ibus-setup (GNOME: Settings -> Keyboard -> Input Sources)\n"
     else
-      msg+="⌨️  Toggle keys: Hangul key, Ctrl+Space, Shift+Space\n"
+      msg+="⌨️  Toggle keys: Hangul key, Ctrl+Space\n"
       msg+="💡 US Keyboard tip: You can bind Right Alt (Alt_R) in fcitx5-configtool\n"
       msg+="⚙️  Config: fcitx5-configtool | Diagnose: fcitx5-diagnose\n"
     fi
@@ -1485,9 +1484,10 @@ configure_ibus_user_session() {
   disable_conflicting_imes "ibus" "$target_user" "$target_home" "$target_uid" "$target_gid" "$desktop"
   log "$(msg "[2/3] 입력 소스 및 ibus 엔진 캐시 등록 (Hangul)..." "[2/3] Registering Hangul input source and refreshing ibus cache...")"
   ibus write-cache --system 2>/dev/null || true
-  local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
-  local preload="['xkb:us::eng', 'hangul']"
-  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
+  local sources="[('ibus', 'hangul')]"
+  local preload="['hangul']"
+  local triggers="['<Control>space', 'Hangul']"
+  local hangul_switch_keys="Hangul,Control+space"
   if [[ -S "/run/user/$target_uid/bus" ]]; then
     local bus="unix:path=/run/user/$target_uid/bus"
     sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
@@ -1496,6 +1496,10 @@ configure_ibus_user_session() {
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
     sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
+    sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.engine.hangul switch-keys "$hangul_switch_keys" 2>/dev/null || true
+    sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin' 2>/dev/null || true
     sudo -u "$target_user" XDG_RUNTIME_DIR="/run/user/$target_uid" DBUS_SESSION_BUS_ADDRESS="$bus" \
       ibus write-cache 2>/dev/null || true
     if command -v systemctl >/dev/null 2>&1; then
@@ -1510,6 +1514,8 @@ configure_ibus_user_session() {
     run_as_user_sh "$target_user" "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
     run_as_user_sh "$target_user" "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
     run_as_user_sh "$target_user" "gsettings set org.freedesktop.ibus.general.hotkey triggers \"$triggers\"" 2>/dev/null || true
+    run_as_user_sh "$target_user" "gsettings set org.freedesktop.ibus.engine.hangul switch-keys \"$hangul_switch_keys\"" 2>/dev/null || true
+    run_as_user_sh "$target_user" "gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin'" 2>/dev/null || true
     run_as_user_sh "$target_user" "ibus write-cache" 2>/dev/null || true
     run_as_user_sh "$target_user" "systemctl --user disable fcitx5 2>/dev/null || true" || true
   fi
@@ -2129,12 +2135,12 @@ EOF
       echo " 👉 로그아웃 후 다시 로그인(또는 재부팅)하면 적용됩니다."
     fi
     if [[ "$SELECTED_IME" == "ibus" ]]; then
-      echo " ⌨️  전환: Shift+Space / Ctrl+Space 또는 한/영 키 | 세부 설정: ibus-setup"
+      echo " ⌨️  전환: Ctrl+Space 또는 한/영 키 | 세부 설정: ibus-setup"
     else
       if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
         echo " 🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)"
       fi
-      echo " ⌨️  전환: 한/영 키, Ctrl+Space, Shift+Space"
+      echo " ⌨️  전환: 한/영 키, Ctrl+Space"
       echo " 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R)를 전환키로 추가할 수 있습니다."
       echo "    (Firefox 메뉴바와 충돌 시: 설정 → 키보드 → 키바인딩 → 키보드 옵션에서 '오른쪽 ALT를 한/영키로 만들기' 체크)"
       echo " ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose"
@@ -2148,12 +2154,12 @@ EOF
       echo " 👉 Please log out and log back in (or reboot) to activate."
     fi
     if [[ "$SELECTED_IME" == "ibus" ]]; then
-      echo " ⌨️  Toggle: Shift+Space / Ctrl+Space or Hangul key | Config: ibus-setup"
+      echo " ⌨️  Toggle: Ctrl+Space or Hangul key | Config: ibus-setup"
     else
       if [[ "$DESKTOP" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
         echo " 🖥️  KDE Plasma Virtual Keyboard (Fcitx 5) auto-configured (if inactive, check System Settings -> Input Devices -> Virtual Keyboard)"
       fi
-      echo " ⌨️  Toggle keys: Hangul key, Ctrl+Space, Shift+Space"
+      echo " ⌨️  Toggle keys: Hangul key, Ctrl+Space"
       echo " 💡 US Keyboard tip: You can bind Right Alt (Alt_R) in 'fcitx5-configtool' -> Global Options."
       echo " ⚙️  Config: fcitx5-configtool | Diagnose: fcitx5-diagnose"
     fi

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-solus-kde.log"
 
 LOG_ENABLED=false
@@ -822,7 +822,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ ${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -920,7 +919,7 @@ MSG="🎉 Solus 한글 입력기 설정이 완료되었습니다!
 
 🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)
 
-⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -953,7 +952,7 @@ GUIDE_DSK_EOF
   echo
   echo "============================================================"
   echo " 🎉 Solus 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }

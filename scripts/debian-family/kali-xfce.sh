@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-kali-xfce.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 
@@ -837,7 +837,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
   if [[ ${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
@@ -984,7 +983,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 Kali Linux / Parrot OS / 보안 데비안 한글 입력기 설정이 완료되었습니다!
 
-⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -1017,7 +1016,7 @@ GUIDE_DSK_EOF
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 로그아웃 후 다시 로그인하세요."
-  echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space 로 전환"
+  echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space 로 전환"
   echo " 설정: fcitx5-configtool"
   echo " 로그: $LOG_FILE"
   echo "============================================================"

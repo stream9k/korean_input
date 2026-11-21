@@ -58,7 +58,6 @@
   #       [Hotkey/TriggerKeys]
   #       0=Hangul
   #       1=Control+space
-  #       2=Shift+space
   #     '';
   #   };
   # };

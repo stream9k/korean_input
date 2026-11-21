@@ -109,7 +109,7 @@ Distributions directly tested for installation and Korean input functionality:
 1. **Removes Conflicting IMEs**: Automatically purges legacy `fcitx4` remnants and disables conflicting `ibus` user services.
 2. **Installs Full Stack + Noto CJK Fonts**: Prevents broken `□` glyphs by bundling Korean font packages.
 3. **Environment Variables**: Sets `GTK_IM_MODULE`, `QT_IM_MODULE`, and `XMODIFIERS` for both Wayland and X11 sessions.
-4. **Pre-configured Profile**: Sets `keyboard-us` + `hangul` input profiles and configures `Hangul`, `Ctrl+Space`, and `Shift+Space` toggles.
+4. **Pre-configured Profile**: Sets `keyboard-us` + `hangul` input profiles and configures `Hangul` and `Ctrl+Space` toggles.
 5. **One-Shot Post-Reboot Guide**: Shows a one-time welcome dialog with essential desktop shortcuts on your next login, then self-deletes.
 
 ---

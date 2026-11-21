@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-centos-stream.log"
 
 LOG_ENABLED=false
@@ -759,9 +759,10 @@ main() {
   # 2. 입력 소스 등록 및 ibus 엔진 캐시 갱신 (GNOME + 비-GNOME 대응)
   log "[2/3] 입력 소스 및 ibus 엔진 캐시 등록 (Hangul)..."
   ibus write-cache --system 2>/dev/null || true
-  local sources="[('xkb', 'us'), ('ibus', 'hangul')]"
-  local preload="['xkb:us::eng', 'hangul']"
-  local triggers="['<Shift>space', '<Control>space', 'Hangul']"
+  local sources="[('ibus', 'hangul')]"
+  local preload="['hangul']"
+  local triggers="['<Control>space', 'Hangul']"
+  local hangul_switch_keys="Hangul,Control+space"
   if [ -S "/run/user/$TARGET_UID/bus" ]; then
     local bus="unix:path=/run/user/$TARGET_UID/bus"
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
@@ -770,6 +771,10 @@ main() {
       gsettings set org.freedesktop.ibus.general preload-engines "$preload" 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       gsettings set org.freedesktop.ibus.general.hotkey triggers "$triggers" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.engine.hangul switch-keys "$hangul_switch_keys" 2>/dev/null || true
+    sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
+      gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin' 2>/dev/null || true
     sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$TARGET_UID" DBUS_SESSION_BUS_ADDRESS="$bus" \
       ibus write-cache 2>/dev/null || true
     if pgrep -u "$TARGET_UID" -x ibus-daemon >/dev/null 2>&1; then
@@ -780,6 +785,8 @@ main() {
     run_as_user_sh "$USER" "gsettings set org.gnome.desktop.input-sources sources \"$sources\"" 2>/dev/null || true
     run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.general preload-engines \"$preload\"" 2>/dev/null || true
     run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.general.hotkey triggers \"$triggers\"" 2>/dev/null || true
+    run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.engine.hangul switch-keys \"$hangul_switch_keys\"" 2>/dev/null || true
+    run_as_user_sh "$USER" "gsettings set org.freedesktop.ibus.engine.hangul initial-input-mode 'latin'" 2>/dev/null || true
     run_as_user_sh "$USER" "ibus write-cache" 2>/dev/null || true
   fi
   ok "입력 소스 및 엔진 캐시 설정 완료"
@@ -810,7 +817,7 @@ EOF
   echo
   echo "============================================================"
   echo " 🎉 ibus-hangul 설치 완료! 재로그인 또는 재부팅 필요"
-  echo " 전환: Shift+Space / Ctrl+Space 또는 한/영 키"
+  echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup"
   echo "============================================================"
 }

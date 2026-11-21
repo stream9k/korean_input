@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.3.7"
+SCRIPT_VERSION="1.4.1"
 LOG_FILE="/var/log/install-hangul-chimera-linux.log"
 
 LOG_ENABLED=false
@@ -673,7 +673,6 @@ SkipFirst=False
 [Hotkey/TriggerKeys]
 0=Hangul
 1=Control+space
-2=Shift+space
 EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
 
@@ -706,7 +705,7 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 MSG="🎉 Alpine Linux / Chimera / Nura 한글 입력기 설정이 완료되었습니다!
 
-⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space
+⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
@@ -739,7 +738,7 @@ GUIDE_DSK_EOF
   echo
   echo "============================================================"
   echo " 🎉 Alpine Linux 설치 완료! 재로그인 필요"
-  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space, Shift+Space"
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo "============================================================"
 }
