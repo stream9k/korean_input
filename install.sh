@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.2"
+SCRIPT_VERSION="1.5.3"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
