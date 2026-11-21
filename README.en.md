@@ -52,7 +52,7 @@ The Web Generator offers two execution choices:
 
 ## 📌 Distro-Specific One-Liners
 
-Representative one-liners from our **194 pre-generated scripts across 19 families**:
+Representative one-liners from our **198 pre-generated scripts across 20 families**:
 
 | Distro | Desktop / Edition | IME | One-Line Command |
 |:---|:---|:---|:---|
@@ -71,7 +71,7 @@ Representative one-liners from our **194 pre-generated scripts across 19 familie
 | **NixOS** | GNOME / KDE | `fcitx5` | Merge snippet from [scripts/nixos/](scripts/nixos/) into `configuration.nix` |
 
 <details>
-<summary>📂 View full list of 194 supported scripts and distro families</summary>
+<summary>📂 View full list of 198 supported scripts and distro families</summary>
 
 * **Debian / Ubuntu Family (75 scripts)**: Mint, LMDE, Ubuntu, Kubuntu, Debian, Pop!_OS, Zorin OS, elementary OS, Sparky, Bodhi, Peppermint, Voyager, BunsenLabs, MX Linux, Kali, Parrot, Q4OS, etc.
 * **Arch Family (41 scripts)**: Arch Linux, EndeavourOS, Garuda, Manjaro, CachyOS, Mabox, Artix, BigLinux, Archcraft, etc.
@@ -81,6 +81,7 @@ Representative one-liners from our **194 pre-generated scripts across 19 familie
 * **NixOS Family (6 scripts)**: GNOME, KDE, Hyprland, Sway, Minimal, etc.
 * **Enterprise RHEL Family (5 scripts)**: RHEL, Rocky Linux, AlmaLinux, CentOS Stream, Oreon (`ibus-hangul` standard stack)
 * **Independent / Lightweight (24 scripts)**: Void Linux, Alpine Linux, Solus, Gentoo, Mageia, KaOS, Guix, etc.
+* **fcitx5-hangul Forced Universal IME (4 scripts)**: Standard `fcitx5-hangul` family-generic scripts for Debian/Ubuntu, Fedora, Arch, openSUSE (switches away from default IBus)
 * **ibus-hangul Alternative IME (4 scripts)**: GNOME-friendly universal `ibus-hangul` scripts for Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE
 * **kime Alternative IME (4 scripts)**: Rust-based `kime` scripts for Debian, Fedora/RHEL (EL source build), Arch, openSUSE
 

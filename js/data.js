@@ -551,6 +551,19 @@ const DISTRO_DATA = {
     },
     defaultEdition: "kde"
   },
+  fcitx5: {
+    name: "fcitx5-hangul (표준 범용 한글 입력기)",
+    base: "크로스 배포판 표준 한글 입력기",
+    pkgMgr: "apt / dnf / pacman / zypper",
+    imConfig: "im-config (Debian) / alternatives / environment.d + autostart",
+    editions: {
+      debian: { label: "Debian / Ubuntu / Mint (apt)", status: "verified", script: "fcitx5-debian" },
+      fedora: { label: "Fedora (dnf)", status: "verified", script: "fcitx5-fedora" },
+      arch: { label: "Arch / Manjaro / Endeavour (pacman)", status: "verified", script: "fcitx5-arch" },
+      opensuse: { label: "openSUSE (zypper)", status: "verified", script: "fcitx5-opensuse" }
+    },
+    defaultEdition: "debian"
+  },
   ibus: {
     name: "ibus-hangul (GNOME 친화 대안 입력기)",
     base: "GNOME 네이티브 통합 / 대안 입력기",
@@ -783,6 +796,12 @@ function getScriptId(distroKey, editionKey) {
     vanilla: { gnome: "vanilla-gnome" },
     alt: { workstation: "alt-workstation" },
     guix: { desktop: "guix-desktop" },
+    fcitx5: {
+      debian: "fcitx5-debian",
+      fedora: "fcitx5-fedora",
+      arch: "fcitx5-arch",
+      opensuse: "fcitx5-opensuse"
+    },
     ibus: {
       debian: "ibus-debian",
       fedora: "ibus-fedora",
@@ -841,6 +860,7 @@ function getTemplateFamily(distroKey) {
     "generic-arch": "arch-family",
     "generic-fedora": "fedora",
     "generic-opensuse": "opensuse",
+    fcitx5: "fcitx5",
     ibus: "ibus",
     kime: "kime"
   };
@@ -1065,6 +1085,8 @@ const KOREAN_ALIASES = {
   "턱시도": "tuxedo",
   "딥인": "deepin",
   "구익스": "guix",
+  "에프시틱스": "fcitx5",
+  "에프씨틱스": "fcitx5",
   "아이버스": "ibus",
   "아이부스": "ibus",
   "키메": "kime"

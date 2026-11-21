@@ -1,0 +1,1393 @@
+#!/usr/bin/env bash
+# fcitx5-hangul (표준 범용 한글 입력기) Fedora (dnf) - fcitx5-hangul (표준 범용 한글 입력기) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/stream9k/korean_input/main/scripts/fcitx5/fcitx5-fedora.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.5.1"
+LOG_FILE="/var/log/install-hangul-fcitx5-fedora.log"
+
+LOG_ENABLED=false
+AUTO_YES=false
+for _arg in "$@"; do
+  case "$_arg" in
+    -y|--yes) AUTO_YES=true ;;
+  esac
+done
+
+log() {
+  local _line="[$(date '+%F %T')] $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$_line" | tee -a "$LOG_FILE"
+  else
+    echo "$_line"
+  fi
+}
+err() {
+  local _line="[$(date '+%F %T')] ❌ $*"
+  if [[ "$LOG_ENABLED" == "true" ]]; then
+    echo "$_line" | tee -a "$LOG_FILE" >&2
+  else
+    echo "$_line" >&2
+  fi
+  exit 1
+}
+warn() { log "⚠️  $*"; }
+ok() { log "✅ $*"; }
+info() { log "ℹ️  $*"; }
+
+detect_os_pretty() {
+  if [[ -f /etc/os-release ]]; then
+    (
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      echo "${PRETTY_NAME:-${NAME:-Unknown Linux}}"
+    )
+  else
+    echo "Unknown Linux"
+  fi
+}
+
+run_as_user_sh() {
+  local _u="$1" _cmd="$2" _home _uid _pre=""
+  _home=$(getent passwd "$_u" 2>/dev/null | cut -d: -f6 || awk -F: -v u="$_u" '$1==u {print $6}' /etc/passwd)
+  _uid=$(id -u "$_u" 2>/dev/null || echo "")
+  if command -v runuser >/dev/null 2>&1; then
+    local -a _envs=("HOME=${_home:-/tmp}" "USER=$_u" "LOGNAME=$_u")
+    if [[ -n "$_uid" && -d "/run/user/$_uid" ]]; then
+      _envs+=("XDG_RUNTIME_DIR=/run/user/$_uid")
+      [[ -S "/run/user/$_uid/bus" ]] && _envs+=("DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$_uid/bus")
+    fi
+    runuser -u "$_u" -- env "${_envs[@]}" /bin/sh -c "$_cmd" </dev/null
+  else
+    [[ -n "$_uid" && -d "/run/user/$_uid" ]] && _pre="export XDG_RUNTIME_DIR='/run/user/$_uid'; "
+    [[ -n "$_uid" && -S "/run/user/$_uid/bus" ]] && _pre="${_pre}export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/$_uid/bus'; "
+    su -s /bin/sh "$_u" -c "${_pre}${_cmd}" </dev/null
+  fi
+}
+
+run_user_gsettings() {
+  local _u="$1" _uid="$2" _home="$3"
+  shift 3
+  command -v gsettings >/dev/null 2>&1 || return 1
+  local -a _envs=("HOME=${_home:-/tmp}" "USER=$_u" "LOGNAME=$_u")
+  if [[ -n "$_uid" && -d "/run/user/$_uid" ]]; then
+    _envs+=("XDG_RUNTIME_DIR=/run/user/$_uid")
+    [[ -S "/run/user/$_uid/bus" ]] && _envs+=("DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$_uid/bus")
+  fi
+  local -a _cmd=(gsettings "$@")
+  if [[ -z "$_uid" || ! -S "/run/user/$_uid/bus" ]] && [[ "${1:-}" == "set" || "${1:-}" == "reset" ]] && command -v dbus-run-session >/dev/null 2>&1; then
+    _cmd=(dbus-run-session -- gsettings "$@")
+  fi
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$_u" -- env "${_envs[@]}" "${_cmd[@]}" </dev/null
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u "$_u" env "${_envs[@]}" "${_cmd[@]}" </dev/null
+  else
+    local _q_cmd="" _item _esc
+    for _item in "${_envs[@]}" "${_cmd[@]}"; do
+      _esc=$(printf '%s' "$_item" | sed "s/'/'\\\\''/g")
+      _q_cmd="${_q_cmd:+${_q_cmd} }'${_esc}'"
+    done
+    su -s /bin/sh "$_u" -c "env $_q_cmd" </dev/null
+  fi
+}
+
+proc_running() {
+  local _uid="$1" _proc="$2"
+  command -v pgrep >/dev/null 2>&1 || return 1
+  if [[ ${#_proc} -gt 15 ]]; then
+    pgrep -u "$_uid" -f "(^|/)${_proc}([[:space:]]|$)" >/dev/null 2>&1
+  else
+    pgrep -u "$_uid" -x "$_proc" >/dev/null 2>&1
+  fi
+}
+
+proc_kill() {
+  local _uid="$1" _proc="$2" _sig="${3:-}"
+  command -v pkill >/dev/null 2>&1 || return 0
+  if [[ ${#_proc} -gt 15 ]]; then
+    pkill ${_sig:+"$_sig"} -u "$_uid" -f "(^|/)${_proc}([[:space:]]|$)" 2>/dev/null || true
+  else
+    pkill ${_sig:+"$_sig"} -u "$_uid" -x "$_proc" 2>/dev/null || true
+  fi
+}
+
+detect_desktop() {
+  local _u="$1" _uid _d _env_out _sid
+  _d="${XDG_CURRENT_DESKTOP:-}"
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  _uid=$(id -u "$_u" 2>/dev/null || echo "")
+  if [[ -n "$_uid" && -S "/run/user/$_uid/bus" ]] && command -v systemctl >/dev/null 2>&1; then
+    _env_out=$(run_as_user_sh "$_u" 'systemctl --user show-environment 2>/dev/null' || true)
+    _d=$(printf '%s\n' "$_env_out" | sed -n 's/^XDG_CURRENT_DESKTOP=//p' | head -n 1 || true)
+    [[ -n "$_d" ]] && { echo "$_d"; return; }
+    _d=$(printf '%s\n' "$_env_out" | sed -n 's/^DESKTOP_SESSION=//p' | head -n 1 || true)
+    [[ -n "$_d" ]] && { echo "$_d"; return; }
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    for _sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$_u" '$3==u {print $1}' || true); do
+      _d=$(loginctl show-session "$_sid" -p Desktop --value 2>/dev/null || true)
+      [[ -n "$_d" ]] && { echo "$_d"; return; }
+    done
+  fi
+  _d=$(run_as_user_sh "$_u" 'printf "%s\n" "${XDG_CURRENT_DESKTOP:-${DESKTOP_SESSION:-}}"' 2>/dev/null | head -n 1 || true)
+  [[ -n "$_d" ]] && { echo "$_d"; return; }
+  echo "unknown"
+}
+
+detect_session_type() {
+  local _u="$1"
+  local _uid="$2"
+  local _st="${XDG_SESSION_TYPE:-}"
+  if [[ -n "$_st" && "$_st" != "unspecified" && "$_st" != "tty" ]]; then
+    echo "$_st"; return
+  fi
+  if command -v loginctl >/dev/null 2>&1; then
+    local _sid
+    for _sid in $(loginctl list-sessions --no-legend 2>/dev/null | awk -v u="$_u" '$3==u {print $1}' || true); do
+      _st=$(loginctl show-session "$_sid" -p Type --value 2>/dev/null || true)
+      if [[ "$_st" == "wayland" || "$_st" == "x11" || "$_st" == "mir" ]]; then
+        echo "$_st"; return
+      fi
+    done
+  fi
+  if ls "/run/user/$_uid"/wayland-* >/dev/null 2>&1 || [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    echo "wayland"; return
+  fi
+  if [[ -n "${DISPLAY:-}" ]]; then
+    echo "x11"; return
+  fi
+  echo "unknown"
+}
+
+detect_existing_ime() {
+  local _uid="$1"
+  local _desktop="${2:-}"
+  local _is_gnome=false
+  [[ "${_desktop,,}" == *"gnome"* ]] && _is_gnome=true
+  local _found=() _im _running
+  for _im in fcitx5 fcitx ibus-daemon kime; do
+    _running=false
+    if command -v pgrep >/dev/null 2>&1 && pgrep -u "$_uid" -x "$_im" >/dev/null 2>&1; then
+      _running=true
+    fi
+    if command -v "$_im" >/dev/null 2>&1 || [[ "$_running" == "true" ]]; then
+      if [[ "$_im" == "ibus-daemon" && "$_running" == "true" && "$_is_gnome" == "true" ]]; then
+        if proc_running "$_uid" "ibus-engine-hangul"; then
+          _found+=("$_im (실행 중 · GNOME 기본 내장, ibus-hangul 활성)")
+        else
+          _found+=("$_im (실행 중 · GNOME 기본 내장)")
+        fi
+      elif [[ "$_running" == "true" ]]; then
+        _found+=("$_im (실행 중)")
+      else
+        _found+=("$_im (설치됨)")
+      fi
+    fi
+  done
+  if [[ ${#_found[@]} -eq 0 ]]; then
+    echo "감지된 입력기 없음"
+  else
+    local _out="" _item
+    for _item in "${_found[@]}"; do
+      _out="${_out:+$_out, }$_item"
+    done
+    echo "$_out"
+  fi
+}
+
+has_conflicting_ime() {
+  local _hc_target="$1"
+  local _hc_existing="$2"
+  case "$_hc_target" in
+    fcitx5)
+      [[ "$_hc_existing" == *"ibus-daemon"* || "$_hc_existing" == *"kime"* || "$_hc_existing" == *"fcitx ("* ]] && return 0
+      ;;
+    ibus)
+      [[ "$_hc_existing" == *"fcitx5"* || "$_hc_existing" == *"fcitx ("* || "$_hc_existing" == *"kime"* ]] && return 0
+      ;;
+    kime)
+      [[ "$_hc_existing" == *"fcitx5"* || "$_hc_existing" == *"fcitx ("* || "$_hc_existing" == *"ibus-daemon"* ]] && return 0
+      ;;
+  esac
+  return 1
+}
+
+append_conflict_ime_warn() {
+  local _target_ime="$1"
+  local _existing_ime="$2"
+  local _base="${3:-}"
+  local _desktop="${4:-}"
+  local _w=""
+  if has_conflicting_ime "$_target_ime" "$_existing_ime"; then
+    _w=" ⚠️  참고: 기존 입력기(${_existing_ime})가 감지되었습니다. 기존 입력기가 새 입력기와 충돌할 수 있으므로 기존 입력기 설정(자동시작·서비스·환경변수)을 자동으로 비활성화하겠습니다."
+    if [[ "$_target_ime" != "ibus" && "${_desktop,,}" == *"gnome"* && "$_existing_ime" == *"ibus-daemon"* ]]; then
+      _w="${_w}\n ℹ️  GNOME 안내: ibus-daemon 자체는 GNOME Shell 기본 기능(이모지·화상키보드·Wayland 입력) 유지를 위해 종료·차단하지 않으며, ibus-hangul 입력 소스·엔진·환경변수·단축키 충돌만 비활성화합니다."
+    fi
+  fi
+  if [[ -n "$_base" && -n "$_w" ]]; then
+    printf '%s\n%s' "$_base" "$_w"
+  elif [[ -n "$_base" ]]; then
+    printf '%s' "$_base"
+  else
+    printf '%s' "$_w"
+  fi
+}
+
+disable_conflicting_imes() {
+  local _target_ime="$1"
+  local _user="$2"
+  local _home="$3"
+  local _uid="$4"
+  local _desktop="$5"
+  local _gid
+  _gid=$(id -g "$_user" 2>/dev/null || echo "$_uid")
+  local _changed=false
+  local _autostart_changed=false
+  local _is_gnome=false
+  [[ "${_desktop,,}" == *"gnome"* ]] && _is_gnome=true
+
+  local _autostart_dir="$_home/.config/autostart"
+  local _autostart_disabled_dir="$_home/.config/autostart-disabled"
+  local _env_dir="$_home/.config/environment.d"
+  local _env_disabled_dir="$_home/.config/environment.d-disabled"
+  local _target_desktops=() _svcs=() _procs=() _desktops=() _env_confs=()
+  local _im_re="" _kwin_re="" _cmd_re=""
+
+  case "$_target_ime" in
+    fcitx5)
+      _target_desktops=(org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5.desktop fcitx5-autostart.desktop)
+      _svcs=(ibus kime kime-daemon fcitx)
+      _procs=(fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
+      [[ "$_is_gnome" != "true" ]] && _procs+=(ibus-daemon)
+      _desktops=(ibus.desktop ibus-daemon.desktop kime.desktop fcitx.desktop fcitx-autostart.desktop)
+      _env_confs=(ibus.conf kime.conf fcitx.conf)
+      _im_re="(ibus|kime)"
+      _kwin_re="(ibus|kime)"
+      _cmd_re="(kime|kime-daemon|kime-wayland|kime-xim|kime-xdg-autostart|fcitx)"
+      [[ "$_is_gnome" != "true" ]] && _cmd_re="(ibus-daemon|kime|kime-daemon|kime-wayland|kime-xim|kime-xdg-autostart|fcitx)"
+      ;;
+    ibus)
+      _target_desktops=(ibus.desktop ibus-daemon.desktop org.freedesktop.IBus.Panel.Wayland.Gtk3.desktop)
+      _svcs=(fcitx5 fcitx kime kime-daemon)
+      _procs=(fcitx5 fcitx5-wayland-launcher fcitx kime kime-daemon kime-indicator kime-wayland kime-xim)
+      _desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop kime.desktop)
+      _env_confs=(fcitx5.conf fcitx.conf kime.conf)
+      _im_re="(fcitx5|fcitx|kime)"
+      _kwin_re="(fcitx|kime)"
+      _cmd_re="(fcitx5|fcitx5-wayland-launcher|fcitx|kime|kime-daemon|kime-wayland|kime-xim|kime-xdg-autostart)"
+      ;;
+    kime)
+      _target_desktops=(kime.desktop)
+      _svcs=(fcitx5 fcitx ibus)
+      _procs=(fcitx5 fcitx5-wayland-launcher fcitx)
+      [[ "$_is_gnome" != "true" ]] && _procs+=(ibus-daemon)
+      _desktops=(fcitx5.desktop org.fcitx.Fcitx5.desktop fcitx5-wayland-launcher.desktop fcitx5-autostart.desktop fcitx.desktop fcitx-autostart.desktop ibus.desktop ibus-daemon.desktop)
+      _env_confs=(fcitx5.conf fcitx.conf ibus.conf)
+      _im_re="(fcitx5|fcitx|ibus)"
+      _kwin_re="(fcitx|ibus)"
+      _cmd_re="(fcitx5|fcitx5-wayland-launcher|fcitx)"
+      [[ "$_is_gnome" != "true" ]] && _cmd_re="(ibus-daemon|fcitx5|fcitx5-wayland-launcher|fcitx)"
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+
+  local _td
+  for _td in "${_target_desktops[@]}"; do
+    if [[ -f "$_autostart_dir/$_td" ]] && grep -q '^Hidden=true$' "$_autostart_dir/$_td" 2>/dev/null; then
+      rm -f "$_autostart_dir/$_td"
+      _autostart_changed=true
+    fi
+    if [[ -f "$_autostart_dir/${_td}.disabled" ]]; then
+      mkdir -p "$_autostart_disabled_dir"
+      mv -f "$_autostart_dir/${_td}.disabled" "$_autostart_disabled_dir/$_td"
+      chown "$_uid:$_gid" "$_autostart_disabled_dir" "$_autostart_disabled_dir/$_td" 2>/dev/null || true
+      _autostart_changed=true
+      _changed=true
+    fi
+  done
+
+  local _svc
+  if command -v systemctl >/dev/null 2>&1; then
+    if [[ -S "/run/user/$_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _bus="unix:path=/run/user/$_uid/bus"
+      for _svc in "${_svcs[@]}"; do
+        if sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="$_bus" \
+             systemctl --user is-enabled "$_svc" >/dev/null 2>&1 || \
+           sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="$_bus" \
+             systemctl --user is-active "$_svc" >/dev/null 2>&1; then
+          sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="$_bus" \
+            systemctl --user disable --now "$_svc" 2>/dev/null || true
+          _changed=true
+        fi
+      done
+    else
+      for _svc in "${_svcs[@]}"; do
+        if run_as_user_sh "$_user" "systemctl --user is-enabled $_svc >/dev/null 2>&1" 2>/dev/null; then
+          run_as_user_sh "$_user" "systemctl --user disable $_svc 2>/dev/null || true" || true
+          _changed=true
+        fi
+      done
+    fi
+  fi
+
+  local _p
+  for _p in "${_procs[@]}"; do
+    if proc_running "$_uid" "$_p"; then
+      proc_kill "$_uid" "$_p"
+      _changed=true
+    fi
+  done
+
+  local _desk
+  for _desk in "${_desktops[@]}"; do
+    if [[ -f "$_autostart_dir/${_desk}.disabled" ]]; then
+      mkdir -p "$_autostart_disabled_dir"
+      mv -f "$_autostart_dir/${_desk}.disabled" "$_autostart_disabled_dir/$_desk"
+      chown "$_uid:$_gid" "$_autostart_disabled_dir" "$_autostart_disabled_dir/$_desk" 2>/dev/null || true
+      _autostart_changed=true
+      _changed=true
+    fi
+    if [[ -f "/etc/xdg/autostart/$_desk" ]]; then
+      if [[ ! -f "$_autostart_dir/$_desk" ]] || ! grep -q '^Hidden=true$' "$_autostart_dir/$_desk" 2>/dev/null; then
+        mkdir -p "$_autostart_dir"
+        cat > "$_autostart_dir/$_desk" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Disabled IME
+Hidden=true
+X-GNOME-Autostart-enabled=false
+EOF
+        chown "$_uid:$_gid" "$_autostart_dir" "$_autostart_dir/$_desk" 2>/dev/null || true
+        _autostart_changed=true
+        _changed=true
+      fi
+    elif [[ -f "$_autostart_dir/$_desk" ]]; then
+      mkdir -p "$_autostart_disabled_dir"
+      mv -f "$_autostart_dir/$_desk" "$_autostart_disabled_dir/$_desk"
+      chown "$_uid:$_gid" "$_autostart_disabled_dir" "$_autostart_disabled_dir/$_desk" 2>/dev/null || true
+      _autostart_changed=true
+      _changed=true
+    fi
+  done
+  if [[ "$_autostart_changed" == "true" ]] && command -v systemctl >/dev/null 2>&1 && [[ -S "/run/user/$_uid/bus" ]]; then
+    run_as_user_sh "$_user" 'systemctl --user daemon-reload 2>/dev/null || true' || true
+  fi
+
+  local _econf
+  for _econf in "${_env_confs[@]}"; do
+    if [[ -f "$_env_dir/${_econf}.disabled" ]]; then
+      mkdir -p "$_env_disabled_dir"
+      mv -f "$_env_dir/${_econf}.disabled" "$_env_disabled_dir/$_econf"
+      chown "$_uid:$_gid" "$_env_disabled_dir" "$_env_disabled_dir/$_econf" 2>/dev/null || true
+      _changed=true
+    fi
+    if [[ -f "$_env_dir/$_econf" ]]; then
+      mkdir -p "$_env_disabled_dir"
+      mv -f "$_env_dir/$_econf" "$_env_disabled_dir/$_econf"
+      chown "$_uid:$_gid" "$_env_disabled_dir" "$_env_disabled_dir/$_econf" 2>/dev/null || true
+      _changed=true
+    fi
+  done
+
+  local _env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_im_re}['\"]?|QT_IM_MODULES=('[^']*${_im_re}[^']*'|\"[^\"]*${_im_re}[^\"]*\"|[^[:space:]'\";]*${_im_re}[^[:space:]'\";]*)|XMODIFIERS=['\"]?@im=${_im_re}['\"]?)[[:space:]]*(#.*)?$"
+  local _etc_env_line_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\"]?${_im_re}['\"]?|QT_IM_MODULES=('[^']*${_im_re}[^']*'|\"[^\"]*${_im_re}[^\"]*\"|[^[:space:]'\"]*${_im_re}[^[:space:]'\"]*)|XMODIFIERS=['\"]?@im=${_im_re}['\"]?)[[:space:]]*(#.*)?$"
+  local _cmd_line_re="^[[:space:]]*((/usr(/local)?/bin/)?${_cmd_re})([[:space:]]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([[:space:]]*&)?[[:space:]]*(#.*)?$"
+  local _ef
+  for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.zprofile" "$_home/.profile"; do
+    if [[ -f "$_ef" && -w "$_ef" ]]; then
+      if [[ "$_ef" == "/etc/environment" ]]; then
+        if grep -qE "$_etc_env_line_re" "$_ef" 2>/dev/null; then
+          grep -Ev "$_etc_env_line_re" "$_ef" > "${_ef}.tmp" || true
+          cat "${_ef}.tmp" > "$_ef"
+          rm -f "${_ef}.tmp"
+          _changed=true
+        fi
+      elif grep -qE "$_env_line_re" "$_ef" 2>/dev/null || grep -qE "$_cmd_line_re" "$_ef" 2>/dev/null; then
+        local _chk_sh="sh" _orig_valid=false
+        if [[ "$_ef" == */.bash_profile ]] && command -v bash >/dev/null 2>&1; then
+          _chk_sh="bash"
+        elif [[ "$_ef" == */.zprofile ]] && command -v zsh >/dev/null 2>&1; then
+          _chk_sh="zsh"
+        fi
+        "$_chk_sh" -n "$_ef" >/dev/null 2>&1 && _orig_valid=true
+        if awk -v im_re="$_im_re" -v cmd_re="$_cmd_re" '
+          BEGIN {
+            env_re = "^[ \t]*(export[ \t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\047\"]?" im_re "[\047\"]?|QT_IM_MODULES=(\047[^\047]*" im_re "[^\047]*\047|\"[^\"]*" im_re "[^\"]*\"|[^ \t\047\";]*" im_re "[^ \t\047\";]*)|XMODIFIERS=[\047\"]?@im=" im_re "[\047\"]?)[ \t]*(#.*)?$"
+            cmd_re_full = "^[ \t]*((/usr(/local)?/bin/)?" cmd_re ")([ \t]+(-[A-Za-z0-9_=-]+|>/dev/null|2>/dev/null|2>&1|&>/dev/null))*([ \t]*&)?[ \t]*(#.*)?$"
+            mark = "^[ \t]*:[ \t]*#[ \t]*korean_input: disabled conflicting IME([ \t]+env)?[ \t]*$"
+            prev = 0
+          }
+          ($0 ~ env_re) || ($0 ~ cmd_re_full) {
+            if (!prev) {
+              match($0, /^[ \t]*/)
+              print substr($0, 1, RLENGTH) ": # korean_input: disabled conflicting IME"
+              prev = 1
+            }
+            next
+          }
+          $0 ~ mark {
+            if (!prev) { print; prev = 1 }
+            next
+          }
+          { prev = 0; print }
+        ' "$_ef" > "${_ef}.tmp"; then
+          if [[ "$_orig_valid" == "true" ]] && ! "$_chk_sh" -n "${_ef}.tmp" >/dev/null 2>&1; then
+            rm -f "${_ef}.tmp"
+            warn "셸 구문 검증 실패로 $_ef 자동 수정을 건너뜁니다 (수동 확인 필요)"
+          else
+            cat "${_ef}.tmp" > "$_ef"
+            rm -f "${_ef}.tmp"
+            chown "$_uid:$_gid" "$_ef" 2>/dev/null || true
+            _changed=true
+          fi
+        else
+          rm -f "${_ef}.tmp"
+        fi
+      fi
+    fi
+  done
+
+  local _kwinrc="$_home/.config/kwinrc"
+  if [[ -f "$_kwinrc" ]] && grep -qE '^InputMethod(\[\$e\])?=.*'"${_kwin_re}" "$_kwinrc" 2>/dev/null; then
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_kwinrc" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_kwinrc" --group Wayland --key InputMethod --delete 2>/dev/null || true
+    else
+      awk '
+        BEGIN { in_wayland=0 }
+        /^\[Wayland\]$/ { in_wayland=1; print; next }
+        /^\[/ { in_wayland=0; print; next }
+        in_wayland && /^InputMethod(\[\$e\])?=/ { next }
+        { print }
+      ' "$_kwinrc" > "${_kwinrc}.tmp" && cat "${_kwinrc}.tmp" > "$_kwinrc" && rm -f "${_kwinrc}.tmp"
+    fi
+    chown "$_uid:$_gid" "$_kwinrc" 2>/dev/null || true
+    if [[ -S "/run/user/$_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _qdbus=""
+      if command -v qdbus6 >/dev/null 2>&1; then _qdbus="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then _qdbus="qdbus"
+      fi
+      if [[ -n "$_qdbus" ]]; then
+        sudo -u "$_user" XDG_RUNTIME_DIR="/run/user/$_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_uid/bus" \
+          "$_qdbus" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    _changed=true
+  fi
+
+  # ibus D-Bus 자동 활성화(on-demand 실행) 차단 / 복원 (GNOME은 ibus를 직접 사용하므로 제외)
+  local _dbus_dir="$_home/.local/share/dbus-1/services"
+  local _dbus_svc _dbus_name
+  local _ibus_dbus_svcs=(org.freedesktop.IBus.service org.freedesktop.portal.IBus.service)
+  if [[ "$_target_ime" == "ibus" ]]; then
+    for _dbus_svc in "${_ibus_dbus_svcs[@]}"; do
+      if [[ -f "$_dbus_dir/$_dbus_svc" ]] && grep -q '^# korean_input: disabled' "$_dbus_dir/$_dbus_svc" 2>/dev/null; then
+        rm -f "$_dbus_dir/$_dbus_svc"
+        _changed=true
+      fi
+    done
+  elif [[ "$_is_gnome" != "true" ]]; then
+    mkdir -p "$_dbus_dir"
+    for _dbus_svc in "${_ibus_dbus_svcs[@]}"; do
+      if [[ ! -f "$_dbus_dir/$_dbus_svc" ]]; then
+        _dbus_name="${_dbus_svc%.service}"
+        cat > "$_dbus_dir/$_dbus_svc" <<EOF
+# korean_input: disabled (다른 한글 입력기와 충돌 방지 / prevent conflict with the selected IME)
+[D-BUS Service]
+Name=$_dbus_name
+Exec=/bin/false
+EOF
+        _changed=true
+      fi
+    done
+    chown -R "$_uid:$_gid" "$_home/.local/share/dbus-1" 2>/dev/null || true
+  fi
+
+  # 남아있는 보조 프로세스(ibus 엔진/UI 등) 정리 후, 끝까지 살아있는 충돌 프로세스는 강제 종료
+  local _hp
+  if [[ "$_target_ime" != "ibus" ]]; then
+    if [[ "$_is_gnome" != "true" ]]; then
+      for _hp in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+        proc_kill "$_uid" "$_hp"
+      done
+    else
+      if command -v gsettings >/dev/null 2>&1; then
+        local _cur_sources _new_sources
+        _cur_sources=$(run_user_gsettings "$_user" "$_uid" "$_home" get org.gnome.desktop.input-sources sources 2>/dev/null || true)
+        if printf '%s\n' "$_cur_sources" | grep -qE "\('ibus',[[:space:]]*'hangul'\)"; then
+          _new_sources=$(printf '%s\n' "$_cur_sources" | sed -E \
+            -e "s/,[[:space:]]*\('ibus',[[:space:]]*'hangul'\)//g" \
+            -e "s/\('ibus',[[:space:]]*'hangul'\)[[:space:]]*,[[:space:]]*//g" \
+            -e "s/\('ibus',[[:space:]]*'hangul'\)//g")
+          printf '%s\n' "$_new_sources" | grep -q "'" || _new_sources="[('xkb', 'us')]"
+          run_user_gsettings "$_user" "$_uid" "$_home" set org.gnome.desktop.input-sources sources "$_new_sources" 2>/dev/null || true
+          _changed=true
+        fi
+
+        local _cur_preload _new_preload
+        _cur_preload=$(run_user_gsettings "$_user" "$_uid" "$_home" get org.freedesktop.ibus.general preload-engines 2>/dev/null || true)
+        if printf '%s\n' "$_cur_preload" | grep -q "'hangul'"; then
+          _new_preload=$(printf '%s\n' "$_cur_preload" | sed -E \
+            -e "s/,[[:space:]]*'hangul'//g" \
+            -e "s/'hangul'[[:space:]]*,[[:space:]]*//g" \
+            -e "s/'hangul'//g")
+          printf '%s\n' "$_new_preload" | grep -q "'" || _new_preload="[]"
+          run_user_gsettings "$_user" "$_uid" "$_home" set org.freedesktop.ibus.general preload-engines "$_new_preload" 2>/dev/null || true
+          _changed=true
+        fi
+
+        local _cur_triggers
+        _cur_triggers=$(run_user_gsettings "$_user" "$_uid" "$_home" get org.freedesktop.ibus.general.hotkey triggers 2>/dev/null || true)
+        if printf '%s\n' "$_cur_triggers" | grep -qE "(Hangul|space)"; then
+          run_user_gsettings "$_user" "$_uid" "$_home" set org.freedesktop.ibus.general.hotkey triggers "[]" 2>/dev/null || true
+          _changed=true
+        fi
+
+        local _cur_gtk_im
+        _cur_gtk_im=$(run_user_gsettings "$_user" "$_uid" "$_home" get org.gnome.desktop.interface gtk-im-module 2>/dev/null || true)
+        if [[ "$_cur_gtk_im" == "'ibus'" ]]; then
+          run_user_gsettings "$_user" "$_uid" "$_home" reset org.gnome.desktop.interface gtk-im-module 2>/dev/null || true
+          _changed=true
+        fi
+
+        local _kb_key _cur_kb
+        for _kb_key in switch-input-source switch-input-source-backward; do
+          _cur_kb=$(run_user_gsettings "$_user" "$_uid" "$_home" get org.gnome.desktop.wm.keybindings "$_kb_key" 2>/dev/null || true)
+          if [[ -n "$_cur_kb" && "$_cur_kb" != "@as []" && "$_cur_kb" != "[]" ]]; then
+            run_user_gsettings "$_user" "$_uid" "$_home" set org.gnome.desktop.wm.keybindings "$_kb_key" "[]" 2>/dev/null || true
+            _changed=true
+          fi
+        done
+      fi
+
+      if proc_running "$_uid" "ibus-engine-hangul"; then
+        proc_kill "$_uid" "ibus-engine-hangul"
+        _changed=true
+      fi
+    fi
+  fi
+  sleep 1
+  local _survivors=()
+  for _hp in "${_procs[@]}"; do
+    if proc_running "$_uid" "$_hp"; then
+      proc_kill "$_uid" "$_hp" "-9"
+      _survivors+=("$_hp")
+    fi
+  done
+  if [[ "$_target_ime" != "ibus" && "$_is_gnome" == "true" ]] && proc_running "$_uid" "ibus-engine-hangul"; then
+    proc_kill "$_uid" "ibus-engine-hangul" "-9"
+    _survivors+=("ibus-engine-hangul")
+  fi
+  if [[ ${#_survivors[@]} -gt 0 ]]; then
+    warn "종료되지 않아 강제 종료한 입력기 프로세스: ${_survivors[*]}"
+    _changed=true
+  fi
+
+  if [[ "$_target_ime" != "ibus" && "$_is_gnome" == "true" ]] && { proc_running "$_uid" "ibus-daemon" || command -v ibus-daemon >/dev/null 2>&1; }; then
+    info "GNOME 환경에서는 셸 안정성을 위해 ibus-daemon은 유지하고, ibus-hangul 입력 소스·엔진·환경변수·단축키 충돌만 비활성화했습니다."
+  fi
+
+  if [[ "$_changed" == "true" ]]; then
+    ok "기존 충돌 입력기 설정 자동 비활성화 완료 (대상: $_target_ime)"
+  fi
+}
+
+will_configure_kde() {
+  local _force="$1"
+  local _home="$2"
+  local _desk="$3"
+  if [[ "$_force" == "true" ]] || \
+     [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     command -v kwriteconfig6 >/dev/null 2>&1 || \
+     command -v kwriteconfig5 >/dev/null 2>&1 || \
+     [[ -f "$_home/.config/kwinrc" ]]; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+fcitx5_overwrite_note() {
+  if [[ -f "$1/.config/fcitx5/profile" || -f "$1/.config/fcitx5/config" ]]; then
+    echo " (기존 파일 덮어쓰기)"
+  else
+    echo " (신규 생성)"
+  fi
+}
+
+is_kde6_wayland() {
+  local _kde_will="$1" _session="$2"
+  if [[ "$_kde_will" == "true" && "$_session" != "x11" ]] && command -v kwriteconfig6 >/dev/null 2>&1; then
+    echo "true"
+  else
+    echo "false"
+  fi
+}
+
+write_fcitx5_env() {
+  local _kde6_wl="$1" _home="$2" _uid="$3" _gid="$4"
+  local _write_etc="$5" _write_envd="$6" _x11_profile="${7:-}" _allow_pending="${8:-false}"
+  local _use_kde6_wl="false"
+  if [[ "$_kde6_wl" == "true" ]]; then
+    if [[ "$_allow_pending" == "true" ]] || \
+       [[ -f /usr/share/applications/fcitx5-wayland-launcher.desktop || -f /usr/share/applications/org.fcitx.Fcitx5.desktop ]]; then
+      _use_kde6_wl="true"
+    fi
+  fi
+
+  if [[ "$_use_kde6_wl" == "true" ]]; then
+    if [[ "$_write_envd" == "true" ]]; then
+      local _env_file="$_home/.config/environment.d/fcitx5.conf"
+      mkdir -p "$(dirname "$_env_file")"
+      cat > "$_env_file" <<'EOF'
+# KDE Plasma 6 Wayland: use KWin Virtual Keyboard (text-input-v3)
+# Avoid forcing global QT_IM_MODULE/GTK_IM_MODULE on Plasma 6 Wayland
+QT_IM_MODULES="wayland;fcitx"
+XMODIFIERS=@im=fcitx
+EOF
+      chown -R "$_uid:$_gid" "$(dirname "$_env_file")"
+    fi
+    if [[ "$_write_etc" == "true" ]]; then
+      local _etc_im_re="^[[:space:]]*(GTK|QT)_IM_MODULE=['\"]?fcitx['\"]?[[:space:]]*(#.*)?$"
+      local _etc_xm_re="^[[:space:]]*XMODIFIERS=['\"]?@im=fcitx['\"]?"
+      if [[ -f /etc/environment && -w /etc/environment ]]; then
+        if grep -qE "$_etc_im_re" /etc/environment 2>/dev/null; then
+          grep -Ev "$_etc_im_re" /etc/environment > /etc/environment.tmp || true
+          cat /etc/environment.tmp > /etc/environment
+          rm -f /etc/environment.tmp
+        fi
+      fi
+      if [[ -w /etc/environment || ( ! -e /etc/environment && -w /etc ) ]]; then
+        if ! grep -qE "$_etc_xm_re" /etc/environment 2>/dev/null; then
+          cat >> /etc/environment <<'EOF'
+
+# fcitx5 환경변수 (XWayland)
+XMODIFIERS=@im=fcitx
+EOF
+        fi
+      fi
+    fi
+    if [[ -n "$_x11_profile" ]]; then
+      if ! grep -q "GTK_IM_MODULE=fcitx" "$_x11_profile" 2>/dev/null; then
+        cat >> "$_x11_profile" <<'EOF'
+
+# fcitx5 환경변수 (X11 세션 호환)
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+      fi
+      chown "$_uid:$_gid" "$_x11_profile"
+    fi
+  else
+    if [[ "$_write_envd" == "true" ]]; then
+      local _env_file="$_home/.config/environment.d/fcitx5.conf"
+      mkdir -p "$(dirname "$_env_file")"
+      cat > "$_env_file" <<'EOF'
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+EOF
+      chown -R "$_uid:$_gid" "$(dirname "$_env_file")"
+    fi
+    if [[ "$_write_etc" == "true" ]]; then
+      grep -q "GTK_IM_MODULE=fcitx" /etc/environment 2>/dev/null || cat >> /etc/environment <<'EOF'
+
+# fcitx5 환경변수
+GTK_IM_MODULE=fcitx
+QT_IM_MODULE=fcitx
+XMODIFIERS=@im=fcitx
+EOF
+    fi
+    if [[ -n "$_x11_profile" ]]; then
+      if ! grep -q "GTK_IM_MODULE=fcitx" "$_x11_profile" 2>/dev/null; then
+        cat >> "$_x11_profile" <<'EOF'
+
+# fcitx5 환경변수
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+      fi
+      chown "$_uid:$_gid" "$_x11_profile"
+    fi
+  fi
+}
+
+append_kde_cfg_line() {
+  local _kde_will="$1"
+  local _home="$2"
+  local _cfg="$3"
+  local _kde6_wl="${4:-false}"
+  local _out="$_cfg"
+  if [[ "$_kde_will" == "true" ]]; then
+    _out=$(printf '%s\n   - KDE Plasma 가상 키보드 설정: %s/.config/kwinrc ([Wayland] InputMethod)' "$_out" "$_home")
+  fi
+  if [[ "$_kde6_wl" == "true" ]]; then
+    _out=$(printf '%s\n   - KDE Plasma 6 Wayland 안전 환경변수: %s/.config/environment.d/fcitx5.conf (QT_IM_MODULES="wayland;fcitx", XMODIFIERS=@im=fcitx)' "$_out" "$_home")
+  fi
+  printf '%s' "$_out"
+}
+
+append_fcitx5_overwrite_warn() {
+  local _home="$1"
+  local _base="${2:-}"
+  local _w=""
+  if [[ -f "$_home/.config/fcitx5/profile" || -f "$_home/.config/fcitx5/config" ]]; then
+    _w=" ⚠️  참고: 기존 Fcitx5 설정 파일($_home/.config/fcitx5/profile, config)이 덮어써집니다."
+  fi
+  if [[ -n "$_base" && -n "$_w" ]]; then
+    printf '%s\n%s' "$_base" "$_w"
+  elif [[ -n "$_base" ]]; then
+    printf '%s' "$_base"
+  else
+    printf '%s' "$_w"
+  fi
+}
+
+confirm_before_changes() {
+  local _title="$1"
+  local _os_name="$2"
+  local _user="$3"
+  local _uid="$4"
+  local _home="$5"
+  local _desktop="$6"
+  local _session="$7"
+  local _existing_ime="$8"
+  local _pkg_summary="$9"
+  local _cfg_summary="${10}"
+  local _extra_warn="${11:-}"
+
+  echo
+  echo "============================================================"
+  echo " 🔍 설치 전 시스템 조사 및 변경 예정 내역"
+  echo "============================================================"
+  echo " • 대상 스크립트  : $_title (v$SCRIPT_VERSION)"
+  echo " • 감지된 OS      : $_os_name"
+  echo " • 대상 사용자    : $_user (UID=$_uid, HOME=$_home)"
+  echo " • 데스크톱/세션  : $_desktop / $_session"
+  echo " • 기존 입력기    : $_existing_ime"
+  echo "------------------------------------------------------------"
+  echo " 📦 패키지 변경 예정:"
+  printf "%b\n" "$_pkg_summary"
+  echo " ⚙️  설정·파일 변경 예정:"
+  printf "%b\n" "$_cfg_summary"
+  echo " • 설치 로그 파일 : $LOG_FILE"
+  if [[ -n "$_extra_warn" ]]; then
+    echo "------------------------------------------------------------"
+    printf "%b\n" "$_extra_warn"
+  fi
+  echo "============================================================"
+  echo " ⚠️  경고: 계속 진행하면 위 패키지와 시스템/사용자 설정이 실제로 변경됩니다."
+
+  if [[ "$AUTO_YES" == "true" ]]; then
+    echo " ℹ️  --yes (-y) 옵션이 지정되어 확인 절차를 건너뛰고 진행합니다."
+    echo
+    return 0
+  fi
+
+  if ! ( : </dev/tty ) 2>/dev/null; then
+    echo " ❌ 대화형 터미널(/dev/tty)이 없어 사용자 확인을 받을 수 없습니다." >&2
+    echo "    대화형 터미널에서 실행하거나 --yes (-y) 옵션을 전달하세요." >&2
+    exit 1
+  fi
+
+  local _reply=""
+  printf " 이대로 설치를 진행하시겠습니까? [y/N]: "
+  IFS= read -r _reply </dev/tty || _reply=""
+  case "$_reply" in
+    y|Y|yes|YES)
+      echo
+      return 0
+      ;;
+    *)
+      echo " 🛑 설치를 취소했습니다. 시스템에 아무런 변경도 적용되지 않았습니다."
+      exit 0
+      ;;
+  esac
+}
+
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  if id -u deck >/dev/null 2>&1; then
+    echo "deck"
+    return
+  fi
+  err "대상 사용자 탐지 실패"
+}
+
+steamos_cleanup() {
+  if command -v steamos-readonly >/dev/null 2>&1; then
+    steamos-readonly enable 2>/dev/null || true
+  fi
+}
+
+detect_fcitx5_family() {
+  local _id="${1,,}" _like="${2,,}"
+  if command -v steamos-readonly >/dev/null 2>&1 || [[ "$_id" == "steamos" ]]; then
+    echo "steamos"; return
+  fi
+  if command -v rpm-ostree >/dev/null 2>&1; then
+    echo "fedora-atomic"; return
+  fi
+  if command -v abroot >/dev/null 2>&1; then
+    echo "vanilla"; return
+  fi
+  if command -v transactional-update >/dev/null 2>&1; then
+    echo "opensuse-transactional"; return
+  fi
+  if [[ "$_id" == "nixos" ]]; then
+    err "NixOS는 선언적 OS이므로 스크립트로 패키지를 직접 설치하지 않습니다. scripts/nixos/ 설정 조각을 /etc/nixos/configuration.nix 에 병합하세요."
+  fi
+  if [[ "$_id" == "kaos" ]]; then
+    echo "kaos"; return
+  fi
+  if [[ "$_id" == "altlinux" || -f /etc/altlinux-release ]]; then
+    err "ALT Linux(apt-rpm)는 전용 스크립트(scripts/alt/alt-workstation.sh) 또는 만능 install.sh 사용을 권장합니다."
+  fi
+  case "$_id" in
+    rhel|almalinux|rocky|centos|ol|oreon|eurolinux|scientific|springdale|virtuozzo|circle|navy|miraclelinux)
+      if command -v dnf >/dev/null 2>&1; then
+        echo "rhel"; return
+      fi
+      ;;
+  esac
+  case " $_like " in
+    *" rhel "*|*" centos "*|*" rocky "*|*" almalinux "*)
+      if command -v dnf >/dev/null 2>&1; then
+        echo "rhel"; return
+      fi
+      ;;
+  esac
+  case "$_id" in
+    mageia|openmandriva*)
+      err "Mandriva 계열(${_id})은 전용 스크립트(scripts/mandriva-family/) 또는 만능 install.sh 사용을 권장합니다."
+      ;;
+  esac
+  if command -v pacman >/dev/null 2>&1; then
+    echo "arch"; return
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "debian"; return
+  fi
+  if command -v dnf >/dev/null 2>&1; then
+    echo "fedora"; return
+  fi
+  if command -v zypper >/dev/null 2>&1; then
+    echo "opensuse"; return
+  fi
+  err "지원하지 않는 배포판입니다 (ID=${_id:-unknown}). Debian/Ubuntu, Fedora, Arch, openSUSE 계열에서 실행하거나 만능 install.sh를 사용하세요."
+}
+
+main() {
+  require_root
+
+  local USER TARGET_HOME TARGET_UID TARGET_GID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  TARGET_GID=$(id -g "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID" "$DESKTOP")
+
+  local _os_id="" _os_like=""
+  if [[ -f /etc/os-release ]]; then
+    IFS='|' read -r _os_id _os_like < <(
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      printf '%s|%s\n' "${ID:-}" "${ID_LIKE:-}"
+    )
+  fi
+
+  local _fcitx5_family _ow_note _kde_will _kde6_wayland
+  local _pkg_summary="" _cfg_summary="" _extra_warn="" _need_reboot=false
+  _fcitx5_family=$(detect_fcitx5_family "$_os_id" "$_os_like")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+
+  case "$_fcitx5_family" in
+    debian)
+      _pkg_summary="   - apt-get update 후 레거시 fcitx(4.x) 제거 및 autoremove --purge\n   - apt-get install: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-configtool, fonts-noto-cjk (+ 사용 가능한 gtk3/gtk4/qt5/qt6 프론트엔드)"
+      _cfg_summary="   - im-config -n fcitx5 적용 및 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xsessionrc\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 기존 fcitx 4.x 패키지 및 미사용 의존성(autoremove)이 제거됩니다."
+      ;;
+    vanilla)
+      _need_reboot=true
+      _pkg_summary="   - abroot pkg add: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk"
+      _cfg_summary="   - 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      ;;
+    fedora)
+      _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    rhel)
+      if ! { rpm -q fcitx5 fcitx5-hangul >/dev/null 2>&1 || (dnf -q info fcitx5 >/dev/null 2>&1 && dnf -q info fcitx5-hangul >/dev/null 2>&1); }; then
+        err "RHEL / Rocky / AlmaLinux 기본 및 EPEL 저장소에서는 fcitx5 / fcitx5-hangul 패키지를 기본 제공하지 않습니다. ibus-hangul (scripts/ibus/ibus-fedora.sh) 또는 kime (scripts/kime/kime-fedora.sh) 사용을 권장하며, fcitx5를 사용하려면 COPR 등 fcitx5 제공 저장소를 먼저 활성화한 뒤 다시 실행하세요."
+      fi
+      _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul (+ 사용 가능한 fcitx5-configtool/gtk/qt/autostart 및 Noto CJK 폰트)"
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: RHEL 계열에서 활성화된 서드파티/COPR 저장소의 fcitx5 패키지로 설치합니다."
+      ;;
+    fedora-atomic)
+      _need_reboot=true
+      _pkg_summary="   - rpm-ostree install --idempotent --allow-inactive: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts"
+      _cfg_summary="   - 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 불변 OS(rpm-ostree)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      ;;
+    arch)
+      _pkg_summary="   - pacman -Syu --needed --noconfirm: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk (미설치 시 부분 업그레이드 방지)"
+      _cfg_summary="   - 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xprofile\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop, systemctl --user enable fcitx5 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    steamos)
+      _pkg_summary="   - steamos-readonly disable → pacman-key init/populate → pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk → steamos-readonly enable"
+      _cfg_summary="   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xprofile\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: SteamOS 루트 파일시스템 읽기 전용 상태를 일시 해제했다가 복구합니다."
+      ;;
+    kaos)
+      _pkg_summary="   - pacman -Syu --needed --noconfirm: fcitx5, fcitx5-hangul, fcitx5-qt, fcitx5-configtool, noto-fonts-cjk (미설치 시 부분 업그레이드 방지)"
+      _cfg_summary="   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xprofile\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    opensuse|opensuse-transactional)
+      if [[ "$_fcitx5_family" == "opensuse-transactional" ]]; then
+        _need_reboot=true
+        _pkg_summary="   - transactional-update --non-interactive pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-autostart (+ 사용 가능한 fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
+        _extra_warn=" ⚠️  참고: Transactional OS이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      else
+        _pkg_summary="   - zypper --non-interactive install -y: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-autostart (+ 사용 가능한 fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
+      fi
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - 데스크톱 단축키 충돌 해제(gsettings)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+  esac
+
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary" "$_kde6_wayland")
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+  _extra_warn=$(append_conflict_ime_warn "fcitx5" "$EXISTING_IME" "$_extra_warn" "$DESKTOP")
+
+  confirm_before_changes \
+    "fcitx5-hangul (표준 범용 한글 입력기) Fedora (dnf)" \
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== fcitx5-hangul (표준 범용 한글 입력기) Fedora (dnf) 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME (family=$_fcitx5_family, id=${_os_id:-unknown})"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
+
+  # 1. 배포판별 패키지 설치 및 충돌 입력기 비활성화
+  case "$_fcitx5_family" in
+    debian)
+      log "[1/5] 레거시 fcitx4 제거, fcitx5 및 한글 폰트 설치 (apt-get)..."
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get purge -y -qq fcitx fcitx-bin fcitx-data fcitx-hangul fcitx-config-gtk \
+        fcitx-frontend-all fcitx-frontend-gtk2 fcitx-frontend-gtk3 fcitx-frontend-qt5 2>/dev/null || true
+      apt-get autoremove --purge -y -qq
+      local _deb_pkgs=(fcitx5 fcitx5-hangul fcitx5-config-qt fcitx5-configtool fonts-noto-cjk)
+      local _opt_pkg
+      for _opt_pkg in fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5 fcitx5-frontend-qt6; do
+        if apt-cache show "$_opt_pkg" >/dev/null 2>&1; then
+          _deb_pkgs+=("$_opt_pkg")
+        fi
+      done
+      apt-get install -y -qq "${_deb_pkgs[@]}"
+      ;;
+    vanilla)
+      log "[1/5] fcitx5 및 한글 폰트 추가 (abroot)..."
+      abroot pkg add \
+        fcitx5 fcitx5-hangul fcitx5-config-qt \
+        fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \
+        fcitx5-frontend-qt5 fcitx5-frontend-qt6 fonts-noto-cjk
+      ;;
+    fedora)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (dnf)..."
+      dnf install -y -q \
+        fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt \
+        fcitx5-autostart
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ;;
+    rhel)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (dnf)..."
+      local _rhel_pkgs=(fcitx5 fcitx5-hangul)
+      local _opt_pkg
+      for _opt_pkg in fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-autostart; do
+        if rpm -q "$_opt_pkg" >/dev/null 2>&1 || dnf -q info "$_opt_pkg" >/dev/null 2>&1; then
+          _rhel_pkgs+=("$_opt_pkg")
+        fi
+      done
+      dnf install -y -q "${_rhel_pkgs[@]}"
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ;;
+    fedora-atomic)
+      log "[1/5] fcitx5 및 한글 폰트 레이어링 (rpm-ostree)..."
+      rpm-ostree install --idempotent --allow-inactive \
+        fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart \
+        google-noto-sans-cjk-ttc-fonts
+      ;;
+    arch)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (pacman)..."
+      if pacman -T fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk >/dev/null 2>&1; then
+        ok "필수 패키지가 이미 설치되어 있어 pacman 업그레이드를 건너뜁니다"
+      else
+        pacman -Syu --needed --noconfirm \
+          fcitx5-im fcitx5-hangul fcitx5-configtool \
+          fcitx5-gtk fcitx5-qt noto-fonts-cjk
+      fi
+      ;;
+    steamos)
+      trap steamos_cleanup EXIT
+      log "[1/5] SteamOS 읽기 전용 해제 및 fcitx5 설치..."
+      steamos-readonly disable
+      pacman-key --init
+      pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
+      # SteamOS Holo uses immutable A/B snapshot repos; avoid pacman -Syu
+      pacman -Sy --needed --noconfirm \
+        fcitx5-im fcitx5-hangul fcitx5-configtool \
+        fcitx5-gtk fcitx5-qt noto-fonts-cjk
+      steamos-readonly enable
+      ;;
+    kaos)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (KaOS pacman)..."
+      if pacman -T fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk >/dev/null 2>&1; then
+        ok "필수 패키지가 이미 설치되어 있어 pacman 업그레이드를 건너뜁니다"
+      else
+        pacman -Syu --needed --noconfirm \
+          fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk
+      fi
+      ;;
+    opensuse|opensuse-transactional)
+      local _suse_pkgs=(fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-autostart)
+      local _opt_pkg
+      for _opt_pkg in fcitx5-qt5 fcitx5-qt6 google-noto-sans-cjk-fonts; do
+        if zypper --non-interactive se -x "$_opt_pkg" >/dev/null 2>&1; then
+          _suse_pkgs+=("$_opt_pkg")
+        fi
+      done
+      if [[ "$_fcitx5_family" == "opensuse-transactional" ]]; then
+        log "[1/5] fcitx5 및 한글 폰트 설치 (transactional-update)..."
+        transactional-update --non-interactive pkg install "${_suse_pkgs[@]}"
+      else
+        log "[1/5] fcitx5 및 한글 폰트 설치 (zypper)..."
+        zypper --non-interactive install -y "${_suse_pkgs[@]}"
+      fi
+      ;;
+  esac
+  ok "패키지 설치 완료"
+  disable_conflicting_imes "fcitx5" "$USER" "$TARGET_HOME" "$TARGET_UID" "$DESKTOP"
+
+  # 2. 입력 프레임워크 등록 및 데스크톱 단축키 충돌 해제
+  log "[2/5] 입력 프레임워크 등록 및 데스크톱 단축키 충돌 해제 ($DESKTOP)..."
+  case "$_fcitx5_family" in
+    debian)
+      if command -v im-config >/dev/null 2>&1; then
+        run_as_user_sh "$USER" "im-config -n fcitx5" 2>/dev/null || warn "im-config 실패 (수동 실행 필요)"
+      fi
+      ;;
+    fedora|rhel|opensuse|opensuse-transactional)
+      if [[ -f /etc/X11/xinit/xinput.d/fcitx5.conf ]] && command -v alternatives >/dev/null 2>&1; then
+        alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+      fi
+      sed -i 's/IMSETTINGS_IGNORE_SESSION=\*-wayland/#IMSETTINGS_IGNORE_SESSION=*-wayland/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+      sed -i 's/XIM=fcitx5/XIM=fcitx/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+      run_as_user_sh "$USER" "systemctl --user disable ibus 2>/dev/null || true" || true
+      ;;
+  esac
+
+  if command -v gsettings >/dev/null 2>&1; then
+    case "$DESKTOP" in
+      *CINNAMON*|*cinnamon*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.cinnamon.desktop.keybindings.wm switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.cinnamon.desktop.keybindings.wm switch-input-source-backward "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+      *GNOME*|*gnome*|*UNITY*|*unity*|*PANTHEON*|*pantheon*|*BUDGIE*|*budgie*|*COSMIC*|*cosmic*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+      *XFCE*|*xfce*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.xfce.keyboard-shortcuts.commands.custom "<Super>space" "" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.xfce.keyboard-shortcuts.commands.custom "<Shift><Super>space" "" 2>/dev/null || true
+        ;;
+      *MATE*|*mate*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.mate.Marco.global-keybindings switch-input-source "" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.mate.Marco.global-keybindings switch-input-source-backward "" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+      *KDE*|*kde*|*PLASMA*|*plasma*)
+        ;;
+      *)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+    esac
+  fi
+  ok "프레임워크 및 단축키 정리 완료"
+
+  # 3. Fcitx5 프로필/핫키 구성
+  log "[3/5] Fcitx5 프로필·핫키 구성..."
+  local _fcitx5_uid _fcitx5_svcs=()
+  _fcitx5_uid=$(id -u "$USER" 2>/dev/null || echo "")
+  if [[ -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]] && command -v systemctl >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    local _svc
+    while IFS= read -r _svc; do
+      if [[ -n "$_svc" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \
+          systemctl --user stop "$_svc" 2>/dev/null || true
+        _fcitx5_svcs+=("$_svc")
+      fi
+    done < <(sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \
+      systemctl --user list-units --type=service --state=running --no-legend '*fcitx5*' 2>/dev/null | awk '{print $1}' || true)
+  fi
+  if [[ -n "$_fcitx5_uid" ]] && command -v pkill >/dev/null 2>&1; then
+    pkill -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+  elif command -v killall >/dev/null 2>&1; then
+    killall -u "$USER" fcitx5 2>/dev/null || true
+  fi
+  if [[ -n "$_fcitx5_uid" ]] && command -v pgrep >/dev/null 2>&1; then
+    local _wi=0
+    while pgrep -u "$_fcitx5_uid" -x fcitx5 >/dev/null 2>&1 && [[ $_wi -lt 20 ]]; do
+      sleep 0.1 2>/dev/null || sleep 1
+      _wi=$((_wi + 1))
+    done
+    if pgrep -u "$_fcitx5_uid" -x fcitx5 >/dev/null 2>&1; then
+      pkill -9 -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+      sleep 0.2 2>/dev/null || sleep 1
+    fi
+  else
+    sleep 1
+  fi
+  local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
+  mkdir -p "$FCITX5_DIR"
+  cat > "$FCITX5_DIR/profile" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+[GroupOrder]
+0=Default
+EOF
+  cat > "$FCITX5_DIR/config" <<'EOF'
+[Hotkey]
+EnumerateWithTriggerKeys=True
+SkipFirst=False
+[Hotkey/TriggerKeys]
+0=Hangul
+1=Control+space
+EOF
+  chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
+  if [[ ${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
+    local _svc
+    for _svc in "${_fcitx5_svcs[@]}"; do
+      sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \
+        systemctl --user start "$_svc" 2>/dev/null || true
+    done
+  fi
+  ok "프로필·핫키 설정 완료"
+
+  # 4. Wayland / X11 환경변수 설정
+  log "[4/5] Wayland/X11 환경변수 설정..."
+  case "$_fcitx5_family" in
+    debian)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xsessionrc" "false"
+      ;;
+    vanilla)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "false" "true" "$TARGET_HOME/.xsessionrc" "true"
+      ;;
+    fedora-atomic)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "false" "true" "$TARGET_HOME/.xprofile" "true"
+      ;;
+    arch|steamos|kaos)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "false"
+      ;;
+    fedora|rhel|opensuse|opensuse-transactional)
+      local _allow_pending="false"
+      [[ "$_fcitx5_family" == "opensuse-transactional" ]] && _allow_pending="true"
+      if [[ "$_kde6_wayland" == "true" ]]; then
+        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "$_allow_pending"
+      else
+        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "" "$_allow_pending"
+        local PROFILE_FILE="$TARGET_HOME/.bash_profile"
+        [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+        if ! grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null; then
+          cat >> "$PROFILE_FILE" <<'EOF'
+
+# fcitx5 환경변수
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+        fi
+        chown "$TARGET_UID:$TARGET_GID" "$PROFILE_FILE"
+      fi
+      ;;
+  esac
+  ok "환경변수 설정 완료"
+
+  # 5. 자동시작 등록 및 KDE / 첫 로그인 안내 마무리
+  log "[5/5] 자동시작 등록 및 마무리..."
+  if [[ "$_fcitx5_family" == "debian" || "$_fcitx5_family" == "vanilla" || "$_fcitx5_family" == "arch" || "$_fcitx5_family" == "steamos" || "$_fcitx5_family" == "kaos" ]] || \
+     { [[ ! -f /etc/xdg/autostart/org.fcitx.Fcitx5.desktop && ! -f /etc/xdg/autostart/fcitx5-wayland-launcher.desktop ]]; }; then
+    local ADIR="$TARGET_HOME/.config/autostart"
+    mkdir -p "$ADIR"
+    cat > "$ADIR/fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+    chown -R "$TARGET_UID:$TARGET_GID" "$ADIR"
+    ok "자동시작 등록"
+  fi
+  if [[ "$_fcitx5_family" == "arch" ]]; then
+    run_as_user_sh "$USER" "systemctl --user enable fcitx5 2>/dev/null || true" || true
+  fi
+
+  # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
+  local _kde_detected=false
+  if [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     command -v kwriteconfig6 >/dev/null 2>&1 || \
+     command -v kwriteconfig5 >/dev/null 2>&1 || \
+     [[ -f "$TARGET_HOME/.config/kwinrc" ]]; then
+    _kde_detected=true
+  fi
+  if [[ "$_kde_detected" == "true" ]]; then
+    local _fcitx5_desktop="/usr/share/applications/org.fcitx.Fcitx5.desktop"
+    if [[ -f /usr/share/applications/fcitx5-wayland-launcher.desktop ]]; then
+      _fcitx5_desktop="/usr/share/applications/fcitx5-wayland-launcher.desktop"
+    fi
+    local _kwinrc="$TARGET_HOME/.config/kwinrc"
+    mkdir -p "$TARGET_HOME/.config"
+    if command -v kwriteconfig6 >/dev/null 2>&1; then
+      kwriteconfig6 --file "$_kwinrc" --group Wayland --key InputMethod "$_fcitx5_desktop" 2>/dev/null || true
+    elif command -v kwriteconfig5 >/dev/null 2>&1; then
+      kwriteconfig5 --file "$_kwinrc" --group Wayland --key InputMethod "$_fcitx5_desktop" 2>/dev/null || true
+    elif [[ -f "$_kwinrc" ]]; then
+      awk -v im="$_fcitx5_desktop" '
+        BEGIN { in_wayland=0; found_wayland=0; updated=0 }
+        /^\[Wayland\]$/ { in_wayland=1; found_wayland=1; print; next }
+        /^\[/ {
+          if (in_wayland && !updated) { print "InputMethod=" im; updated=1 }
+          in_wayland=0; print; next
+        }
+        in_wayland && /^InputMethod(\[\$e\])?=/ {
+          if (!updated) { print "InputMethod=" im; updated=1 }
+          next
+        }
+        { print }
+        END {
+          if (in_wayland && !updated) { print "InputMethod=" im }
+          else if (!found_wayland) { print ""; print "[Wayland]"; print "InputMethod=" im }
+        }
+      ' "$_kwinrc" > "${_kwinrc}.tmp" && mv "${_kwinrc}.tmp" "$_kwinrc"
+    else
+      printf '[Wayland]\nInputMethod=%s\n' "$_fcitx5_desktop" > "$_kwinrc"
+    fi
+    chown "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config" "$_kwinrc" 2>/dev/null || true
+    local _kde_uid
+    _kde_uid=$(id -u "$USER" 2>/dev/null || echo "")
+    if [[ -n "$_kde_uid" && -S "/run/user/$_kde_uid/bus" ]] && command -v sudo >/dev/null 2>&1; then
+      local _qdbus=""
+      if command -v qdbus6 >/dev/null 2>&1; then _qdbus="qdbus6"
+      elif command -v qdbus >/dev/null 2>&1; then _qdbus="qdbus"
+      fi
+      if [[ -n "$_qdbus" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_kde_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_kde_uid/bus" \
+          "$_qdbus" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+      fi
+    fi
+    ok "KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 완료 ($_fcitx5_desktop)"
+  fi
+
+
+  # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
+  local GUIDE_DIR="$TARGET_HOME/.local/bin"
+  local GUIDE_BIN="$GUIDE_DIR/hangul-first-login-guide.sh"
+  local GUIDE_DESK="$TARGET_HOME/.config/autostart/hangul-first-login-guide.desktop"
+  local _guide_kde_tip=""
+  if [[ "${_kde_will:-false}" == "true" ]]; then
+    _guide_kde_tip="🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)"
+  fi
+  mkdir -p "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  {
+    cat <<'GUIDE_HEAD_EOF'
+#!/usr/bin/env bash
+sleep 2
+TITLE="리눅스 한글 입력기 안내"
+GUIDE_HEAD_EOF
+    if [[ -n "$_guide_kde_tip" ]]; then
+      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\n\n%s\n\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\n📝 로그: %s\n\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\n' \
+        "fcitx5-hangul (표준 범용 한글 입력기)" "$_guide_kde_tip" "/var/log/install-hangul-fcitx5-fedora.log"
+    else
+      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\n\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\n📝 로그: %s\n\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\n' \
+        "fcitx5-hangul (표준 범용 한글 입력기)" "/var/log/install-hangul-fcitx5-fedora.log"
+    fi
+    cat <<'GUIDE_TAIL_EOF'
+
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "$TITLE" --msgbox "$MSG" 2>/dev/null
+elif command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="$TITLE" --text="$MSG" --width=480 2>/dev/null
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send -u critical -t 20000 "$TITLE" "$MSG" 2>/dev/null
+fi
+rm -f "$HOME/.config/autostart/hangul-first-login-guide.desktop"
+rm -f "$0"
+GUIDE_TAIL_EOF
+  } > "$GUIDE_BIN"
+  chmod +x "$GUIDE_BIN"
+
+  cat > "$GUIDE_DESK" <<GUIDE_DSK_EOF
+[Desktop Entry]
+Type=Application
+Name=Hangul First Login Guide
+Exec=$GUIDE_BIN
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+GUIDE_DSK_EOF
+  chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  echo
+  echo "============================================================"
+  if [[ "$_need_reboot" == "true" ]]; then
+    echo " 🎉 fcitx5-hangul 설치 완료! 불변 OS이므로 반드시 재부팅하세요 (systemctl reboot)."
+  else
+    echo " 🎉 fcitx5-hangul 설치 완료! 로그아웃 후 다시 로그인하세요."
+  fi
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 설정: fcitx5-configtool | 진단: fcitx5-diagnose"
+  echo " 로그: $LOG_FILE"
+  echo "============================================================"
+}
+main "$@"

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-manjaro-xfce.log"
 
 LOG_ENABLED=false

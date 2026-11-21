@@ -51,7 +51,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 
 ## 📌 주요 배포판별 전용 명령어
 
-자동 감지 대신 특정 배포판 전용 스크립트를 바로 실행하려면 아래 명령어를 사용하세요. (전체 19개 패밀리, 194개 스크립트 지원)
+자동 감지 대신 특정 배포판 전용 스크립트를 바로 실행하려면 아래 명령어를 사용하세요. (전체 20개 패밀리, 198개 스크립트 지원)
 
 | 배포판 | 데스크톱 / 에디션 | 입력기 | 전용 원라인 명령어 |
 |:---|:---|:---|:---|
@@ -70,7 +70,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 | **NixOS** | GNOME / KDE 등 | `fcitx5` | [scripts/nixos/](scripts/nixos/) 설정 조각을 `configuration.nix`에 병합 |
 
 <details>
-<summary>📂 전체 지원 배포판 및 194개 스크립트 목록 펼치기</summary>
+<summary>📂 전체 지원 배포판 및 198개 스크립트 목록 펼치기</summary>
 
 * **Debian / Ubuntu 계열 (75개)**: Mint, LMDE, Ubuntu, Kubuntu, Debian, Pop!_OS, Zorin OS, elementary OS, Sparky, Bodhi, Peppermint, Voyager, BunsenLabs, MX Linux, Kali, Parrot, Q4OS 등
 * **Arch 계열 (41개)**: Arch Linux, EndeavourOS, Garuda, Manjaro, CachyOS, Mabox, Artix, BigLinux, Archcraft 등
@@ -80,6 +80,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 * **NixOS 계열 (6개)**: GNOME, KDE, Hyprland, Sway, Minimal 등
 * **엔터프라이즈 RHEL 계열 (5개)**: RHEL, Rocky Linux, AlmaLinux, CentOS Stream, Oreon (`ibus-hangul` 표준 구성)
 * **독립/경량 배포판 (24개)**: Void Linux, Alpine Linux, Solus, Gentoo, Mageia, KaOS, Guix 등
+* **fcitx5-hangul 강제 선택 범용 입력기 (4개)**: 표준 `fcitx5-hangul` 계열별 범용 스크립트 (Debian/Ubuntu, Fedora, Arch, openSUSE — IBus 기본 배포판에서도 강제 전환 가능)
 * **ibus-hangul 대안 입력기 (4개)**: GNOME 친화 `ibus-hangul` 범용 스크립트 (Debian/Ubuntu, Fedora/RHEL, Arch, openSUSE)
 * **kime 대안 입력기 (4개)**: Rust 기반의 `kime` 전용 스크립트 (Debian, Fedora/RHEL(EL 소스 빌드), Arch, openSUSE)
 
@@ -171,10 +172,10 @@ sudo bash install.sh
 
 * **`index.html` & `js/{data,templates,app}.js`**: 빌드 도구 없는 정적 HTML + 모듈형 JS 웹 생성기 (한국어/영어 다국어 지원, `DISTRO_DATA` 및 `SCRIPT_TEMPLATES` 내장)
 * **`install.sh`**: 18개 배포판 패밀리를 자동 감지하고 권장 입력기(`fcitx5-hangul` / RHEL: `ibus-hangul`) 및 선택적 `ibus` 전환을 지원하는 만능 올인원 스크립트
-* **`generate_scripts.js` & `scripts/`**: `js/data.js`·`js/templates.js`를 기반으로 `scripts/<family>/` 아래 194개 배포판별 `.sh` / `.nix` 파일을 일괄 생성
+* **`generate_scripts.js` & `scripts/`**: `js/data.js`·`js/templates.js`를 기반으로 `scripts/<family>/` 아래 198개 배포판별 `.sh` / `.nix` 파일을 일괄 생성
 
 <details>
-<summary>📋 19개 패밀리별 구현 차이 및 미지원 OS 40종 기준 펼치기</summary>
+<summary>📋 20개 패밀리별 구현 차이 및 미지원 OS 40종 기준 펼치기</summary>
 
 ### 스크립트 패밀리별 핵심 구현 차이
 
@@ -197,6 +198,7 @@ sudo bash install.sh
 | **vanilla** | Vanilla OS 2 Orchid | `abroot` | 환경변수 + autostart | `~/.config/environment.d/fcitx5.conf` | ABRoot 불변 Debian, 설치 후 **재부팅 필수** |
 | **alt** | ALT Linux | `apt-get` (`apt-rpm`) | 수동 (환경변수 + autostart) | `/etc/environment` + `~/.xprofile` | `apt-rpm` 패키지 구성 적용 |
 | **guix** | Guix System | `guix` | 수동 (`guix install`) | `~/.bash_profile` (`GUIX_PROFILE`) | GNU Guix 사용자 프로필 설치 및 `config.scm` 안내 |
+| **fcitx5** | 전체 (표준 범용 강제 선택) | 각자 | `im-config` / `alternatives` / 수동 | `~/.config/environment.d/fcitx5.conf` | IBus 기본 배포판에서도 fcitx5 강제 전환, Debian/Fedora/Arch/openSUSE 범용 분기 (RHEL은 COPR 등 필요 안내) |
 | **ibus** | 전체 (GNOME 친화 대안) | 각자 | `im-config` / `gsettings` / `alternatives` | `~/.config/environment.d/ibus.conf` | GNOME 통합 친화 대안, Debian/Fedora/Arch/openSUSE 범용 분기 |
 | **kime** | 전체 (대안) | 각자 | 수동 | `~/.config/environment.d/kime.conf` | Rust 기반, Wayland 네이티브, AUR/COPR/.deb/zypper/EL 소스 빌드 분기 |
 

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-parrot.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

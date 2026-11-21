@@ -19,7 +19,7 @@ const toast = document.getElementById("toast");
 let currentDistro = null;
 let currentEdition = null;
 let currentLang = "ko";
-const FORCE_IME_KEYS = new Set(["ibus", "kime"]);
+const FORCE_IME_KEYS = new Set(["fcitx5", "ibus", "kime"]);
 
 const I18N = {
   ko: {
@@ -63,12 +63,24 @@ const I18N = {
     altKeyTipTitle: "💡 오른쪽 Alt 키 누를 때 Firefox 메뉴바(풀다운)와 한/영 전환이 동시에 작동하는 경우:",
     altKeyTipBody: "일부 노트북이나 키보드에서 오른쪽 Alt 키가 브라우저 메뉴 단축키(Alt)와 한/영 전환을 동시에 호출할 수 있습니다.<br><strong>해결 방법:</strong> 설정 → 키보드 → 키바인딩 (또는 레이아웃) → <strong>키보드 옵션 설정</strong> 체크 → <strong>한국어 한/영키 한자키</strong> → <strong>오른쪽 ALT키를 한/영키로 만들기</strong> 체크 후 적용하세요.",
     step4Title: "📚 지원 현황 확인 후 선택 / 입력기 강제 선택",
-    forceImeOptgroup: "── ⌨️ 입력기 강제 선택 (배포판 무관 대안 입력기) ──",
-    forceImeSectionTitle: "⌨️ 입력기 강제 선택 (배포판 무관 대안 입력기)",
+    forceImeOptgroup: "── ⌨️ 입력기 강제 선택 (배포판 무관 범용/대안 입력기) ──",
+    forceImeSectionTitle: "⌨️ 입력기 강제 선택 (배포판 무관 범용/대안 입력기)",
     forceImeSectionDesc: "배포판별 기본 입력기 대신 원하는 한글 입력기를 직접 지정해 설치합니다.",
     forceImeTag: "입력기 강제 선택",
     legendImeBadge: "입력기 강제 선택 ⌨️",
-    legendImeDesc: "배포판 무관 대안 입력기",
+    legendImeDesc: "배포판 무관 범용/대안 입력기",
+    stickyNavAria: "페이지 탐색 및 언어 설정",
+    stickyHomeDefault: "처음 화면",
+    stickyHomeReset: "← 처음 화면 (선택 해제)",
+    stickyHomeTooltip: "선택을 해제하고 초기 화면으로 돌아가기",
+    stickyClearAria: "선택 해제 및 초기 화면으로 돌아가기",
+    stickyClearTitle: "선택 해제",
+    inlineResetBtn: "↺ 선택 해제 · 처음 화면",
+    floatingHomeText: "처음 화면",
+    floatingHomeTitle: "선택을 해제하고 초기 화면으로 돌아가기",
+    backToTopText: "맨 위로",
+    backToTopTitle: "맨 위로 이동",
+    toastResetHome: "선택을 해제하고 초기 화면으로 돌아왔습니다",
     footerNote: "이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.",
     thProject: "프로젝트",
     thPurpose: "용도",
@@ -139,12 +151,24 @@ const I18N = {
     altKeyTipTitle: "💡 Right Alt Conflict (Firefox menu dropdown & Korean toggle both triggering):",
     altKeyTipBody: "On some laptops or US keyboards, Right Alt triggers the browser menu bar while toggling Korean.<br><strong>Fix:</strong> Settings → Keyboard → Keybindings (or Layout) → <strong>Keyboard Options</strong> → <strong>Korean Hangul/Hanja keys</strong> → check <strong>Make Right Alt a Hangul key</strong> → Apply.",
     step4Title: "📚 Select by Support Status / Force Input Method",
-    forceImeOptgroup: "── ⌨️ Force Input Method (Alternative IMEs) ──",
-    forceImeSectionTitle: "⌨️ Force Input Method (Distro-Independent Alternative IMEs)",
+    forceImeOptgroup: "── ⌨️ Force Input Method (Universal / Alternative IMEs) ──",
+    forceImeSectionTitle: "⌨️ Force Input Method (Distro-Independent Universal / Alternative IMEs)",
     forceImeSectionDesc: "Directly install a specific Korean input method instead of the distro default.",
     forceImeTag: "Force IME",
     legendImeBadge: "Force IME ⌨️",
-    legendImeDesc: "Distro-independent alternative IME",
+    legendImeDesc: "Distro-independent universal / alternative IME",
+    stickyNavAria: "Page navigation and language settings",
+    stickyHomeDefault: "Home",
+    stickyHomeReset: "← Home (Reset)",
+    stickyHomeTooltip: "Clear selection and return to home",
+    stickyClearAria: "Clear selection and return to home",
+    stickyClearTitle: "Clear selection",
+    inlineResetBtn: "↺ Clear · Home",
+    floatingHomeText: "Home",
+    floatingHomeTitle: "Clear selection and return to home",
+    backToTopText: "Top",
+    backToTopTitle: "Scroll to top",
+    toastResetHome: "Selection cleared — returned to home",
     footerNote: "Templates were created by referencing package setups, configuration order, and edge-case handling from these projects.",
     thProject: "Project",
     thPurpose: "Purpose",
@@ -208,6 +232,8 @@ function tLabel(str) {
     .replace("(Alma 기반 데스크톱)", "(Alma-based Desktop)")
     .replace("(Alpine 기반)", "(Alpine-based)")
     .replace("(Rust 기반 대안 입력기)", "(Rust Alternative IME)")
+    .replace("fcitx5-hangul (표준 범용 한글 입력기)", "fcitx5-hangul (Standard Universal IME)")
+    .replace("크로스 배포판 표준 한글 입력기", "Cross-distro Standard Korean IME")
     .replace("ibus-hangul (GNOME 친화 대안 입력기)", "ibus-hangul (GNOME-friendly Alternative IME)")
     .replace("GNOME 네이티브 통합 / 대안 입력기", "GNOME-native Integration / Alternative IME")
     .replace("kime (Rust 기반 경량 입력기)", "kime (Lightweight Rust IME)")
@@ -330,6 +356,29 @@ function applyTranslations() {
   const legImeDesc = document.getElementById("legendImeDesc");
   if (legImeDesc) legImeDesc.textContent = t.legendImeDesc;
 
+  const topNavBar = document.getElementById("topNavBar");
+  if (topNavBar) topNavBar.setAttribute("aria-label", t.stickyNavAria);
+  const stickyHomeLink = document.getElementById("stickyHomeLink");
+  if (stickyHomeLink) stickyHomeLink.title = t.stickyHomeTooltip;
+  const btnStickyClear = document.getElementById("btnStickyClear");
+  if (btnStickyClear) {
+    btnStickyClear.setAttribute("aria-label", t.stickyClearAria);
+    btnStickyClear.title = t.stickyClearTitle;
+  }
+  const inlineResetBtn = document.getElementById("inlineResetBtn");
+  if (inlineResetBtn) inlineResetBtn.textContent = t.inlineResetBtn;
+  const floatingHomeBtn = document.getElementById("floatingHomeBtn");
+  if (floatingHomeBtn) floatingHomeBtn.title = t.floatingHomeTitle;
+  const floatingHomeText = document.getElementById("floatingHomeText");
+  if (floatingHomeText) floatingHomeText.textContent = t.floatingHomeText;
+  const backToTopBtn = document.getElementById("backToTopBtn");
+  if (backToTopBtn) {
+    backToTopBtn.title = t.backToTopTitle;
+    backToTopBtn.setAttribute("aria-label", t.backToTopTitle);
+  }
+  const backToTopText = document.getElementById("backToTopText");
+  if (backToTopText) backToTopText.textContent = t.backToTopText;
+
   document.getElementById("footerNote").textContent = t.footerNote;
   document.getElementById("thProject").textContent = t.thProject;
   document.getElementById("thPurpose").textContent = t.thPurpose;
@@ -362,6 +411,7 @@ function applyTranslations() {
     runDistroSearch(false);
   }
   renderSupportMatrix();
+  updateSelectionUi();
 }
 
 function setLang(lang, persist = true) {
@@ -402,6 +452,8 @@ function onDistroChange() {
     editionSelect.innerHTML = `<option id="editionPlaceholderOpt" value="">${t.editionPlaceholderFirst}</option>`;
     currentDistro = null;
     currentEdition = null;
+    clearUrlHash();
+    updateSelectionUi();
     return;
   }
 
@@ -454,6 +506,7 @@ function selectEdition(edKey) {
 
   // 스크립트 생성
   generateScript();
+  updateSelectionUi();
 }
 
 function generateScript() {
@@ -882,6 +935,144 @@ function renderSupportMatrix() {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 홈 복귀 / URL 정리 / 스크롤 상태 보조
+// ──────────────────────────────────────────────────────────────
+function getCleanHomeUrl() {
+  const path = location.protocol === "file:"
+    ? location.pathname
+    : (location.pathname.replace(/\/index\.html$/i, "/") || "/");
+  return path + location.search;
+}
+
+function clearUrlHash() {
+  const hasIndexHtml = location.protocol !== "file:" && /\/index\.html$/i.test(location.pathname);
+  if (!location.hash && !hasIndexHtml) return;
+  const cleanUrl = getCleanHomeUrl();
+  if (window.history && window.history.replaceState) {
+    try {
+      window.history.replaceState(null, "", cleanUrl);
+      return;
+    } catch {}
+  }
+  window.location.href = cleanUrl;
+}
+
+function prefersReducedMotion() {
+  return Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+}
+
+function scrollToTopClean() {
+  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  const heroTitle = document.getElementById("heroTitle");
+  if (heroTitle && typeof heroTitle.focus === "function") {
+    heroTitle.focus({ preventScroll: true });
+  }
+}
+
+function updateSelectionUi() {
+  const t = I18N[currentLang];
+  const hasSelection = Boolean(currentDistro && distroSelect.value);
+  const topNavBar = document.getElementById("topNavBar");
+  const stickyHomeLink = document.getElementById("stickyHomeLink");
+  const stickyHomeText = document.getElementById("stickyHomeText");
+  const chip = document.getElementById("activeSelectionChip");
+  const chipText = document.getElementById("activeSelectionText");
+  const inlineResetBtn = document.getElementById("inlineResetBtn");
+  const floatingHomeBtn = document.getElementById("floatingHomeBtn");
+
+  if (topNavBar) topNavBar.classList.toggle("has-selection", hasSelection);
+  if (stickyHomeLink) stickyHomeLink.classList.toggle("is-active", hasSelection);
+  if (stickyHomeText) stickyHomeText.textContent = hasSelection ? t.stickyHomeReset : t.stickyHomeDefault;
+  if (inlineResetBtn) inlineResetBtn.hidden = !hasSelection;
+  if (floatingHomeBtn) floatingHomeBtn.hidden = !hasSelection;
+
+  if (chip && chipText) {
+    if (hasSelection) {
+      const ed = currentEdition ? currentDistro.editions[currentEdition] : null;
+      chipText.textContent = ed
+        ? `${tLabel(currentDistro.name)} · ${tLabel(ed.label)}`
+        : tLabel(currentDistro.name);
+      chip.hidden = false;
+    } else {
+      chipText.textContent = "";
+      chip.hidden = true;
+    }
+  }
+}
+
+function resetToHome({ updateUrl = true, scrollTop = true, showNotice = false } = {}) {
+  const t = I18N[currentLang];
+  if (distroSelect.value) {
+    distroSelect.value = "";
+  }
+  onDistroChange();
+
+  const searchInput = document.getElementById("distroSearchInput");
+  const resultsEl = document.getElementById("searchResults");
+  const clearBtn = document.getElementById("clearSearchBtn");
+  if (searchInput) searchInput.value = "";
+  if (resultsEl) {
+    resultsEl.innerHTML = "";
+    resultsEl.style.display = "none";
+  }
+  if (clearBtn) clearBtn.style.display = "none";
+
+  if (supportMatrix) {
+    supportMatrix.querySelectorAll("details.matrix-item[open]").forEach(el => {
+      el.open = false;
+    });
+  }
+
+  if (updateUrl) {
+    clearUrlHash();
+  }
+  updateSelectionUi();
+
+  if (scrollTop) {
+    scrollToTopClean();
+  }
+  if (showNotice) {
+    showToast(t.toastResetHome);
+  }
+}
+
+function handleHomeResetClick(event) {
+  if (event && (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button === 1)) {
+    return;
+  }
+  if (event) event.preventDefault();
+
+  const searchInput = document.getElementById("distroSearchInput");
+  const hasSearch = Boolean(searchInput && searchInput.value.trim());
+  const hasOpenMatrix = Boolean(supportMatrix && supportMatrix.querySelector("details.matrix-item[open]"));
+  const hasIndexHtml = location.protocol !== "file:" && /\/index\.html$/i.test(location.pathname);
+
+  if (currentDistro || distroSelect.value || location.hash || hasIndexHtml || hasSearch || hasOpenMatrix) {
+    resetToHome({ updateUrl: true, scrollTop: true, showNotice: true });
+  } else {
+    scrollToTopClean();
+  }
+}
+
+function syncFromHash() {
+  if (!location.hash) {
+    resetToHome({ updateUrl: false, scrollTop: false, showNotice: false });
+    return;
+  }
+  const [distro, edition] = location.hash.slice(1).split("/");
+  if (DISTRO_DATA[distro]) {
+    if (distroSelect.value !== distro) {
+      distroSelect.value = distro;
+      onDistroChange();
+    }
+    if (edition && DISTRO_DATA[distro].editions[edition] && currentEdition !== edition) {
+      origSelectEdition(edition);
+      updateSelectionUi();
+    }
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
 // 초기화
 // ──────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
@@ -893,35 +1084,54 @@ document.addEventListener("DOMContentLoaded", () => {
       distroSelect.value = distro;
       onDistroChange();
       if (edition && DISTRO_DATA[distro].editions[edition]) {
-        setTimeout(() => selectEdition(edition), 50);
+        selectEdition(edition);
       }
     }
   }
-});
+  updateSelectionUi();
 
-// 해시 변경 감지 (뒤로 가기 / 앞으로 가기 시에만 실행)
-window.addEventListener("hashchange", () => {
-  if (!location.hash) return;
-  const [distro, edition] = location.hash.slice(1).split("/");
-  if (DISTRO_DATA[distro]) {
-    if (distroSelect.value !== distro) {
-      distroSelect.value = distro;
-      onDistroChange();
-    }
-    if (edition && DISTRO_DATA[distro].editions[edition] && currentEdition !== edition) {
-      origSelectEdition(edition);
+  const supportsScrollState = typeof CSS !== "undefined" && CSS.supports && CSS.supports("container-type", "scroll-state");
+  if (!supportsScrollState && "IntersectionObserver" in window) {
+    const sentinel = document.querySelector(".scroll-sentinel");
+    const stickyBar = document.getElementById("topBarSticky");
+    if (sentinel) {
+      document.documentElement.classList.add("js-scroll-fallback");
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          const scrolled = !entry.isIntersecting;
+          document.documentElement.classList.toggle("is-scrolled", scrolled);
+          if (stickyBar) stickyBar.classList.toggle("is-stuck", scrolled);
+        },
+        { root: null, threshold: 0 }
+      );
+      observer.observe(sentinel);
     }
   }
+
+  const floatingActions = document.getElementById("floatingActions");
+  if (floatingActions) {
+    floatingActions.addEventListener("focusout", (e) => {
+      if (!e.relatedTarget && window.scrollY <= 2) {
+        const stickyHomeLink = document.getElementById("stickyHomeLink");
+        if (stickyHomeLink) stickyHomeLink.focus({ preventScroll: true });
+      }
+    });
+  }
 });
+
+// 해시/히스토리 변경 감지 (뒤로 가기 / 앞으로 가기 / 수동 해시 삭제 시)
+window.addEventListener("hashchange", syncFromHash);
+window.addEventListener("popstate", syncFromHash);
 
 // 해시 업데이트 함수 (replaceState 사용하여 hashchange 루프 방지)
 function updateHash() {
   if (currentDistro && currentEdition) {
     const distroKey = distroSelect.value;
     const newHash = `#${distroKey}/${currentEdition}`;
-    if (location.hash !== newHash) {
+    const targetUrl = getCleanHomeUrl() + newHash;
+    if (location.hash !== newHash || (location.protocol !== "file:" && /\/index\.html$/i.test(location.pathname))) {
       if (window.history && window.history.replaceState) {
-        window.history.replaceState(null, "", newHash);
+        window.history.replaceState(null, "", targetUrl);
       } else {
         location.hash = `${distroKey}/${currentEdition}`;
       }

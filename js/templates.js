@@ -140,6 +140,57 @@ GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
 `;
 
+const FCITX5_POST_LOGIN_GUIDE_SNIPPET = (distroName, scriptId) => `
+  # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
+  local GUIDE_DIR="$TARGET_HOME/.local/bin"
+  local GUIDE_BIN="$GUIDE_DIR/hangul-first-login-guide.sh"
+  local GUIDE_DESK="$TARGET_HOME/.config/autostart/hangul-first-login-guide.desktop"
+  local _guide_kde_tip=""
+  if [[ "\${_kde_will:-false}" == "true" ]]; then
+    _guide_kde_tip="🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시: 시스템 설정 → 입력 장치 → 가상 키보드 확인)"
+  fi
+  mkdir -p "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+
+  {
+    cat <<'GUIDE_HEAD_EOF'
+#!/usr/bin/env bash
+sleep 2
+TITLE="리눅스 한글 입력기 안내"
+GUIDE_HEAD_EOF
+    if [[ -n "$_guide_kde_tip" ]]; then
+      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\\n\\n%s\\n\\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\\n📝 로그: %s\\n\\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\\n' \\
+        "${distroName}" "$_guide_kde_tip" "/var/log/install-hangul-${scriptId}.log"
+    else
+      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\\n\\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\\n📝 로그: %s\\n\\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\\n' \\
+        "${distroName}" "/var/log/install-hangul-${scriptId}.log"
+    fi
+    cat <<'GUIDE_TAIL_EOF'
+
+if command -v kdialog >/dev/null 2>&1; then
+  kdialog --title "$TITLE" --msgbox "$MSG" 2>/dev/null
+elif command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="$TITLE" --text="$MSG" --width=480 2>/dev/null
+elif command -v notify-send >/dev/null 2>&1; then
+  notify-send -u critical -t 20000 "$TITLE" "$MSG" 2>/dev/null
+fi
+rm -f "$HOME/.config/autostart/hangul-first-login-guide.desktop"
+rm -f "$0"
+GUIDE_TAIL_EOF
+  } > "$GUIDE_BIN"
+  chmod +x "$GUIDE_BIN"
+
+  cat > "$GUIDE_DESK" <<GUIDE_DSK_EOF
+[Desktop Entry]
+Type=Application
+Name=Hangul First Login Guide
+Exec=$GUIDE_BIN
+Hidden=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+GUIDE_DSK_EOF
+  chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+`;
+
 // ──────────────────────────────────────────────────────────────
 // KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 스니펫 (~/.config/kwinrc)
 // ──────────────────────────────────────────────────────────────
@@ -1711,7 +1762,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -1941,7 +1992,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2122,7 +2173,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2306,7 +2357,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2570,6 +2621,491 @@ main "$@"
 # 4. fcitx5-configtool 로 엔진 순서/핫키 확인
 `,
 
+  // ─── fcitx5-hangul (표준 범용) ───
+  "fcitx5": (params) => `#!/usr/bin/env bash
+# ${params.distroName} ${params.editionLabel} - fcitx5-hangul (표준 범용 한글 입력기) 자동 설치
+# 실행: curl -sL https://raw.githubusercontent.com/${GITHUB_REPO}/main/scripts/fcitx5/${params.scriptId}.sh | sudo bash
+
+set -euo pipefail
+
+SCRIPT_VERSION="1.5.1"
+LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
+${PREFLIGHT_COMMON_BASH}
+require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
+
+detect_user() {
+  local u="\${SUDO_USER:-}"
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(logname 2>/dev/null || true)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  u=$(who | awk '{print $1}' | head -1)
+  [[ -n "$u" && "$u" != "root" ]] && { echo "$u"; return; }
+  if id -u deck >/dev/null 2>&1; then
+    echo "deck"
+    return
+  fi
+  err "대상 사용자 탐지 실패"
+}
+
+steamos_cleanup() {
+  if command -v steamos-readonly >/dev/null 2>&1; then
+    steamos-readonly enable 2>/dev/null || true
+  fi
+}
+
+detect_fcitx5_family() {
+  local _id="\${1,,}" _like="\${2,,}"
+  if command -v steamos-readonly >/dev/null 2>&1 || [[ "$_id" == "steamos" ]]; then
+    echo "steamos"; return
+  fi
+  if command -v rpm-ostree >/dev/null 2>&1; then
+    echo "fedora-atomic"; return
+  fi
+  if command -v abroot >/dev/null 2>&1; then
+    echo "vanilla"; return
+  fi
+  if command -v transactional-update >/dev/null 2>&1; then
+    echo "opensuse-transactional"; return
+  fi
+  if [[ "$_id" == "nixos" ]]; then
+    err "NixOS는 선언적 OS이므로 스크립트로 패키지를 직접 설치하지 않습니다. scripts/nixos/ 설정 조각을 /etc/nixos/configuration.nix 에 병합하세요."
+  fi
+  if [[ "$_id" == "kaos" ]]; then
+    echo "kaos"; return
+  fi
+  if [[ "$_id" == "altlinux" || -f /etc/altlinux-release ]]; then
+    err "ALT Linux(apt-rpm)는 전용 스크립트(scripts/alt/alt-workstation.sh) 또는 만능 install.sh 사용을 권장합니다."
+  fi
+  case "$_id" in
+    rhel|almalinux|rocky|centos|ol|oreon|eurolinux|scientific|springdale|virtuozzo|circle|navy|miraclelinux)
+      if command -v dnf >/dev/null 2>&1; then
+        echo "rhel"; return
+      fi
+      ;;
+  esac
+  case " $_like " in
+    *" rhel "*|*" centos "*|*" rocky "*|*" almalinux "*)
+      if command -v dnf >/dev/null 2>&1; then
+        echo "rhel"; return
+      fi
+      ;;
+  esac
+  case "$_id" in
+    mageia|openmandriva*)
+      err "Mandriva 계열(\${_id})은 전용 스크립트(scripts/mandriva-family/) 또는 만능 install.sh 사용을 권장합니다."
+      ;;
+  esac
+  if command -v pacman >/dev/null 2>&1; then
+    echo "arch"; return
+  fi
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "debian"; return
+  fi
+  if command -v dnf >/dev/null 2>&1; then
+    echo "fedora"; return
+  fi
+  if command -v zypper >/dev/null 2>&1; then
+    echo "opensuse"; return
+  fi
+  err "지원하지 않는 배포판입니다 (ID=\${_id:-unknown}). Debian/Ubuntu, Fedora, Arch, openSUSE 계열에서 실행하거나 만능 install.sh를 사용하세요."
+}
+
+main() {
+  require_root
+
+  local USER TARGET_HOME TARGET_UID TARGET_GID OS_NAME DESKTOP SESSION_TYPE EXISTING_IME
+  USER=$(detect_user)
+  TARGET_HOME=$(getent passwd "$USER" | cut -d: -f6)
+  TARGET_UID=$(id -u "$USER")
+  TARGET_GID=$(id -g "$USER")
+  OS_NAME=$(detect_os_pretty)
+  DESKTOP=$(detect_desktop "$USER")
+  SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID" "$DESKTOP")
+
+  local _os_id="" _os_like=""
+  if [[ -f /etc/os-release ]]; then
+    IFS='|' read -r _os_id _os_like < <(
+      # shellcheck disable=SC1091
+      . /etc/os-release
+      printf '%s|%s\\n' "\${ID:-}" "\${ID_LIKE:-}"
+    )
+  fi
+
+  local _fcitx5_family _ow_note _kde_will _kde6_wayland
+  local _pkg_summary="" _cfg_summary="" _extra_warn="" _need_reboot=false
+  _fcitx5_family=$(detect_fcitx5_family "$_os_id" "$_os_like")
+  _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
+  _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+
+  case "$_fcitx5_family" in
+    debian)
+      _pkg_summary="   - apt-get update 후 레거시 fcitx(4.x) 제거 및 autoremove --purge\\n   - apt-get install: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-configtool, fonts-noto-cjk (+ 사용 가능한 gtk3/gtk4/qt5/qt6 프론트엔드)"
+      _cfg_summary="   - im-config -n fcitx5 적용 및 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xsessionrc\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 기존 fcitx 4.x 패키지 및 미사용 의존성(autoremove)이 제거됩니다."
+      ;;
+    vanilla)
+      _need_reboot=true
+      _pkg_summary="   - abroot pkg add: fcitx5, fcitx5-hangul, fcitx5-config-qt, fcitx5-frontend-gtk3/gtk4/qt5/qt6, fonts-noto-cjk"
+      _cfg_summary="   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 불변 OS(ABRoot)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      ;;
+    fedora)
+      _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts (또는 google-noto-cjk-fonts)"
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\\n   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    rhel)
+      if ! { rpm -q fcitx5 fcitx5-hangul >/dev/null 2>&1 || (dnf -q info fcitx5 >/dev/null 2>&1 && dnf -q info fcitx5-hangul >/dev/null 2>&1); }; then
+        err "RHEL / Rocky / AlmaLinux 기본 및 EPEL 저장소에서는 fcitx5 / fcitx5-hangul 패키지를 기본 제공하지 않습니다. ibus-hangul (scripts/ibus/ibus-fedora.sh) 또는 kime (scripts/kime/kime-fedora.sh) 사용을 권장하며, fcitx5를 사용하려면 COPR 등 fcitx5 제공 저장소를 먼저 활성화한 뒤 다시 실행하세요."
+      fi
+      _pkg_summary="   - dnf install -y: fcitx5, fcitx5-hangul (+ 사용 가능한 fcitx5-configtool/gtk/qt/autostart 및 Noto CJK 폰트)"
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\\n   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: RHEL 계열에서 활성화된 서드파티/COPR 저장소의 fcitx5 패키지로 설치합니다."
+      ;;
+    fedora-atomic)
+      _need_reboot=true
+      _pkg_summary="   - rpm-ostree install --idempotent --allow-inactive: fcitx5, fcitx5-hangul, fcitx5-gtk, fcitx5-qt, fcitx5-configtool, fcitx5-autostart, google-noto-sans-cjk-ttc-fonts"
+      _cfg_summary="   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: 불변 OS(rpm-ostree)이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      ;;
+    arch)
+      _pkg_summary="   - pacman -Syu --needed --noconfirm: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk (미설치 시 부분 업그레이드 방지)"
+      _cfg_summary="   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop, systemctl --user enable fcitx5 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    steamos)
+      _pkg_summary="   - steamos-readonly disable → pacman-key init/populate → pacman -Sy --needed: fcitx5-im, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, noto-fonts-cjk → steamos-readonly enable"
+      _cfg_summary="   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      _extra_warn=" ⚠️  참고: SteamOS 루트 파일시스템 읽기 전용 상태를 일시 해제했다가 복구합니다."
+      ;;
+    kaos)
+      _pkg_summary="   - pacman -Syu --needed --noconfirm: fcitx5, fcitx5-hangul, fcitx5-qt, fcitx5-configtool, noto-fonts-cjk (미설치 시 부분 업그레이드 방지)"
+      _cfg_summary="   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, $TARGET_HOME/.xprofile\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/autostart/fcitx5.desktop 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+    opensuse|opensuse-transactional)
+      if [[ "$_fcitx5_family" == "opensuse-transactional" ]]; then
+        _need_reboot=true
+        _pkg_summary="   - transactional-update --non-interactive pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-autostart (+ 사용 가능한 fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
+        _extra_warn=" ⚠️  참고: Transactional OS이므로 설치 완료 후 반드시 재부팅이 필요합니다."
+      else
+        _pkg_summary="   - zypper --non-interactive install -y: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-autostart (+ 사용 가능한 fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
+      fi
+      _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\\n   - 데스크톱 단축키 충돌 해제(gsettings)\\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\\n   - $TARGET_HOME/.config/environment.d/fcitx5.conf, /etc/environment, ~/.bash_profile (또는 ~/.profile) 및 첫 로그인 1회 안내 팝업 등록"
+      ;;
+  esac
+
+  _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary" "$_kde6_wayland")
+  _extra_warn=$(append_fcitx5_overwrite_warn "$TARGET_HOME" "$_extra_warn")
+  _extra_warn=$(append_conflict_ime_warn "fcitx5" "$EXISTING_IME" "$_extra_warn" "$DESKTOP")
+
+  confirm_before_changes \\
+    "${params.distroName} ${params.editionLabel}" \\
+    "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME" \\
+    "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME" \\
+    "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
+
+  mkdir -p "$(dirname "$LOG_FILE")"
+  LOG_ENABLED=true
+  log "=== ${params.distroName} ${params.editionLabel} 한글 입력기 설치 (v$SCRIPT_VERSION) ==="
+  info "감지된 OS: $OS_NAME (family=$_fcitx5_family, id=\${_os_id:-unknown})"
+  info "사용자: $USER (UID=$TARGET_UID, HOME=$TARGET_HOME)"
+  info "데스크톱/세션: $DESKTOP / $SESSION_TYPE | 기존 입력기: $EXISTING_IME"
+
+  # 1. 배포판별 패키지 설치 및 충돌 입력기 비활성화
+  case "$_fcitx5_family" in
+    debian)
+      log "[1/5] 레거시 fcitx4 제거, fcitx5 및 한글 폰트 설치 (apt-get)..."
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update -qq
+      apt-get purge -y -qq fcitx fcitx-bin fcitx-data fcitx-hangul fcitx-config-gtk \\
+        fcitx-frontend-all fcitx-frontend-gtk2 fcitx-frontend-gtk3 fcitx-frontend-qt5 2>/dev/null || true
+      apt-get autoremove --purge -y -qq
+      local _deb_pkgs=(fcitx5 fcitx5-hangul fcitx5-config-qt fcitx5-configtool fonts-noto-cjk)
+      local _opt_pkg
+      for _opt_pkg in fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 fcitx5-frontend-qt5 fcitx5-frontend-qt6; do
+        if apt-cache show "$_opt_pkg" >/dev/null 2>&1; then
+          _deb_pkgs+=("$_opt_pkg")
+        fi
+      done
+      apt-get install -y -qq "\${_deb_pkgs[@]}"
+      ;;
+    vanilla)
+      log "[1/5] fcitx5 및 한글 폰트 추가 (abroot)..."
+      abroot pkg add \\
+        fcitx5 fcitx5-hangul fcitx5-config-qt \\
+        fcitx5-frontend-gtk3 fcitx5-frontend-gtk4 \\
+        fcitx5-frontend-qt5 fcitx5-frontend-qt6 fonts-noto-cjk
+      ;;
+    fedora)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (dnf)..."
+      dnf install -y -q \\
+        fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt \\
+        fcitx5-autostart
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ;;
+    rhel)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (dnf)..."
+      local _rhel_pkgs=(fcitx5 fcitx5-hangul)
+      local _opt_pkg
+      for _opt_pkg in fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-autostart; do
+        if rpm -q "$_opt_pkg" >/dev/null 2>&1 || dnf -q info "$_opt_pkg" >/dev/null 2>&1; then
+          _rhel_pkgs+=("$_opt_pkg")
+        fi
+      done
+      dnf install -y -q "\${_rhel_pkgs[@]}"
+      dnf install -y -q google-noto-sans-cjk-ttc-fonts 2>/dev/null || dnf install -y -q google-noto-cjk-fonts 2>/dev/null || true
+      ;;
+    fedora-atomic)
+      log "[1/5] fcitx5 및 한글 폰트 레이어링 (rpm-ostree)..."
+      rpm-ostree install --idempotent --allow-inactive \\
+        fcitx5 fcitx5-hangul fcitx5-gtk fcitx5-qt fcitx5-configtool fcitx5-autostart \\
+        google-noto-sans-cjk-ttc-fonts
+      ;;
+    arch)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (pacman)..."
+      if pacman -T fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt noto-fonts-cjk >/dev/null 2>&1; then
+        ok "필수 패키지가 이미 설치되어 있어 pacman 업그레이드를 건너뜁니다"
+      else
+        pacman -Syu --needed --noconfirm \\
+          fcitx5-im fcitx5-hangul fcitx5-configtool \\
+          fcitx5-gtk fcitx5-qt noto-fonts-cjk
+      fi
+      ;;
+    steamos)
+      trap steamos_cleanup EXIT
+      log "[1/5] SteamOS 읽기 전용 해제 및 fcitx5 설치..."
+      steamos-readonly disable
+      pacman-key --init
+      pacman-key --populate archlinux holo 2>/dev/null || pacman-key --populate
+      # SteamOS Holo uses immutable A/B snapshot repos; avoid pacman -Syu
+      pacman -Sy --needed --noconfirm \\
+        fcitx5-im fcitx5-hangul fcitx5-configtool \\
+        fcitx5-gtk fcitx5-qt noto-fonts-cjk
+      steamos-readonly enable
+      ;;
+    kaos)
+      log "[1/5] fcitx5 및 한글 폰트 설치 (KaOS pacman)..."
+      if pacman -T fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk >/dev/null 2>&1; then
+        ok "필수 패키지가 이미 설치되어 있어 pacman 업그레이드를 건너뜁니다"
+      else
+        pacman -Syu --needed --noconfirm \\
+          fcitx5 fcitx5-hangul fcitx5-qt fcitx5-configtool noto-fonts-cjk
+      fi
+      ;;
+    opensuse|opensuse-transactional)
+      local _suse_pkgs=(fcitx5 fcitx5-hangul fcitx5-configtool fcitx5-gtk fcitx5-qt fcitx5-autostart)
+      local _opt_pkg
+      for _opt_pkg in fcitx5-qt5 fcitx5-qt6 google-noto-sans-cjk-fonts; do
+        if zypper --non-interactive se -x "$_opt_pkg" >/dev/null 2>&1; then
+          _suse_pkgs+=("$_opt_pkg")
+        fi
+      done
+      if [[ "$_fcitx5_family" == "opensuse-transactional" ]]; then
+        log "[1/5] fcitx5 및 한글 폰트 설치 (transactional-update)..."
+        transactional-update --non-interactive pkg install "\${_suse_pkgs[@]}"
+      else
+        log "[1/5] fcitx5 및 한글 폰트 설치 (zypper)..."
+        zypper --non-interactive install -y "\${_suse_pkgs[@]}"
+      fi
+      ;;
+  esac
+  ok "패키지 설치 완료"
+  disable_conflicting_imes "fcitx5" "$USER" "$TARGET_HOME" "$TARGET_UID" "$DESKTOP"
+
+  # 2. 입력 프레임워크 등록 및 데스크톱 단축키 충돌 해제
+  log "[2/5] 입력 프레임워크 등록 및 데스크톱 단축키 충돌 해제 ($DESKTOP)..."
+  case "$_fcitx5_family" in
+    debian)
+      if command -v im-config >/dev/null 2>&1; then
+        run_as_user_sh "$USER" "im-config -n fcitx5" 2>/dev/null || warn "im-config 실패 (수동 실행 필요)"
+      fi
+      ;;
+    fedora|rhel|opensuse|opensuse-transactional)
+      if [[ -f /etc/X11/xinit/xinput.d/fcitx5.conf ]] && command -v alternatives >/dev/null 2>&1; then
+        alternatives --set xinputrc /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+      fi
+      sed -i 's/IMSETTINGS_IGNORE_SESSION=\\*-wayland/#IMSETTINGS_IGNORE_SESSION=*-wayland/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+      sed -i 's/XIM=fcitx5/XIM=fcitx/' /etc/X11/xinit/xinput.d/fcitx5.conf 2>/dev/null || true
+      run_as_user_sh "$USER" "systemctl --user disable ibus 2>/dev/null || true" || true
+      ;;
+  esac
+
+  if command -v gsettings >/dev/null 2>&1; then
+    case "$DESKTOP" in
+      *CINNAMON*|*cinnamon*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.cinnamon.desktop.keybindings.wm switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.cinnamon.desktop.keybindings.wm switch-input-source-backward "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+      *GNOME*|*gnome*|*UNITY*|*unity*|*PANTHEON*|*pantheon*|*BUDGIE*|*budgie*|*COSMIC*|*cosmic*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+      *XFCE*|*xfce*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.xfce.keyboard-shortcuts.commands.custom "<Super>space" "" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.xfce.keyboard-shortcuts.commands.custom "<Shift><Super>space" "" 2>/dev/null || true
+        ;;
+      *MATE*|*mate*)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.mate.Marco.global-keybindings switch-input-source "" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.mate.Marco.global-keybindings switch-input-source-backward "" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+      *KDE*|*kde*|*PLASMA*|*plasma*)
+        ;;
+      *)
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source "[]" 2>/dev/null || true
+        run_user_gsettings "$USER" "$TARGET_UID" "$TARGET_HOME" set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" 2>/dev/null || true
+        ;;
+    esac
+  fi
+  ok "프레임워크 및 단축키 정리 완료"
+
+  # 3. Fcitx5 프로필/핫키 구성
+  log "[3/5] Fcitx5 프로필·핫키 구성..."
+  local _fcitx5_uid _fcitx5_svcs=()
+  _fcitx5_uid=$(id -u "$USER" 2>/dev/null || echo "")
+  if [[ -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]] && command -v systemctl >/dev/null 2>&1 && command -v sudo >/dev/null 2>&1; then
+    local _svc
+    while IFS= read -r _svc; do
+      if [[ -n "$_svc" ]]; then
+        sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \\
+          systemctl --user stop "$_svc" 2>/dev/null || true
+        _fcitx5_svcs+=("$_svc")
+      fi
+    done < <(sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \\
+      systemctl --user list-units --type=service --state=running --no-legend '*fcitx5*' 2>/dev/null | awk '{print $1}' || true)
+  fi
+  if [[ -n "$_fcitx5_uid" ]] && command -v pkill >/dev/null 2>&1; then
+    pkill -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+  elif command -v killall >/dev/null 2>&1; then
+    killall -u "$USER" fcitx5 2>/dev/null || true
+  fi
+  if [[ -n "$_fcitx5_uid" ]] && command -v pgrep >/dev/null 2>&1; then
+    local _wi=0
+    while pgrep -u "$_fcitx5_uid" -x fcitx5 >/dev/null 2>&1 && [[ $_wi -lt 20 ]]; do
+      sleep 0.1 2>/dev/null || sleep 1
+      _wi=$((_wi + 1))
+    done
+    if pgrep -u "$_fcitx5_uid" -x fcitx5 >/dev/null 2>&1; then
+      pkill -9 -u "$_fcitx5_uid" -x fcitx5 2>/dev/null || true
+      sleep 0.2 2>/dev/null || sleep 1
+    fi
+  else
+    sleep 1
+  fi
+  local FCITX5_DIR="$TARGET_HOME/.config/fcitx5"
+  mkdir -p "$FCITX5_DIR"
+  cat > "$FCITX5_DIR/profile" <<'EOF'
+[Groups/0]
+Name=Default
+Default Layout=us
+DefaultIM=keyboard-us
+[Groups/0/Items/0]
+Name=keyboard-us
+Layout=
+[Groups/0/Items/1]
+Name=hangul
+Layout=
+[GroupOrder]
+0=Default
+EOF
+  cat > "$FCITX5_DIR/config" <<'EOF'
+[Hotkey]
+EnumerateWithTriggerKeys=True
+SkipFirst=False
+[Hotkey/TriggerKeys]
+0=Hangul
+1=Control+space
+EOF
+  chown -R "$TARGET_UID:$TARGET_GID" "$FCITX5_DIR"
+  if [[ \${#_fcitx5_svcs[@]} -gt 0 && -n "$_fcitx5_uid" && -S "/run/user/$_fcitx5_uid/bus" ]]; then
+    local _svc
+    for _svc in "\${_fcitx5_svcs[@]}"; do
+      sudo -u "$USER" XDG_RUNTIME_DIR="/run/user/$_fcitx5_uid" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$_fcitx5_uid/bus" \\
+        systemctl --user start "$_svc" 2>/dev/null || true
+    done
+  fi
+  ok "프로필·핫키 설정 완료"
+
+  # 4. Wayland / X11 환경변수 설정
+  log "[4/5] Wayland/X11 환경변수 설정..."
+  case "$_fcitx5_family" in
+    debian)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xsessionrc" "false"
+      ;;
+    vanilla)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "false" "true" "$TARGET_HOME/.xsessionrc" "true"
+      ;;
+    fedora-atomic)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "false" "true" "$TARGET_HOME/.xprofile" "true"
+      ;;
+    arch|steamos|kaos)
+      write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "false"
+      ;;
+    fedora|rhel|opensuse|opensuse-transactional)
+      local _allow_pending="false"
+      [[ "$_fcitx5_family" == "opensuse-transactional" ]] && _allow_pending="true"
+      if [[ "$_kde6_wayland" == "true" ]]; then
+        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "$TARGET_HOME/.xprofile" "$_allow_pending"
+      else
+        write_fcitx5_env "$_kde6_wayland" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "true" "true" "" "$_allow_pending"
+        local PROFILE_FILE="$TARGET_HOME/.bash_profile"
+        [[ -f "$TARGET_HOME/.profile" && ! -f "$PROFILE_FILE" ]] && PROFILE_FILE="$TARGET_HOME/.profile"
+        if ! grep -q "GTK_IM_MODULE=fcitx" "$PROFILE_FILE" 2>/dev/null; then
+          cat >> "$PROFILE_FILE" <<'EOF'
+
+# fcitx5 환경변수
+export GTK_IM_MODULE=fcitx
+export QT_IM_MODULE=fcitx
+export XMODIFIERS=@im=fcitx
+EOF
+        fi
+        chown "$TARGET_UID:$TARGET_GID" "$PROFILE_FILE"
+      fi
+      ;;
+  esac
+  ok "환경변수 설정 완료"
+
+  # 5. 자동시작 등록 및 KDE / 첫 로그인 안내 마무리
+  log "[5/5] 자동시작 등록 및 마무리..."
+  if [[ "$_fcitx5_family" == "debian" || "$_fcitx5_family" == "vanilla" || "$_fcitx5_family" == "arch" || "$_fcitx5_family" == "steamos" || "$_fcitx5_family" == "kaos" ]] || \\
+     { [[ ! -f /etc/xdg/autostart/org.fcitx.Fcitx5.desktop && ! -f /etc/xdg/autostart/fcitx5-wayland-launcher.desktop ]]; }; then
+    local ADIR="$TARGET_HOME/.config/autostart"
+    mkdir -p "$ADIR"
+    cat > "$ADIR/fcitx5.desktop" <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Fcitx 5
+Exec=fcitx5 -d
+X-GNOME-Autostart-enabled=true
+Hidden=false
+NoDisplay=false
+EOF
+    chown -R "$TARGET_UID:$TARGET_GID" "$ADIR"
+    ok "자동시작 등록"
+  fi
+  if [[ "$_fcitx5_family" == "arch" ]]; then
+    run_as_user_sh "$USER" "systemctl --user enable fcitx5 2>/dev/null || true" || true
+  fi
+${KDE_VIRTUAL_KEYBOARD_SNIPPET(false)}
+${FCITX5_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
+  echo
+  echo "============================================================"
+  if [[ "$_need_reboot" == "true" ]]; then
+    echo " 🎉 fcitx5-hangul 설치 완료! 불변 OS이므로 반드시 재부팅하세요 (systemctl reboot)."
+  else
+    echo " 🎉 fcitx5-hangul 설치 완료! 로그아웃 후 다시 로그인하세요."
+  fi
+  echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 설정: fcitx5-configtool | 진단: fcitx5-diagnose"
+  echo " 로그: $LOG_FILE"
+  echo "============================================================"
+}
+main "$@"
+`,
+
   // ─── ibus-hangul (GNOME 친화 대안) ───
   "ibus": (params) => `#!/usr/bin/env bash
 # ${params.distroName} ${params.editionLabel} - ibus-hangul (GNOME 친화 대안 한글 입력기) 자동 설치
@@ -2577,7 +3113,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2951,7 +3487,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4019,7 +4555,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4170,7 +4706,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4346,7 +4882,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4475,7 +5011,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4639,7 +5175,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -4785,7 +5321,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4949,7 +5485,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5115,7 +5651,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5299,7 +5835,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5466,7 +6002,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5630,7 +6166,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5795,7 +6331,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.2"
+SCRIPT_VERSION="1.5.1"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
