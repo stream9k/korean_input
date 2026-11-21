@@ -1215,7 +1215,7 @@ install_kime_source_rhel() {
   _KIME_SRC_TMP="$_src_tmp"
   trap cleanup_kime_src_tmp EXIT
 
-  mkdir -p "${_src_tmp}/extract" "${_src_tmp}/build"
+  mkdir -p "${_src_tmp}/extract"
   chown -R "${_uid}:${_gid}" "$_src_tmp"
 
   local _meson_bin="" _meson_ver="0"
@@ -1246,6 +1246,7 @@ install_kime_source_rhel() {
   local _src_dir=""
   _src_dir=$(find "${_src_tmp}/extract" -mindepth 1 -maxdepth 1 -type d | head -n1 || true)
   [[ -n "$_src_dir" && -f "${_src_dir}/meson.build" ]] || err "압축 해제된 kime 소스 디렉터리에서 meson.build를 찾을 수 없습니다."
+  local _build_dir="${_src_dir}/build"
 
   local _libdir="lib"
   [[ -d /usr/lib64 ]] && _libdir="lib64"
@@ -1266,7 +1267,7 @@ install_kime_source_rhel() {
 
   log "   → Meson 빌드 구성 (사용자: ${_user}, libdir=${_libdir})..."
   run_as_target_user "$_user" "$_home" env "${_build_env[@]}" \
-    "$_meson_bin" setup "${_src_tmp}/build" "$_src_dir" \
+    "$_meson_bin" setup "$_build_dir" "$_src_dir" \
     --prefix=/usr \
     --sysconfdir=/etc \
     --libdir="$_libdir" \
@@ -1278,11 +1279,11 @@ install_kime_source_rhel() {
 
   log "   → kime 컴파일 중 (Rust + C/C++, 수 분 소요될 수 있음)..."
   run_as_target_user "$_user" "$_home" env "${_build_env[@]}" \
-    "$_ninja_bin" -C "${_src_tmp}/build" \
+    "$_ninja_bin" -C "$_build_dir" \
     || err "kime 소스 빌드(ninja)에 실패했습니다."
 
   log "   → 빌드된 kime 시스템 설치 (meson install --no-rebuild)..."
-  "$_meson_bin" install -C "${_src_tmp}/build" --no-rebuild \
+  "$_meson_bin" install -C "$_build_dir" --no-rebuild \
     || err "kime 설치(meson install)에 실패했습니다."
 
   ldconfig 2>/dev/null || true
