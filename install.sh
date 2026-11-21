@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.1"
+SCRIPT_VERSION="1.5.2"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -518,8 +518,8 @@ print_preflight_summary_and_confirm() {
           ;;
         opensuse-transactional)
           pkg_summary=$(msg \
-            "   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts" \
-            "   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts")
+            "   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool\n     (+ 사용 가능한 fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)" \
+            "   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool\n     (+ available fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)")
           cfg_summary=$(msg \
             "   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile(또는 ~/.profile) 및 첫 로그인 1회 안내 등록" \
             "   - alternatives --set xinputrc, patch /etc/X11/xinit/xinput.d/fcitx5.conf, disable ibus user service\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile (or ~/.profile) and one-shot first-login guide")
@@ -528,7 +528,9 @@ print_preflight_summary_and_confirm() {
             " ⚠️  Note: Transactional OS — a system reboot will be required after installation.")
           ;;
         opensuse)
-          pkg_summary="   - zypper install: fcitx5, fcitx5-hangul, fcitx5-configtool, fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts"
+          pkg_summary=$(msg \
+            "   - zypper install: fcitx5, fcitx5-hangul, fcitx5-configtool\n     (+ 사용 가능한 fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)" \
+            "   - zypper install: fcitx5, fcitx5-hangul, fcitx5-configtool\n     (+ available fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)")
           cfg_summary=$(msg \
             "   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정, ibus 사용자 서비스 비활성화\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile(또는 ~/.profile) 및 첫 로그인 1회 안내 등록" \
             "   - alternatives --set xinputrc, patch /etc/X11/xinit/xinput.d/fcitx5.conf, disable ibus user service\n   - $target_home/.config/fcitx5/{profile,config}${fcitx5_note}\n   - ~/.bash_profile (or ~/.profile) and one-shot first-login guide")
@@ -2089,17 +2091,21 @@ EOF
 
     opensuse|opensuse-transactional)
       log "$(msg "[1/4] fcitx5 및 한글 폰트 패키지 설치 ($FAMILY)..." "[1/4] Installing fcitx5 + Korean fonts ($FAMILY)...")"
+      local suse_pkgs=(fcitx5 fcitx5-hangul fcitx5-configtool)
+      local suse_opt
+      if command -v zypper >/dev/null 2>&1; then
+        zypper --non-interactive --gpg-auto-import-keys refresh || true
+        for suse_opt in fcitx5-gtk3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 google-noto-sans-cjk-fonts; do
+          if zypper --non-interactive --no-refresh se -x -t package "$suse_opt" >/dev/null 2>&1; then
+            suse_pkgs+=("$suse_opt")
+          fi
+        done
+      fi
       if [[ "$FAMILY" == "opensuse-transactional" ]]; then
         need_reboot=true
-        transactional-update --non-interactive pkg install \
-          fcitx5 fcitx5-hangul fcitx5-configtool \
-          fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 fcitx5-autostart \
-          google-noto-sans-cjk-fonts
+        transactional-update --non-interactive pkg install "${suse_pkgs[@]}"
       else
-        zypper --non-interactive install -y \
-          fcitx5 fcitx5-hangul fcitx5-configtool \
-          fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 fcitx5-autostart
-        zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
+        zypper --non-interactive --gpg-auto-import-keys install -y "${suse_pkgs[@]}"
       fi
       ok "$(msg "패키지 설치 완료" "Packages installed")"
       disable_conflicting_imes "fcitx5" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.1"
+SCRIPT_VERSION="1.5.2"
 LOG_FILE="/var/log/install-hangul-debian-cinnamon.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

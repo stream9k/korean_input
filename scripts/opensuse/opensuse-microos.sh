@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.1"
+SCRIPT_VERSION="1.5.2"
 LOG_FILE="/var/log/install-hangul-opensuse-microos.log"
 
 LOG_ENABLED=false
@@ -853,10 +853,10 @@ main() {
   local _is_transactional=false _pkg_summary="" _extra_warn=""
   if command -v transactional-update >/dev/null 2>&1; then
     _is_transactional=true
-    _pkg_summary="   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts"
+    _pkg_summary="   - transactional-update pkg install: fcitx5, fcitx5-hangul, fcitx5-configtool\n     (+ 사용 가능한 fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
     _extra_warn=" ⚠️  참고: Aeon / MicroOS(transactional-update) 감지 — 설치 후 재부팅이 필요합니다."
   else
-    _pkg_summary="   - zypper install -y: fcitx5, fcitx5-hangul, fcitx5-configtool,\n     fcitx5-gtk, fcitx5-qt, fcitx5-qt5, fcitx5-qt6, fcitx5-autostart, google-noto-sans-cjk-fonts"
+    _pkg_summary="   - zypper install -y: fcitx5, fcitx5-hangul, fcitx5-configtool\n     (+ 사용 가능한 fcitx5-gtk3/gtk4, fcitx5-qt5/qt6, google-noto-sans-cjk-fonts)"
   fi
   local _cfg_summary="   - alternatives --set xinputrc, /etc/X11/xinit/xinput.d/fcitx5.conf 수정\n   - ibus 사용자 서비스 비활성화(systemctl --user disable ibus)\n   - $TARGET_HOME/.config/fcitx5/{profile,config}$_ow_note\n   - ~/.bash_profile (또는 ~/.profile) 환경변수 추가"
   _cfg_summary=$(append_kde_cfg_line "$_kde_will" "$TARGET_HOME" "$_cfg_summary" "$_kde6_wayland")
@@ -874,18 +874,21 @@ main() {
 
   # 1. 패키지 설치 (transactional-update / zypper)
   log "[1/5] fcitx5 및 한글 폰트 패키지 설치..."
+  local _suse_pkgs=(fcitx5 fcitx5-hangul fcitx5-configtool)
+  local _opt_pkg
+  if command -v zypper >/dev/null 2>&1; then
+    zypper --non-interactive --gpg-auto-import-keys refresh || true
+    for _opt_pkg in fcitx5-gtk3 fcitx5-gtk4 fcitx5-qt5 fcitx5-qt6 google-noto-sans-cjk-fonts; do
+      if zypper --non-interactive --no-refresh se -x -t package "$_opt_pkg" >/dev/null 2>&1; then
+        _suse_pkgs+=("$_opt_pkg")
+      fi
+    done
+  fi
   if [[ "$_is_transactional" == "true" ]]; then
-    transactional-update --non-interactive pkg install \
-      fcitx5 fcitx5-hangul fcitx5-configtool \
-      fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
-      fcitx5-autostart google-noto-sans-cjk-fonts
+    transactional-update --non-interactive pkg install "${_suse_pkgs[@]}"
     info "Aeon / MicroOS 감지: transactional-update 적용을 위해 설치 후 재부팅이 필요합니다."
   else
-    zypper --non-interactive install -y \
-      fcitx5 fcitx5-hangul fcitx5-configtool \
-      fcitx5-gtk fcitx5-qt fcitx5-qt5 fcitx5-qt6 \
-      fcitx5-autostart
-    zypper --non-interactive install -y google-noto-sans-cjk-fonts 2>/dev/null || true
+    zypper --non-interactive --gpg-auto-import-keys install -y "${_suse_pkgs[@]}"
   fi
   ok "패키지 설치 완료"
   disable_conflicting_imes "fcitx5" "$USER" "$TARGET_HOME" "$TARGET_UID" "$DESKTOP"

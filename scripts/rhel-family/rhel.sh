@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.1"
+SCRIPT_VERSION="1.5.2"
 LOG_FILE="/var/log/install-hangul-rhel.log"
 
 LOG_ENABLED=false

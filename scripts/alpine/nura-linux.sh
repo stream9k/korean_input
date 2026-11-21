@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.5.1"
+SCRIPT_VERSION="1.5.2"
 LOG_FILE="/var/log/install-hangul-nura-linux.log"
 
 LOG_ENABLED=false
