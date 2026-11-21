@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.3"
+SCRIPT_VERSION="1.5.4"
 LOG_FILE="/var/log/install-kime-kime-debian.log"
 
 LOG_ENABLED=false
