@@ -31,7 +31,7 @@ a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-hover); text-decoration: underline; }
 code { font-family: var(--mono); background: rgba(88,166,255,0.1); padding: 0.15em 0.35em; border-radius: 4px; font-size: 0.9em; }
 pre { font-family: var(--mono); background: #010409; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow: auto; max-height: 500px; }
-.scroll-sentinel { height: 0; width: 0; visibility: hidden; pointer-events: none; }
+.scroll-sentinel { position: absolute; top: 0; left: 0; width: 1px; height: 1px; visibility: hidden; pointer-events: none; }
 .top-bar-sticky { position: sticky; top: 0; z-index: 50; width: 100%; container-type: scroll-state; container-name: top-bar; }
 .top-bar-inner { border-bottom: 1px solid transparent; transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; }
 @container top-bar scroll-state(stuck: top) {
@@ -505,14 +505,14 @@ fcitx5 -r</code></pre>
 
 <div class="floating-actions" id="floatingActions">
   <a id="floatingHomeBtn" class="floating-btn floating-home-btn" href="./" hidden onclick="handleHomeResetClick(event)" title="선택 해제하고 초기 화면으로 돌아가기">🏠 <span id="floatingHomeText">처음 화면</span></a>
-  <button type="button" id="backToTopBtn" class="floating-btn" onclick="scrollToTopClean()" title="맨 위로 이동" aria-label="맨 위로 이동">↑ <span id="backToTopText">맨 위로</span></button>
+  <button type="button" id="backToTopBtn" class="floating-btn" onclick="if(typeof scrollToTopClean==='function'){scrollToTopClean();}else{window.scrollTo({top:0,behavior:'smooth'});}" title="맨 위로 이동" aria-label="맨 위로 이동">↑ <span id="backToTopText">맨 위로</span></button>
 </div>
 
 <div class="toast" id="toast"></div>
 
-<script src="js/data.js"></script>
-<script src="js/templates.js"></script>
-<script src="js/app.js"></script>
+<script src="js/data.js?v=1.5.1"></script>
+<script src="js/templates.js?v=1.5.1"></script>
+<script src="js/app.js?v=1.5.1"></script>
 <!-- Prism.js for syntax highlighting (lightweight) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>

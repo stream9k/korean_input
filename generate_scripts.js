@@ -22,6 +22,27 @@ function loadGeneratorCore() {
   };
 }
 
+function syncIndexAssetVersions() {
+  const templatesPath = path.join(ROOT_DIR, "js", "templates.js");
+  const indexPath = path.join(ROOT_DIR, "index.html");
+  if (!fs.existsSync(templatesPath) || !fs.existsSync(indexPath)) return;
+
+  const templatesSrc = fs.readFileSync(templatesPath, "utf8");
+  const match = templatesSrc.match(/SCRIPT_VERSION="([^"]+)"/);
+  if (!match) return;
+
+  const version = match[1];
+  const indexSrc = fs.readFileSync(indexPath, "utf8");
+  const updated = indexSrc.replace(
+    /src="js\/(data|templates|app)\.js(?:\?v=[^"]*)?"/g,
+    `src="js/$1.js?v=${version}"`
+  );
+  if (updated !== indexSrc) {
+    fs.writeFileSync(indexPath, updated, "utf8");
+    console.log(`✅ index.html JS 캐시 버스팅 버전 동기화 (?v=${version})`);
+  }
+}
+
 function main() {
   const {
     DISTRO_DATA,
@@ -29,6 +50,8 @@ function main() {
     getScriptId,
     getTemplateFamily
   } = loadGeneratorCore();
+
+  syncIndexAssetVersions();
 
   const generatedFiles = new Map();
   const familyCounts = new Map();
