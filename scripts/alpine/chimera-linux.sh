@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.4.1"
+SCRIPT_VERSION="1.4.2"
 LOG_FILE="/var/log/install-hangul-chimera-linux.log"
 
 LOG_ENABLED=false
@@ -70,6 +70,46 @@ run_as_user_sh() {
     [ -n "$_rau_uid" ] && [ -d "/run/user/$_rau_uid" ] && _rau_pre="export XDG_RUNTIME_DIR='/run/user/$_rau_uid'; "
     [ -n "$_rau_uid" ] && [ -S "/run/user/$_rau_uid/bus" ] && _rau_pre="${_rau_pre}export DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/$_rau_uid/bus'; "
     su -s /bin/sh "$_rau_u" -c "${_rau_pre}${_rau_cmd}" </dev/null
+  fi
+}
+
+run_user_gsettings() {
+  _rug_u="$1"
+  _rug_uid="$2"
+  _rug_home="$3"
+  shift 3
+  command -v gsettings >/dev/null 2>&1 || return 1
+  _rug_sub="${1:-}"
+  if [ -z "$_rug_uid" ] || [ ! -S "/run/user/$_rug_uid/bus" ]; then
+    if [ "$_rug_sub" = "set" ] || [ "$_rug_sub" = "reset" ]; then
+      if command -v dbus-run-session >/dev/null 2>&1; then
+        set -- dbus-run-session -- gsettings "$@"
+      else
+        set -- gsettings "$@"
+      fi
+    else
+      set -- gsettings "$@"
+    fi
+  else
+    set -- gsettings "$@"
+  fi
+  if [ -n "$_rug_uid" ] && [ -S "/run/user/$_rug_uid/bus" ]; then
+    set -- "XDG_RUNTIME_DIR=/run/user/$_rug_uid" "DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$_rug_uid/bus" "$@"
+  elif [ -n "$_rug_uid" ] && [ -d "/run/user/$_rug_uid" ]; then
+    set -- "XDG_RUNTIME_DIR=/run/user/$_rug_uid" "$@"
+  fi
+  set -- env "HOME=${_rug_home:-/tmp}" "USER=$_rug_u" "LOGNAME=$_rug_u" "$@"
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$_rug_u" -- "$@" </dev/null
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u "$_rug_u" "$@" </dev/null
+  else
+    _rug_q=""
+    for _rug_arg in "$@"; do
+      _rug_esc=$(printf '%s' "$_rug_arg" | sed "s/'/'\\\\''/g")
+      _rug_q="${_rug_q} '${_rug_esc}'"
+    done
+    su -s /bin/sh "$_rug_u" -c "$_rug_q" </dev/null
   fi
 }
 
@@ -155,6 +195,11 @@ detect_session_type() {
 
 detect_existing_ime() {
   _pf_uid="$1"
+  _pf_desk="${2:-}"
+  _pf_gnome=false
+  case "$_pf_desk" in
+    *[Gg][Nn][Oo][Mm][Ee]*) _pf_gnome=true ;;
+  esac
   _pf_found=""
   _pf_sep=""
   for _pf_im in fcitx5 fcitx ibus-daemon kime; do
@@ -163,7 +208,13 @@ detect_existing_ime() {
       _pf_running=true
     fi
     if command -v "$_pf_im" >/dev/null 2>&1 || [ "$_pf_running" = "true" ]; then
-      if [ "$_pf_running" = "true" ]; then
+      if [ "$_pf_im" = "ibus-daemon" ] && [ "$_pf_running" = "true" ] && [ "$_pf_gnome" = "true" ]; then
+        if proc_running "$_pf_uid" "ibus-engine-hangul"; then
+          _pf_found="${_pf_found}${_pf_sep}${_pf_im} (실행 중 · GNOME 기본 내장, ibus-hangul 활성)"
+        else
+          _pf_found="${_pf_found}${_pf_sep}${_pf_im} (실행 중 · GNOME 기본 내장)"
+        fi
+      elif [ "$_pf_running" = "true" ]; then
         _pf_found="${_pf_found}${_pf_sep}${_pf_im} (실행 중)"
       else
         _pf_found="${_pf_found}${_pf_sep}${_pf_im} (설치됨)"
@@ -205,9 +256,21 @@ append_conflict_ime_warn() {
   _cw_target="$1"
   _cw_existing="$2"
   _cw_base="${3:-}"
+  _cw_desk="${4:-}"
   _cw_w=""
   if has_conflicting_ime "$_cw_target" "$_cw_existing"; then
     _cw_w=" ⚠️  참고: 기존 입력기(${_cw_existing})가 감지되었습니다. 기존 입력기가 새 입력기와 충돌할 수 있으므로 기존 입력기 설정(자동시작·서비스·환경변수)을 자동으로 비활성화하겠습니다."
+    if [ "$_cw_target" != "ibus" ]; then
+      case "$_cw_desk" in
+        *[Gg][Nn][Oo][Mm][Ee]*)
+          case "$_cw_existing" in
+            *ibus-daemon*)
+              _cw_w="${_cw_w}\n ℹ️  GNOME 안내: ibus-daemon 자체는 GNOME Shell 기본 기능(이모지·화상키보드·Wayland 입력) 유지를 위해 종료·차단하지 않으며, ibus-hangul 입력 소스·엔진·환경변수·단축키 충돌만 비활성화합니다."
+              ;;
+          esac
+          ;;
+      esac
+    fi
   fi
   if [ -n "$_cw_base" ] && [ -n "$_cw_w" ]; then
     printf '%s\n%s' "$_cw_base" "$_cw_w"
@@ -477,10 +540,61 @@ EOF
     chown -R "$_dc_uid:$_dc_gid" "$_dc_home/.local/share/dbus-1" 2>/dev/null || true
   fi
 
-  if [ "$_dc_target" != "ibus" ] && [ "$_dc_gnome" != "true" ]; then
-    for _dc_hp in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
-      proc_kill "$_dc_uid" "$_dc_hp"
-    done
+  if [ "$_dc_target" != "ibus" ]; then
+    if [ "$_dc_gnome" != "true" ]; then
+      for _dc_hp in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+        proc_kill "$_dc_uid" "$_dc_hp"
+      done
+    else
+      if command -v gsettings >/dev/null 2>&1; then
+        _dc_cur_src=$(run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" get org.gnome.desktop.input-sources sources 2>/dev/null || true)
+        if printf '%s\n' "$_dc_cur_src" | grep -qE "\('ibus',[[:space:]]*'hangul'\)"; then
+          _dc_new_src=$(printf '%s\n' "$_dc_cur_src" | sed -E \
+            -e "s/,[[:space:]]*\('ibus',[[:space:]]*'hangul'\)//g" \
+            -e "s/\('ibus',[[:space:]]*'hangul'\)[[:space:]]*,[[:space:]]*//g" \
+            -e "s/\('ibus',[[:space:]]*'hangul'\)//g")
+          printf '%s\n' "$_dc_new_src" | grep -q "'" || _dc_new_src="[('xkb', 'us')]"
+          run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" set org.gnome.desktop.input-sources sources "$_dc_new_src" 2>/dev/null || true
+          _dc_changed=true
+        fi
+
+        _dc_cur_pre=$(run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" get org.freedesktop.ibus.general preload-engines 2>/dev/null || true)
+        if printf '%s\n' "$_dc_cur_pre" | grep -q "'hangul'"; then
+          _dc_new_pre=$(printf '%s\n' "$_dc_cur_pre" | sed -E \
+            -e "s/,[[:space:]]*'hangul'//g" \
+            -e "s/'hangul'[[:space:]]*,[[:space:]]*//g" \
+            -e "s/'hangul'//g")
+          printf '%s\n' "$_dc_new_pre" | grep -q "'" || _dc_new_pre="[]"
+          run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" set org.freedesktop.ibus.general preload-engines "$_dc_new_pre" 2>/dev/null || true
+          _dc_changed=true
+        fi
+
+        _dc_cur_trig=$(run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" get org.freedesktop.ibus.general.hotkey triggers 2>/dev/null || true)
+        if printf '%s\n' "$_dc_cur_trig" | grep -qE "(Hangul|space)"; then
+          run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" set org.freedesktop.ibus.general.hotkey triggers "[]" 2>/dev/null || true
+          _dc_changed=true
+        fi
+
+        _dc_cur_gtk=$(run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" get org.gnome.desktop.interface gtk-im-module 2>/dev/null || true)
+        if [ "$_dc_cur_gtk" = "'ibus'" ]; then
+          run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" reset org.gnome.desktop.interface gtk-im-module 2>/dev/null || true
+          _dc_changed=true
+        fi
+
+        for _dc_kb in switch-input-source switch-input-source-backward; do
+          _dc_cur_kb=$(run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" get org.gnome.desktop.wm.keybindings "$_dc_kb" 2>/dev/null || true)
+          if [ -n "$_dc_cur_kb" ] && [ "$_dc_cur_kb" != "@as []" ] && [ "$_dc_cur_kb" != "[]" ]; then
+            run_user_gsettings "$_dc_user" "$_dc_uid" "$_dc_home" set org.gnome.desktop.wm.keybindings "$_dc_kb" "[]" 2>/dev/null || true
+            _dc_changed=true
+          fi
+        done
+      fi
+
+      if proc_running "$_dc_uid" "ibus-engine-hangul"; then
+        proc_kill "$_dc_uid" "ibus-engine-hangul"
+        _dc_changed=true
+      fi
+    fi
   fi
   sleep 1
   _dc_surv=""
@@ -490,9 +604,19 @@ EOF
       _dc_surv="$_dc_surv $_dc_hp"
     fi
   done
+  if [ "$_dc_target" != "ibus" ] && [ "$_dc_gnome" = "true" ] && proc_running "$_dc_uid" "ibus-engine-hangul"; then
+    proc_kill "$_dc_uid" "ibus-engine-hangul" "-9"
+    _dc_surv="$_dc_surv ibus-engine-hangul"
+  fi
   if [ -n "$_dc_surv" ]; then
     warn "종료되지 않아 강제 종료한 입력기 프로세스:$_dc_surv"
     _dc_changed=true
+  fi
+
+  if [ "$_dc_target" != "ibus" ] && [ "$_dc_gnome" = "true" ]; then
+    if proc_running "$_dc_uid" "ibus-daemon" || command -v ibus-daemon >/dev/null 2>&1; then
+      info "GNOME 환경에서는 셸 안정성을 위해 ibus-daemon은 유지하고, ibus-hangul 입력 소스·엔진·환경변수·단축키 충돌만 비활성화했습니다."
+    fi
   fi
 
   if [ "$_dc_changed" = "true" ]; then
@@ -593,7 +717,7 @@ main() {
   OS_NAME=$(detect_os_pretty)
   DESKTOP=$(detect_desktop "$USER")
   SESSION_TYPE=$(detect_session_type "$USER" "$TARGET_UID")
-  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID" "$DESKTOP")
   _ow_note=$(fcitx5_overwrite_note "$TARGET_HOME")
 
   _pkg_summary="   - apk update && apk add: fcitx5, fcitx5-hangul, fcitx5-gtk,\n     fcitx5-qt, fcitx5-configtool, font-noto-cjk"
@@ -602,7 +726,7 @@ main() {
   if [ -f "$TARGET_HOME/.config/fcitx5/profile" ] || [ -f "$TARGET_HOME/.config/fcitx5/config" ]; then
     _extra_warn=" ⚠️  참고: 기존 Fcitx5 설정 파일($TARGET_HOME/.config/fcitx5/profile, config)이 덮어써집니다."
   fi
-  _extra_warn=$(append_conflict_ime_warn "fcitx5" "$EXISTING_IME" "$_extra_warn")
+  _extra_warn=$(append_conflict_ime_warn "fcitx5" "$EXISTING_IME" "$_extra_warn" "$DESKTOP")
 
   confirm_before_changes     "Alpine Linux / Chimera / Nura Chimera Linux (FreeBSD userland + apk)"     "$OS_NAME" "$USER" "$TARGET_UID" "$TARGET_HOME"     "$DESKTOP" "$SESSION_TYPE" "$EXISTING_IME"     "$_pkg_summary" "$_cfg_summary" "$_extra_warn"
 

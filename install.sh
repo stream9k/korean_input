@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.4.1"
+SCRIPT_VERSION="1.4.2"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -102,6 +102,33 @@ run_as_user_sh() {
   fi
 }
 
+run_user_gsettings() {
+  local _u="$1" _uid="$2" _home="$3"
+  shift 3
+  command -v gsettings >/dev/null 2>&1 || return 1
+  local -a _envs=("HOME=${_home:-/tmp}" "USER=$_u" "LOGNAME=$_u")
+  if [[ -n "$_uid" && -d "/run/user/$_uid" ]]; then
+    _envs+=("XDG_RUNTIME_DIR=/run/user/$_uid")
+    [[ -S "/run/user/$_uid/bus" ]] && _envs+=("DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$_uid/bus")
+  fi
+  local -a _cmd=(gsettings "$@")
+  if [[ -z "$_uid" || ! -S "/run/user/$_uid/bus" ]] && [[ "${1:-}" == "set" || "${1:-}" == "reset" ]] && command -v dbus-run-session >/dev/null 2>&1; then
+    _cmd=(dbus-run-session -- gsettings "$@")
+  fi
+  if command -v runuser >/dev/null 2>&1; then
+    runuser -u "$_u" -- env "${_envs[@]}" "${_cmd[@]}" </dev/null
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo -u "$_u" env "${_envs[@]}" "${_cmd[@]}" </dev/null
+  else
+    local _q_cmd="" _item _esc
+    for _item in "${_envs[@]}" "${_cmd[@]}"; do
+      _esc=$(printf '%s' "$_item" | sed "s/'/'\\\\''/g")
+      _q_cmd="${_q_cmd:+${_q_cmd} }'${_esc}'"
+    done
+    su -s /bin/sh "$_u" -c "env $_q_cmd" </dev/null
+  fi
+}
+
 proc_running() {
   local _uid="$1" _proc="$2"
   command -v pgrep >/dev/null 2>&1 || return 1
@@ -176,6 +203,9 @@ detect_session_type() {
 
 detect_existing_ime() {
   local uid="$1"
+  local desktop="${2:-}"
+  local is_gnome=false
+  [[ "${desktop,,}" == *"gnome"* ]] && is_gnome=true
   local found=()
   local im status is_running
   for im in fcitx5 fcitx ibus-daemon kime; do
@@ -184,7 +214,13 @@ detect_existing_ime() {
       is_running=true
     fi
     if command -v "$im" >/dev/null 2>&1 || [[ "$is_running" == "true" ]]; then
-      if [[ "$is_running" == "true" ]]; then
+      if [[ "$im" == "ibus-daemon" && "$is_running" == "true" && "$is_gnome" == "true" ]]; then
+        if proc_running "$uid" "ibus-engine-hangul"; then
+          status=$(msg "실행 중 · GNOME 기본 내장, ibus-hangul 활성" "running · GNOME built-in, ibus-hangul active")
+        else
+          status=$(msg "실행 중 · GNOME 기본 내장" "running · GNOME built-in")
+        fi
+      elif [[ "$is_running" == "true" ]]; then
         status=$(msg "실행 중" "running")
       else
         status=$(msg "설치됨" "installed")
@@ -574,6 +610,13 @@ print_preflight_summary_and_confirm() {
           extra_warn+="\n$ime_conflict_msg"
         else
           extra_warn="$ime_conflict_msg"
+        fi
+        if [[ "${desktop,,}" == *"gnome"* && "$existing_ime" == *"ibus-daemon"* ]]; then
+          local gnome_ibus_note
+          gnome_ibus_note=$(msg \
+            " ℹ️  GNOME 안내: ibus-daemon 자체는 GNOME Shell 기본 기능(이모지·화상키보드·Wayland 입력) 유지를 위해 종료·차단하지 않으며, ibus-hangul 입력 소스·엔진·환경변수·단축키 충돌만 비활성화합니다." \
+            " ℹ️  GNOME Note: ibus-daemon itself is kept running for GNOME Shell stability (emoji, OSK, Wayland input); only the ibus-hangul input source, engine, environment variables, and shortcut conflicts will be disabled.")
+          extra_warn+="\n$gnome_ibus_note"
         fi
       fi
     fi
@@ -1450,10 +1493,66 @@ EOF
   fi
 
   # 8. 남아있는 보조 프로세스(ibus 엔진/UI 등) 정리 후, 충돌 프로세스가 끝까지 살아있으면 강제 종료
-  if [[ "$target_ime" != "ibus" && "$is_gnome" != "true" ]]; then
-    for p in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
-      proc_kill "$target_uid" "$p"
-    done
+  if [[ "$target_ime" != "ibus" ]]; then
+    if [[ "$is_gnome" != "true" ]]; then
+      for p in ibus-engine-hangul ibus-engine-simple ibus-ui-gtk3 ibus-x11 ibus-portal ibus-extension-gtk3 ibus-dconf ibus-memconf; do
+        proc_kill "$target_uid" "$p"
+      done
+    else
+      if command -v gsettings >/dev/null 2>&1; then
+        local cur_sources new_sources
+        cur_sources=$(run_user_gsettings "$target_user" "$target_uid" "$target_home" get org.gnome.desktop.input-sources sources 2>/dev/null || true)
+        if printf '%s\n' "$cur_sources" | grep -qE "\('ibus',[[:space:]]*'hangul'\)"; then
+          new_sources=$(printf '%s\n' "$cur_sources" | sed -E \
+            -e "s/,[[:space:]]*\('ibus',[[:space:]]*'hangul'\)//g" \
+            -e "s/\('ibus',[[:space:]]*'hangul'\)[[:space:]]*,[[:space:]]*//g" \
+            -e "s/\('ibus',[[:space:]]*'hangul'\)//g")
+          printf '%s\n' "$new_sources" | grep -q "'" || new_sources="[('xkb', 'us')]"
+          run_user_gsettings "$target_user" "$target_uid" "$target_home" set org.gnome.desktop.input-sources sources "$new_sources" 2>/dev/null || true
+          changed=true
+        fi
+
+        local cur_preload new_preload
+        cur_preload=$(run_user_gsettings "$target_user" "$target_uid" "$target_home" get org.freedesktop.ibus.general preload-engines 2>/dev/null || true)
+        if printf '%s\n' "$cur_preload" | grep -q "'hangul'"; then
+          new_preload=$(printf '%s\n' "$cur_preload" | sed -E \
+            -e "s/,[[:space:]]*'hangul'//g" \
+            -e "s/'hangul'[[:space:]]*,[[:space:]]*//g" \
+            -e "s/'hangul'//g")
+          printf '%s\n' "$new_preload" | grep -q "'" || new_preload="[]"
+          run_user_gsettings "$target_user" "$target_uid" "$target_home" set org.freedesktop.ibus.general preload-engines "$new_preload" 2>/dev/null || true
+          changed=true
+        fi
+
+        local cur_triggers
+        cur_triggers=$(run_user_gsettings "$target_user" "$target_uid" "$target_home" get org.freedesktop.ibus.general.hotkey triggers 2>/dev/null || true)
+        if printf '%s\n' "$cur_triggers" | grep -qE "(Hangul|space)"; then
+          run_user_gsettings "$target_user" "$target_uid" "$target_home" set org.freedesktop.ibus.general.hotkey triggers "[]" 2>/dev/null || true
+          changed=true
+        fi
+
+        local cur_gtk_im
+        cur_gtk_im=$(run_user_gsettings "$target_user" "$target_uid" "$target_home" get org.gnome.desktop.interface gtk-im-module 2>/dev/null || true)
+        if [[ "$cur_gtk_im" == "'ibus'" ]]; then
+          run_user_gsettings "$target_user" "$target_uid" "$target_home" reset org.gnome.desktop.interface gtk-im-module 2>/dev/null || true
+          changed=true
+        fi
+
+        local kb_key cur_kb
+        for kb_key in switch-input-source switch-input-source-backward; do
+          cur_kb=$(run_user_gsettings "$target_user" "$target_uid" "$target_home" get org.gnome.desktop.wm.keybindings "$kb_key" 2>/dev/null || true)
+          if [[ -n "$cur_kb" && "$cur_kb" != "@as []" && "$cur_kb" != "[]" ]]; then
+            run_user_gsettings "$target_user" "$target_uid" "$target_home" set org.gnome.desktop.wm.keybindings "$kb_key" "[]" 2>/dev/null || true
+            changed=true
+          fi
+        done
+      fi
+
+      if proc_running "$target_uid" "ibus-engine-hangul"; then
+        proc_kill "$target_uid" "ibus-engine-hangul"
+        changed=true
+      fi
+    fi
   fi
   sleep 1
   local survivors=()
@@ -1463,9 +1562,17 @@ EOF
       survivors+=("$p")
     fi
   done
+  if [[ "$target_ime" != "ibus" && "$is_gnome" == "true" ]] && proc_running "$target_uid" "ibus-engine-hangul"; then
+    proc_kill "$target_uid" "ibus-engine-hangul" "-9"
+    survivors+=("ibus-engine-hangul")
+  fi
   if [[ ${#survivors[@]} -gt 0 ]]; then
     warn "$(msg "종료되지 않아 강제 종료한 입력기 프로세스: ${survivors[*]}" "Force-killed IME processes that did not exit: ${survivors[*]}")"
     changed=true
+  fi
+
+  if [[ "$target_ime" != "ibus" && "$is_gnome" == "true" ]] && { proc_running "$target_uid" "ibus-daemon" || command -v ibus-daemon >/dev/null 2>&1; }; then
+    info "$(msg "GNOME 환경에서는 셸 안정성을 위해 ibus-daemon은 유지하고, ibus-hangul 입력 소스·엔진·환경변수·단축키 충돌만 비활성화했습니다." "On GNOME, ibus-daemon is kept running for shell stability; only the ibus-hangul input source, engine, environment variables, and shortcut conflicts were disabled.")"
   fi
 
   if [[ "$changed" == "true" ]]; then
@@ -1746,7 +1853,7 @@ main() {
   TARGET_GID=$(id -g "$TARGET_USER")
   DESKTOP=$(detect_desktop "$TARGET_USER")
   SESSION_TYPE=$(detect_session_type "$TARGET_USER" "$TARGET_UID")
-  EXISTING_IME=$(detect_existing_ime "$TARGET_UID")
+  EXISTING_IME=$(detect_existing_ime "$TARGET_UID" "$DESKTOP")
   if [[ "$FAMILY" == "mandriva-family" ]]; then
     MANDRIVA_PKG_MGR=$(detect_mandriva_pkg_mgr)
   fi
