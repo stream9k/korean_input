@@ -92,15 +92,15 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 
 실제 환경(VM / 실기기)에서 설치 및 한글 입력 정상 동작을 직접 검증한 배포판 목록입니다.
 
-### 공식 지원 목록에 포함된 배포판
-* **EndeavourOS**
-* **Omarchy**
-* **Garuda Linux**
-
-### 지원 목록에 없지만 정상 작동 확인된 배포판 (자동 감지 `install.sh`)
-* **Bodhi Linux**
-* **Loc-OS**
-* **SparkyLinux Multimedia**
+* **EndeavourOS Titan Nova** (KDE)
+* **Omarchy** (Hyprland)
+* **Garuda Linux** (KDE)
+* **Bodhi Linux** (Moksha)
+* **Loc-OS** (LXDE)
+* **Sparky7 Multimedia** (Xfce)
+* **openSUSE-Tumbleweed** (KDE / GNOME / Xfce)
+* **Rocky Linux** (KDE / GNOME / Xfce)
+* **Bazzite** (GNOME)
 
 ---
 

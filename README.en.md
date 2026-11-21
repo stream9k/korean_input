@@ -93,15 +93,15 @@ Representative one-liners from our **198 pre-generated scripts across 20 familie
 
 Distributions directly tested for installation and Korean input functionality:
 
-### Listed Supported Distributions
-* **EndeavourOS**
-* **Omarchy**
-* **Garuda Linux**
-
-### Unlisted Distributions Confirmed Working (via Auto-Detect `install.sh`)
-* **Bodhi Linux**
-* **Loc-OS**
-* **SparkyLinux Multimedia**
+* **EndeavourOS Titan Nova** (KDE)
+* **Omarchy** (Hyprland)
+* **Garuda Linux** (KDE)
+* **Bodhi Linux** (Moksha)
+* **Loc-OS** (LXDE)
+* **Sparky7 Multimedia** (Xfce)
+* **openSUSE-Tumbleweed** (KDE / GNOME / Xfce)
+* **Rocky Linux** (KDE / GNOME / Xfce)
+* **Bazzite** (GNOME)
 
 ---
 
