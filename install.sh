@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -1196,13 +1196,50 @@ EOF
   local ef
   for ef in /etc/environment "$target_home/.xsessionrc" "$target_home/.xprofile" "$target_home/.bash_profile" "$target_home/.profile"; do
     if [[ -f "$ef" && -w "$ef" ]] && grep -qE "$env_line_re" "$ef" 2>/dev/null; then
-      grep -Ev "$env_line_re" "$ef" > "${ef}.tmp" || true
-      cat "${ef}.tmp" > "$ef"
-      rm -f "${ef}.tmp"
-      if [[ "$ef" != "/etc/environment" ]]; then
-        chown "$target_uid:$target_gid" "$ef" 2>/dev/null || true
+      if [[ "$ef" == "/etc/environment" ]]; then
+        grep -Ev "$env_line_re" "$ef" > "${ef}.tmp" || true
+        cat "${ef}.tmp" > "$ef"
+        rm -f "${ef}.tmp"
+        changed=true
+      else
+        local chk_sh="sh" orig_valid=false
+        if [[ "$ef" == */.bash_profile ]] && command -v bash >/dev/null 2>&1; then
+          chk_sh="bash"
+        fi
+        "$chk_sh" -n "$ef" >/dev/null 2>&1 && orig_valid=true
+        if awk -v im_re="$im_re" '
+          BEGIN {
+            re = "^[ \t]*(export[ \t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\047\"]?" im_re "[\047\"]?|XMODIFIERS=[\047\"]?@im=" im_re "[\047\"]?)[ \t]*(#.*)?$"
+            mark = "^[ \t]*:[ \t]*#[ \t]*korean_input: disabled conflicting IME env[ \t]*$"
+            prev = 0
+          }
+          $0 ~ re {
+            if (!prev) {
+              match($0, /^[ \t]*/)
+              print substr($0, 1, RLENGTH) ": # korean_input: disabled conflicting IME env"
+              prev = 1
+            }
+            next
+          }
+          $0 ~ mark {
+            if (!prev) { print; prev = 1 }
+            next
+          }
+          { prev = 0; print }
+        ' "$ef" > "${ef}.tmp"; then
+          if [[ "$orig_valid" == "true" ]] && ! "$chk_sh" -n "${ef}.tmp" >/dev/null 2>&1; then
+            rm -f "${ef}.tmp"
+            warn "$(msg "셸 구문 검증 실패로 $ef 자동 수정을 건너뜁니다 (수동 확인 필요)" "Skipped auto-editing $ef due to shell syntax check failure (please review manually)")"
+          else
+            cat "${ef}.tmp" > "$ef"
+            rm -f "${ef}.tmp"
+            chown "$target_uid:$target_gid" "$ef" 2>/dev/null || true
+            changed=true
+          fi
+        else
+          rm -f "${ef}.tmp"
+        fi
       fi
-      changed=true
     fi
   done
 

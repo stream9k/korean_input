@@ -468,13 +468,50 @@ EOF
   local _ef
   for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.profile"; do
     if [[ -f "$_ef" && -w "$_ef" ]] && grep -qE "$_env_line_re" "$_ef" 2>/dev/null; then
-      grep -Ev "$_env_line_re" "$_ef" > "\${_ef}.tmp" || true
-      cat "\${_ef}.tmp" > "$_ef"
-      rm -f "\${_ef}.tmp"
-      if [[ "$_ef" != "/etc/environment" ]]; then
-        chown "$_uid:$_gid" "$_ef" 2>/dev/null || true
+      if [[ "$_ef" == "/etc/environment" ]]; then
+        grep -Ev "$_env_line_re" "$_ef" > "\${_ef}.tmp" || true
+        cat "\${_ef}.tmp" > "$_ef"
+        rm -f "\${_ef}.tmp"
+        _changed=true
+      else
+        local _chk_sh="sh" _orig_valid=false
+        if [[ "$_ef" == */.bash_profile ]] && command -v bash >/dev/null 2>&1; then
+          _chk_sh="bash"
+        fi
+        "$_chk_sh" -n "$_ef" >/dev/null 2>&1 && _orig_valid=true
+        if awk -v im_re="$_im_re" '
+          BEGIN {
+            re = "^[ \\t]*(export[ \\t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\\047\\"]?" im_re "[\\047\\"]?|XMODIFIERS=[\\047\\"]?@im=" im_re "[\\047\\"]?)[ \\t]*(#.*)?$"
+            mark = "^[ \\t]*:[ \\t]*#[ \\t]*korean_input: disabled conflicting IME env[ \\t]*$"
+            prev = 0
+          }
+          $0 ~ re {
+            if (!prev) {
+              match($0, /^[ \\t]*/)
+              print substr($0, 1, RLENGTH) ": # korean_input: disabled conflicting IME env"
+              prev = 1
+            }
+            next
+          }
+          $0 ~ mark {
+            if (!prev) { print; prev = 1 }
+            next
+          }
+          { prev = 0; print }
+        ' "$_ef" > "\${_ef}.tmp"; then
+          if [[ "$_orig_valid" == "true" ]] && ! "$_chk_sh" -n "\${_ef}.tmp" >/dev/null 2>&1; then
+            rm -f "\${_ef}.tmp"
+            warn "셸 구문 검증 실패로 $_ef 자동 수정을 건너뜁니다 (수동 확인 필요)"
+          else
+            cat "\${_ef}.tmp" > "$_ef"
+            rm -f "\${_ef}.tmp"
+            chown "$_uid:$_gid" "$_ef" 2>/dev/null || true
+            _changed=true
+          fi
+        else
+          rm -f "\${_ef}.tmp"
+        fi
       fi
-      _changed=true
     fi
   done
 
@@ -700,6 +737,7 @@ err() {
   fi
   exit 1
 }
+warn() { log "⚠️  $*"; }
 ok() { log "✅ $*"; }
 info() { log "ℹ️  $*"; }
 
@@ -919,13 +957,51 @@ EOF
   _dc_env_re="^[[:space:]]*(export[[:space:]]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=['\\"]?\${_dc_im_re}['\\"]?|XMODIFIERS=['\\"]?@im=\${_dc_im_re}['\\"]?)[[:space:]]*(#.*)?$"
   for _dc_ef in /etc/environment "$_dc_home/.xsessionrc" "$_dc_home/.xprofile" "$_dc_home/.bash_profile" "$_dc_home/.profile"; do
     if [ -f "$_dc_ef" ] && [ -w "$_dc_ef" ] && grep -qE "$_dc_env_re" "$_dc_ef" 2>/dev/null; then
-      grep -Ev "$_dc_env_re" "$_dc_ef" > "\${_dc_ef}.tmp" || true
-      cat "\${_dc_ef}.tmp" > "$_dc_ef"
-      rm -f "\${_dc_ef}.tmp"
-      if [ "$_dc_ef" != "/etc/environment" ]; then
-        chown "$_dc_uid:$_dc_gid" "$_dc_ef" 2>/dev/null || true
+      if [ "$_dc_ef" = "/etc/environment" ]; then
+        grep -Ev "$_dc_env_re" "$_dc_ef" > "\${_dc_ef}.tmp" || true
+        cat "\${_dc_ef}.tmp" > "$_dc_ef"
+        rm -f "\${_dc_ef}.tmp"
+        _dc_changed=true
+      else
+        _dc_chk="sh"
+        _dc_valid=false
+        case "$_dc_ef" in
+          */.bash_profile) command -v bash >/dev/null 2>&1 && _dc_chk="bash" ;;
+        esac
+        "$_dc_chk" -n "$_dc_ef" >/dev/null 2>&1 && _dc_valid=true
+        if awk -v im_re="$_dc_im_re" '
+          BEGIN {
+            re = "^[ \\t]*(export[ \\t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\\047\\"]?" im_re "[\\047\\"]?|XMODIFIERS=[\\047\\"]?@im=" im_re "[\\047\\"]?)[ \\t]*(#.*)?$"
+            mark = "^[ \\t]*:[ \\t]*#[ \\t]*korean_input: disabled conflicting IME env[ \\t]*$"
+            prev = 0
+          }
+          $0 ~ re {
+            if (!prev) {
+              match($0, /^[ \\t]*/)
+              print substr($0, 1, RLENGTH) ": # korean_input: disabled conflicting IME env"
+              prev = 1
+            }
+            next
+          }
+          $0 ~ mark {
+            if (!prev) { print; prev = 1 }
+            next
+          }
+          { prev = 0; print }
+        ' "$_dc_ef" > "\${_dc_ef}.tmp"; then
+          if [ "$_dc_valid" = "true" ] && ! "$_dc_chk" -n "\${_dc_ef}.tmp" >/dev/null 2>&1; then
+            rm -f "\${_dc_ef}.tmp"
+            warn "셸 구문 검증 실패로 $_dc_ef 자동 수정을 건너뜁니다 (수동 확인 필요)"
+          else
+            cat "\${_dc_ef}.tmp" > "$_dc_ef"
+            rm -f "\${_dc_ef}.tmp"
+            chown "$_dc_uid:$_dc_gid" "$_dc_ef" 2>/dev/null || true
+            _dc_changed=true
+          fi
+        else
+          rm -f "\${_dc_ef}.tmp"
+        fi
       fi
-      _dc_changed=true
     fi
   done
 
@@ -1077,7 +1153,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -1328,7 +1404,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1502,7 +1578,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1686,7 +1762,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -1949,7 +2025,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2312,7 +2388,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3079,7 +3155,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3235,7 +3311,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3413,7 +3489,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3534,7 +3610,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3711,7 +3787,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -3857,7 +3933,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4033,7 +4109,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4212,7 +4288,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4409,7 +4485,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4583,7 +4659,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4750,7 +4826,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4928,7 +5004,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }

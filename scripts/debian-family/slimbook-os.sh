@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.3.5"
+SCRIPT_VERSION="1.3.6"
 LOG_FILE="/var/log/install-hangul-slimbook-os.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 
@@ -273,13 +273,50 @@ EOF
   local _ef
   for _ef in /etc/environment "$_home/.xsessionrc" "$_home/.xprofile" "$_home/.bash_profile" "$_home/.profile"; do
     if [[ -f "$_ef" && -w "$_ef" ]] && grep -qE "$_env_line_re" "$_ef" 2>/dev/null; then
-      grep -Ev "$_env_line_re" "$_ef" > "${_ef}.tmp" || true
-      cat "${_ef}.tmp" > "$_ef"
-      rm -f "${_ef}.tmp"
-      if [[ "$_ef" != "/etc/environment" ]]; then
-        chown "$_uid:$_gid" "$_ef" 2>/dev/null || true
+      if [[ "$_ef" == "/etc/environment" ]]; then
+        grep -Ev "$_env_line_re" "$_ef" > "${_ef}.tmp" || true
+        cat "${_ef}.tmp" > "$_ef"
+        rm -f "${_ef}.tmp"
+        _changed=true
+      else
+        local _chk_sh="sh" _orig_valid=false
+        if [[ "$_ef" == */.bash_profile ]] && command -v bash >/dev/null 2>&1; then
+          _chk_sh="bash"
+        fi
+        "$_chk_sh" -n "$_ef" >/dev/null 2>&1 && _orig_valid=true
+        if awk -v im_re="$_im_re" '
+          BEGIN {
+            re = "^[ \t]*(export[ \t]+)?((GTK|QT|SDL|GLFW)_IM_MODULE=[\047\"]?" im_re "[\047\"]?|XMODIFIERS=[\047\"]?@im=" im_re "[\047\"]?)[ \t]*(#.*)?$"
+            mark = "^[ \t]*:[ \t]*#[ \t]*korean_input: disabled conflicting IME env[ \t]*$"
+            prev = 0
+          }
+          $0 ~ re {
+            if (!prev) {
+              match($0, /^[ \t]*/)
+              print substr($0, 1, RLENGTH) ": # korean_input: disabled conflicting IME env"
+              prev = 1
+            }
+            next
+          }
+          $0 ~ mark {
+            if (!prev) { print; prev = 1 }
+            next
+          }
+          { prev = 0; print }
+        ' "$_ef" > "${_ef}.tmp"; then
+          if [[ "$_orig_valid" == "true" ]] && ! "$_chk_sh" -n "${_ef}.tmp" >/dev/null 2>&1; then
+            rm -f "${_ef}.tmp"
+            warn "셸 구문 검증 실패로 $_ef 자동 수정을 건너뜁니다 (수동 확인 필요)"
+          else
+            cat "${_ef}.tmp" > "$_ef"
+            rm -f "${_ef}.tmp"
+            chown "$_uid:$_gid" "$_ef" 2>/dev/null || true
+            _changed=true
+          fi
+        else
+          rm -f "${_ef}.tmp"
+        fi
       fi
-      _changed=true
     fi
   done
 
