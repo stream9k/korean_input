@@ -260,9 +260,14 @@ will_configure_kde() {
   local target_home="$1"
   local desktop="$2"
   if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
-     command -v kwriteconfig6 >/dev/null 2>&1 || \
-     command -v kwriteconfig5 >/dev/null 2>&1 || \
-     [[ -f "$target_home/.config/kwinrc" ]]; then
+     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    echo "true"
+  elif [[ -z "$desktop" || "$desktop" == "unknown" ]] && {
+       command -v plasmashell >/dev/null 2>&1 || \
+       command -v kwin_wayland >/dev/null 2>&1 || \
+       command -v kwriteconfig6 >/dev/null 2>&1 || \
+       command -v kwriteconfig5 >/dev/null 2>&1 || \
+       [[ -f "$target_home/.config/kwinrc" ]]; }; then
     echo "true"
   else
     echo "false"
@@ -441,7 +446,7 @@ print_preflight_summary_and_confirm() {
     else
       kde_will_cfg=$(will_configure_kde "$target_home" "$desktop")
       local kde6_wl_cfg
-      kde6_wl_cfg=$(is_kde6_wayland "$kde_will_cfg" "$session_type")
+      kde6_wl_cfg=$(is_kde6_wayland "$kde_will_cfg" "$session_type" "$desktop")
       case "$family" in
         debian-family)
           pkg_summary=$(msg \
@@ -892,9 +897,15 @@ configure_kde_virtual_keyboard() {
   local desktop="$5"
 
   local is_kde=false
-  if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+  if [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
     is_kde=true
-  elif command -v kwriteconfig6 >/dev/null 2>&1 || command -v kwriteconfig5 >/dev/null 2>&1 || [[ -f "$target_home/.config/kwinrc" ]]; then
+  elif [[ -z "$desktop" || "$desktop" == "unknown" ]] && {
+       command -v plasmashell >/dev/null 2>&1 || \
+       command -v kwin_wayland >/dev/null 2>&1 || \
+       command -v kwriteconfig6 >/dev/null 2>&1 || \
+       command -v kwriteconfig5 >/dev/null 2>&1 || \
+       [[ -f "$target_home/.config/kwinrc" ]]; }; then
     is_kde=true
   fi
 
@@ -1051,6 +1062,11 @@ EOF
 is_kde6_wayland() {
   local kde_will="$1"
   local session_type="$2"
+  local desktop="${3:-${DESKTOP:-}}"
+  if [[ -n "$desktop" && "$desktop" != "unknown" ]] && ! [[ "$desktop" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    echo "false"
+    return
+  fi
   if [[ "$kde_will" == "true" && "$session_type" != "x11" ]] && command -v kwriteconfig6 >/dev/null 2>&1; then
     echo "true"
   else
@@ -1879,7 +1895,7 @@ main() {
   else
   local KDE_WILL KDE6_WAYLAND
   KDE_WILL=$(will_configure_kde "$TARGET_HOME" "$DESKTOP")
-  KDE6_WAYLAND=$(is_kde6_wayland "$KDE_WILL" "$SESSION_TYPE")
+  KDE6_WAYLAND=$(is_kde6_wayland "$KDE_WILL" "$SESSION_TYPE" "$DESKTOP")
   case "$FAMILY" in
     debian-family)
       log "$(msg "[1/5] 레거시 fcitx4 정리, fcitx5 및 한글 폰트 설치 (apt-get)..." "[1/5] Purging legacy fcitx4 and installing fcitx5 + Korean fonts (apt-get)...")"

@@ -197,10 +197,9 @@ GUIDE_DSK_EOF
 const KDE_VIRTUAL_KEYBOARD_SNIPPET = (forceKde = false) => `
   # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
   local _kde_detected=${forceKde ? "true" : "false"}
-  if [[ "\${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
-     command -v kwriteconfig6 >/dev/null 2>&1 || \\
-     command -v kwriteconfig5 >/dev/null 2>&1 || \\
-     [[ -f "$TARGET_HOME/.config/kwinrc" ]]; then
+  if [[ "\${DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
+     [[ "\${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
+     { [[ -z "\${DESKTOP:-}" || "\${DESKTOP:-}" == "unknown" ]] && { command -v plasmashell >/dev/null 2>&1 || command -v kwin_wayland >/dev/null 2>&1 || command -v kwriteconfig6 >/dev/null 2>&1 || command -v kwriteconfig5 >/dev/null 2>&1 || [[ -f "$TARGET_HOME/.config/kwinrc" ]]; }; }; then
     _kde_detected=true
   fi
   if [[ "$_kde_detected" == "true" ]]; then
@@ -852,10 +851,14 @@ will_configure_kde() {
   local _desk="$3"
   if [[ "$_force" == "true" ]] || \\
      [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
-     [[ "\${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \\
-     command -v kwriteconfig6 >/dev/null 2>&1 || \\
-     command -v kwriteconfig5 >/dev/null 2>&1 || \\
-     [[ -f "$_home/.config/kwinrc" ]]; then
+     [[ "\${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    echo "true"
+  elif [[ -z "$_desk" || "$_desk" == "unknown" ]] && {
+       command -v plasmashell >/dev/null 2>&1 || \\
+       command -v kwin_wayland >/dev/null 2>&1 || \\
+       command -v kwriteconfig6 >/dev/null 2>&1 || \\
+       command -v kwriteconfig5 >/dev/null 2>&1 || \\
+       [[ -f "$_home/.config/kwinrc" ]]; }; then
     echo "true"
   else
     echo "false"
@@ -871,7 +874,11 @@ fcitx5_overwrite_note() {
 }
 
 is_kde6_wayland() {
-  local _kde_will="$1" _session="$2"
+  local _kde_will="$1" _session="$2" _desk="\${3:-\${DESKTOP:-}}"
+  if [[ -n "$_desk" && "$_desk" != "unknown" ]] && ! [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    echo "false"
+    return
+  fi
   if [[ "$_kde_will" == "true" && "$_session" != "x11" ]] && command -v kwriteconfig6 >/dev/null 2>&1; then
     echo "true"
   else
@@ -4083,6 +4090,27 @@ install_kime_source_rhel() {
   if command -v gtk-update-icon-cache >/dev/null 2>&1; then
     gtk-update-icon-cache -q /usr/share/icons/hicolor 2>/dev/null || true
   fi
+  if command -v restorecon >/dev/null 2>&1; then
+    local -a _rc_paths=()
+    local _rc_p
+    for _rc_p in \\
+      /usr/bin/kime /usr/bin/kime-check /usr/bin/kime-indicator \\
+      /usr/bin/kime-candidate-window /usr/bin/kime-xim /usr/bin/kime-wayland \\
+      /usr/bin/kime-xdg-autostart \\
+      "/usr/\${_libdir}/libkime_engine.so" \\
+      "/usr/\${_libdir}/gtk-3.0/3.0.0/immodules" \\
+      "/usr/\${_libdir}/gtk-4.0/4.0.0/immodules" \\
+      "/usr/\${_libdir}/qt5/plugins/platforminputcontexts" \\
+      "/usr/\${_libdir}/qt6/plugins/platforminputcontexts" \\
+      /etc/xdg/autostart/kime.desktop \\
+      /usr/share/applications/kime.desktop \\
+      /usr/share/icons/hicolor/64x64/apps; do
+      [[ -e "$_rc_p" ]] && _rc_paths+=("$_rc_p")
+    done
+    if [[ \${#_rc_paths[@]} -gt 0 ]]; then
+      restorecon -RF "\${_rc_paths[@]}" 2>/dev/null || true
+    fi
+  fi
 
   cleanup_kime_src_tmp
   trap - EXIT
@@ -4208,7 +4236,7 @@ main() {
 
   local _kde_will _kde6_wayland _cfg_summary
   _kde_will=$(will_configure_kde "false" "$TARGET_HOME" "$DESKTOP")
-  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE")
+  _kde6_wayland=$(is_kde6_wayland "$_kde_will" "$SESSION_TYPE" "$DESKTOP")
   if [[ "$_kde6_wayland" == "true" ]]; then
     _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf (KDE Plasma 6 Wayland 안전 모드: QT_IM_MODULES=\\"wayland;kime\\", XMODIFIERS=@im=kime — 전역 QT_IM_MODULE/GTK_IM_MODULE 미설정)"
     if [[ "$_kime_family" == "debian" ]]; then
@@ -4218,11 +4246,11 @@ main() {
       _cfg_summary="\${_cfg_summary}\\n   - $TARGET_HOME/.xprofile (X11 세션 호환)"
     fi
   else
-    _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf"
+    _cfg_summary="   - $TARGET_HOME/.config/environment.d/kime.conf, /etc/environment"
     if [[ "$_kime_family" == "debian" ]]; then
       _cfg_summary="\${_cfg_summary}\\n   - im-config -n kime (im-config 사용 가능 시)"
     else
-      _cfg_summary="\${_cfg_summary}\\n   - $TARGET_HOME/.xprofile (X11 세션 호환)"
+      _cfg_summary="\${_cfg_summary}\\n   - ~/.bash_profile (또는 ~/.zprofile / ~/.profile), $TARGET_HOME/.xprofile"
     fi
   fi
   _cfg_summary="\${_cfg_summary}\\n   - /etc/xdg/autostart/kime.desktop 확인 (없을 경우 $TARGET_HOME/.config/autostart/kime.desktop 생성)"
@@ -4336,6 +4364,26 @@ QT_IM_MODULE=kime
 XMODIFIERS=@im=kime
 EOF
     chown -R "$TARGET_UID:$TARGET_GID" "$(dirname "$ENV_FILE")"
+
+    if [[ -w /etc/environment || ( ! -e /etc/environment && -w /etc ) ]]; then
+      local _etc_header_added=false _etc_pair _env_k _env_v
+      for _etc_pair in "GTK_IM_MODULE=kime" "QT_IM_MODULE=kime" "XMODIFIERS=@im=kime"; do
+        _env_k="\${_etc_pair%%=*}"
+        _env_v="\${_etc_pair#*=}"
+        if ! grep -qE "^[[:space:]]*\${_env_k}=['\\"]?\${_env_v}['\\"]?[[:space:]]*(#.*)?$" /etc/environment 2>/dev/null; then
+          if [[ "$_etc_header_added" != "true" ]]; then
+            if [[ -s /etc/environment ]]; then
+              [[ -n "$(tail -c 1 /etc/environment 2>/dev/null | tr -d '\\n')" ]] && printf '\\n' >> /etc/environment
+              printf '\\n# kime 환경변수\\n' >> /etc/environment
+            else
+              printf '# kime 환경변수\\n' >> /etc/environment
+            fi
+            _etc_header_added=true
+          fi
+          printf '%s\\n' "$_etc_pair" >> /etc/environment
+        fi
+      done
+    fi
   fi
 
   local KIME_CFG="$TARGET_HOME/.config/kime/config.yaml"
@@ -4455,6 +4503,27 @@ export XMODIFIERS=@im=kime
 EOF
       chown "$TARGET_UID:$TARGET_GID" "$XPROFILE_FILE"
     fi
+    if [[ "$_kime_family" != "debian" ]]; then
+      local _user_shell PROFILE_FILE
+      _user_shell=$(getent passwd "$USER" 2>/dev/null | cut -d: -f7 || true)
+      if [[ "$_user_shell" == */zsh ]]; then
+        PROFILE_FILE="$TARGET_HOME/.zprofile"
+      elif [[ -f "$TARGET_HOME/.bash_profile" || "$_user_shell" == */bash ]]; then
+        PROFILE_FILE="$TARGET_HOME/.bash_profile"
+      else
+        PROFILE_FILE="$TARGET_HOME/.profile"
+      fi
+      if ! grep -q "GTK_IM_MODULE=kime" "$PROFILE_FILE" 2>/dev/null; then
+        cat >> "$PROFILE_FILE" <<'EOF'
+
+# kime 환경변수
+export GTK_IM_MODULE=kime
+export QT_IM_MODULE=kime
+export XMODIFIERS=@im=kime
+EOF
+        chown "$TARGET_UID:$TARGET_GID" "$PROFILE_FILE"
+      fi
+    fi
   fi
 
   if [[ "$_kde_will" == "true" && -f /usr/share/applications/kime.desktop ]]; then
@@ -4531,15 +4600,18 @@ EOF
     chown -R "$TARGET_UID:$TARGET_GID" "$ADIR"
     ok "자동시작 등록 ($_kime_exec)"
   fi
+  if command -v systemctl >/dev/null 2>&1 && [[ -S "/run/user/$TARGET_UID/bus" ]]; then
+    run_as_user_sh "$USER" 'systemctl --user daemon-reload 2>/dev/null || true' || true
+  fi
 ${KIME_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   echo
   echo "============================================================"
-  echo " 🎉 kime 설치 완료! 로그아웃 후 다시 로그인하세요."
+  echo " 🎉 kime 설치 완료! 재부팅(권장) 또는 로그아웃 후 다시 로그인하세요."
   echo " KDE Wayland: 시스템 설정 → 입력 및 출력 → 키보드 → 가상 키보드 → kime 데몬 선택"
   if [[ "$_kde6_wayland" == "true" ]]; then
     echo "              (안전 모드 적용됨: KWin 가상 키보드 사용을 위해 전역 QT_IM_MODULE/GTK_IM_MODULE 미설정 — kime-check 경고가 떠도 정상)"
   fi
-  echo " GNOME Wayland: Mutter 한계로 GTK/Qt IM 모듈 앱 위주 동작 (Wayland 네이티브 앱 제한)"
+  echo " GNOME Wayland: 재로그인·재부팅 후 kime-check 로 GTK_IM_MODULE/QT_IM_MODULE 적용 확인 (Mutter 한계로 GTK/Qt IM 모듈 앱 위주 동작)"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 진단: kime-check | 설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)"
   echo " 로그: $LOG_FILE"

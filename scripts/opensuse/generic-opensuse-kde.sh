@@ -603,10 +603,14 @@ will_configure_kde() {
   local _desk="$3"
   if [[ "$_force" == "true" ]] || \
      [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
-     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
-     command -v kwriteconfig6 >/dev/null 2>&1 || \
-     command -v kwriteconfig5 >/dev/null 2>&1 || \
-     [[ -f "$_home/.config/kwinrc" ]]; then
+     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    echo "true"
+  elif [[ -z "$_desk" || "$_desk" == "unknown" ]] && {
+       command -v plasmashell >/dev/null 2>&1 || \
+       command -v kwin_wayland >/dev/null 2>&1 || \
+       command -v kwriteconfig6 >/dev/null 2>&1 || \
+       command -v kwriteconfig5 >/dev/null 2>&1 || \
+       [[ -f "$_home/.config/kwinrc" ]]; }; then
     echo "true"
   else
     echo "false"
@@ -622,7 +626,11 @@ fcitx5_overwrite_note() {
 }
 
 is_kde6_wayland() {
-  local _kde_will="$1" _session="$2"
+  local _kde_will="$1" _session="$2" _desk="${3:-${DESKTOP:-}}"
+  if [[ -n "$_desk" && "$_desk" != "unknown" ]] && ! [[ "$_desk" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]]; then
+    echo "false"
+    return
+  fi
   if [[ "$_kde_will" == "true" && "$_session" != "x11" ]] && command -v kwriteconfig6 >/dev/null 2>&1; then
     echo "true"
   else
@@ -984,10 +992,9 @@ EOF
 
   # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
   local _kde_detected=true
-  if [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
-     command -v kwriteconfig6 >/dev/null 2>&1 || \
-     command -v kwriteconfig5 >/dev/null 2>&1 || \
-     [[ -f "$TARGET_HOME/.config/kwinrc" ]]; then
+  if [[ "${DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     [[ "${XDG_CURRENT_DESKTOP:-}" =~ [Kk][Dd][Ee]|[Pp][Ll][Aa][Ss][Mm][Aa] ]] || \
+     { [[ -z "${DESKTOP:-}" || "${DESKTOP:-}" == "unknown" ]] && { command -v plasmashell >/dev/null 2>&1 || command -v kwin_wayland >/dev/null 2>&1 || command -v kwriteconfig6 >/dev/null 2>&1 || command -v kwriteconfig5 >/dev/null 2>&1 || [[ -f "$TARGET_HOME/.config/kwinrc" ]]; }; }; then
     _kde_detected=true
   fi
   if [[ "$_kde_detected" == "true" ]]; then
