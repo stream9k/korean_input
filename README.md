@@ -90,7 +90,7 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 
 ## ✅ 직접 테스트 완료한 배포판
 
-실제 환경(VM / 실기기)에서 설치 및 한글 입력 정상 동작을 직접 검증한 배포판 목록입니다.
+실제 환경(VM / 실기기)에서 직접 설치해가며 수정·검증한 배포판/에디션 목록입니다.
 
 * **EndeavourOS Titan Nova** (KDE)
 * **Omarchy** (Hyprland)
@@ -101,6 +101,8 @@ wget -qO- https://raw.githubusercontent.com/stream9k/korean_input/main/install.s
 * **openSUSE-Tumbleweed** (KDE / GNOME / Xfce)
 * **Rocky Linux** (KDE / GNOME / Xfce)
 * **Bazzite** (GNOME)
+* **LMDE7** (Cinnamon)
+* **CachyOS** (KDE)
 
 ---
 

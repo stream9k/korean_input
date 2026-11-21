@@ -91,7 +91,7 @@ Representative one-liners from our **198 pre-generated scripts across 20 familie
 
 ## ✅ Verified Distributions (Hands-On Tested)
 
-Distributions directly tested for installation and Korean input functionality:
+Distributions and editions directly installed, tested, and refined in real environments (VM / bare metal) for Korean input:
 
 * **EndeavourOS Titan Nova** (KDE)
 * **Omarchy** (Hyprland)
@@ -102,6 +102,8 @@ Distributions directly tested for installation and Korean input functionality:
 * **openSUSE-Tumbleweed** (KDE / GNOME / Xfce)
 * **Rocky Linux** (KDE / GNOME / Xfce)
 * **Bazzite** (GNOME)
+* **LMDE7** (Cinnamon)
+* **CachyOS** (KDE)
 
 ---
 
