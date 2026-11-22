@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-gentoo-systemd.log"
 
 LOG_ENABLED=false
@@ -1169,6 +1169,7 @@ MSG="🎉 Gentoo / Calculate / CalamaroOS 한글 입력기 설정이 완료되�
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
+🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -1200,6 +1201,7 @@ GUIDE_DSK_EOF
   echo " 🎉 Gentoo 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

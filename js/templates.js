@@ -25,6 +25,7 @@ ${isKde ? "🖥️  KDE Plasma 가상 키보드(Fcitx 5) 자동 설정됨 (미�
 💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능
 ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose
 📝 로그: $LOG_FILE
+🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -70,6 +71,7 @@ MSG="🎉 ${distroName} 한글 입력기 설정이 완료되었습니다!
 ⚙️  설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)
 🩺 진단: kime-check
 📝 로그: /var/log/install-kime-${scriptId}.log
+🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -113,6 +115,7 @@ MSG="🎉 ${distroName} 한글 입력기(ibus-hangul) 설정이 완료되었습�
 ⌨️  전환: Ctrl+Space 또는 한/영 키
 ⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)
 📝 로그: /var/log/install-ibus-${scriptId}.log
+🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -158,10 +161,10 @@ sleep 2
 TITLE="리눅스 한글 입력기 안내"
 GUIDE_HEAD_EOF
     if [[ -n "$_guide_kde_tip" ]]; then
-      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\\n\\n%s\\n\\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\\n📝 로그: %s\\n\\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\\n' \\
+      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\\n\\n%s\\n\\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\\n📝 로그: %s\\n🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고\\n\\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\\n' \\
         "${distroName}" "$_guide_kde_tip" "/var/log/install-hangul-${scriptId}.log"
     else
-      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\\n\\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\\n📝 로그: %s\\n\\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\\n' \\
+      printf 'MSG="🎉 %s 한글 입력기(fcitx5-hangul) 설정이 완료되었습니다!\\n\\n⌨️  전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space\\n💡 영문 키보드 사용 시: fcitx5-configtool 에서 오른쪽 Alt(Alt_R) 등록 가능\\n⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\\n📝 로그: %s\\n🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고\\n\\n(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"\\n' \\
         "${distroName}" "/var/log/install-hangul-${scriptId}.log"
     fi
     cat <<'GUIDE_TAIL_EOF'
@@ -2021,7 +2024,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -2239,6 +2242,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space 로 전환"
   echo " 설정: fcitx5-configtool"
   echo " 로그: $LOG_FILE"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -2251,7 +2255,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2421,6 +2425,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -2433,7 +2438,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2605,6 +2610,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -2617,7 +2623,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2834,6 +2840,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -2922,7 +2929,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3436,6 +3443,7 @@ ${FCITX5_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool | 진단: fcitx5-diagnose"
   echo " 로그: $LOG_FILE"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -3448,7 +3456,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3834,6 +3842,7 @@ ${IBUS_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)"
   echo " 로그: $LOG_FILE"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -3846,7 +3855,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -4998,6 +5007,7 @@ ${KIME_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 진단: kime-check | 설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)"
   echo " 로그: $LOG_FILE"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5010,7 +5020,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5149,6 +5159,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde") || params.distr
   echo " 재부팅 명령: systemctl reboot"
   echo " KDE(Bazzite/Aurora/Kinoite): 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5161,7 +5172,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5325,6 +5336,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(true)}
   echo " 🎉 SteamOS 설치 완료! 재로그인 또는 재부팅 필요"
   echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " 참고: SteamOS 메이저 업데이트 시 루트 패키지가 초기화될 수 있습니다."
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5337,7 +5349,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5454,6 +5466,7 @@ EOF
   echo " 🎉 ibus-hangul 설치 완료! 재로그인 또는 재부팅 필요"
   echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5466,7 +5479,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5618,6 +5631,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 🎉 Void Linux 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5630,7 +5644,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -5764,6 +5778,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 🎉 Alpine Linux 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5776,7 +5791,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5928,6 +5943,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 🎉 Solus 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -5940,7 +5956,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6094,6 +6110,7 @@ ${POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.editionKey.includes("kde"))
   echo " 🎉 Gentoo 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -6106,7 +6123,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6278,6 +6295,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo " 🎉 ${params.distroName} 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -6290,7 +6308,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6445,6 +6463,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(true)}
   echo " 🎉 KaOS 설치 완료! 재로그인 필요"
   echo " KDE: 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -6457,7 +6476,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6609,6 +6628,7 @@ EOF
   echo "============================================================"
   echo " 🎉 Vanilla OS 설정 완료! 반드시 재부팅하세요 (ABRoot 적용)."
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -6621,7 +6641,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6774,6 +6794,7 @@ ${KDE_VIRTUAL_KEYBOARD_SNIPPET(params.editionKey.includes("kde"))}
   echo " 🎉 ALT Linux 설치 완료! 재로그인 필요"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"
@@ -6786,7 +6807,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6943,6 +6964,7 @@ EOF
   echo " 🎉 Guix System 설치 완료! 재로그인 필요"
   echo " 선언적 설정을 원할 경우 /etc/config.scm 의 %desktop-services / home-environment 에도 추가하세요."
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

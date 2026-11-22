@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -1102,7 +1102,8 @@ register_first_login_guide() {
       msg+="   (Firefox 메뉴와 Alt키 충돌 시: 설정→키보드→키바인딩→키보드옵션에서 '오른쪽 ALT를 한/영키로 만들기' 체크)\n"
       msg+="⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose\n"
     fi
-    msg+="📝 로그: $LOG_FILE\n\n"
+    msg+="📝 로그: $LOG_FILE\n"
+    msg+="🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고\n\n"
     msg+="(💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
   else
     title="Linux Korean Input Guide"
@@ -1118,7 +1119,8 @@ register_first_login_guide() {
       msg+="💡 US Keyboard tip: You can bind Right Alt (Alt_R) in fcitx5-configtool\n"
       msg+="⚙️  Config: fcitx5-configtool | Diagnose: fcitx5-diagnose\n"
     fi
-    msg+="📝 Log: $LOG_FILE\n\n"
+    msg+="📝 Log: $LOG_FILE\n"
+    msg+="🔍 Troubleshooting: Refer to Step 3 (Post-Install Verification) at https://stream9k.github.io/korean_input/\n\n"
     msg+="(💡 This notification is shown only once upon reboot and self-deletes.)"
   fi
 
@@ -2445,6 +2447,7 @@ EOF
       echo " ⚙️  설정: fcitx5-configtool | 진단: fcitx5-diagnose"
     fi
     echo " 📝 로그: $LOG_FILE"
+    echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   else
     echo " 🎉 Korean Input Method & Noto CJK Fonts Installed! ($pretty_name / $FAMILY / $SELECTED_IME)"
     if [[ "$need_reboot" == "true" ]]; then
@@ -2463,6 +2466,7 @@ EOF
       echo " ⚙️  Config: fcitx5-configtool | Diagnose: fcitx5-diagnose"
     fi
     echo " 📝 Log: $LOG_FILE"
+    echo " 🔍 Troubleshooting: If Korean input doesn't work, refer to Step 3 (Post-Install Verification) at https://stream9k.github.io/korean_input/"
   fi
   echo "============================================================"
 }

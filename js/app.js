@@ -25,7 +25,7 @@ const I18N = {
   ko: {
     pageTitle: "리눅스 한글 입력기 자동 설치 스크립트 생성기",
     heroTitle: "한글 입력기 자동 설치 스크립트",
-    heroSubtitle: "배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.",
+    heroSubtitle: "",
     shortUrlTitle: "단축 주소",
     heroTitleTooltip: "초기 화면으로 돌아가기",
     step0Title: "⚡ 0단계: 배포판 선택 없이 한 줄 자동 설치 (권장)",
@@ -33,7 +33,7 @@ const I18N = {
     btnCopyAutoOneliner: "📋 원라인 복사",
     btnDownloadAuto: "⬇️ 만능 install.sh 다운로드",
     step0Hint: "💡 파일로 직접 받으신 경우 권한 변경(<code>chmod +x</code>) 없이 <code>sudo bash ~/Downloads/install.sh</code> 로 바로 실행할 수 있습니다.<br>💡 IBus를 선호하시는 경우 실행 확인 단계에서 <code>ibus</code>를 입력하거나 <code>--ibus</code> 옵션(<code>... | sudo bash -s -- --ibus</code>)을 전달하세요.",
-    step1Kicker: "배포판/에디션 선택형",
+    step1Kicker: "배포판/에디션 선택형 : 배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다",
     step1Title: "📋 1단계: 배포판 선택",
     searchLabel: "배포판·데스크톱 빠른 검색",
     searchPlaceholder: "배포판 또는 데스크톱 검색 (예: garuda, 가루다, mint, 민트, bazzite, kde...)",
@@ -65,7 +65,7 @@ const I18N = {
     step4Title: "📚 지원 현황 확인 후 선택 / 입력기 강제 선택",
     forceImeOptgroup: "── ⌨️ 입력기 강제 선택 (배포판 무관 범용/대안 입력기) ──",
     forceImeSectionTitle: "⌨️ 입력기 강제 선택 (배포판 무관 범용/대안 입력기)",
-    forceImeSectionDesc: "배포판별 기본 입력기 대신 원하는 한글 입력기를 직접 지정해 설치합니다.",
+    forceImeSectionDesc: "배포판별 기본 입력기 대신 원하는 한글 입력기를 직접 지정해 설치할 수 있습니다.",
     forceImeTag: "입력기 강제 선택",
     legendImeBadge: "입력기 강제 선택 ⌨️",
     legendImeDesc: "배포판 무관 범용/대안 입력기",
@@ -113,7 +113,7 @@ const I18N = {
   en: {
     pageTitle: "Linux Korean Input Method Auto-Installer Generator",
     heroTitle: "Linux Korean Input Method Installer",
-    heroSubtitle: "Select your Linux distribution and edition to generate a tailored fcitx5-hangul, ibus-hangul, or kime setup script.",
+    heroSubtitle: "",
     shortUrlTitle: "Short URL",
     heroTitleTooltip: "Reset to home",
     step0Title: "⚡ Step 0: One-Line Auto-Detect Installer (Recommended)",
@@ -121,7 +121,7 @@ const I18N = {
     btnCopyAutoOneliner: "📋 Copy One-Liner",
     btnDownloadAuto: "⬇️ Download install.sh",
     step0Hint: "💡 If you downloaded the file manually, run <code>sudo bash ~/Downloads/install.sh</code> directly without <code>chmod +x</code>.<br>💡 Prefer IBus? Type <code>ibus</code> at the confirmation prompt or pass <code>--ibus</code> (<code>... | sudo bash -s -- --ibus</code>).",
-    step1Kicker: "Distro / Edition Selection",
+    step1Kicker: "Distro / Edition Selection : Select your Linux distribution and edition to generate a tailored setup script",
     step1Title: "📋 Step 1: Select Distribution",
     searchLabel: "Quick Search (Distro / Desktop)",
     searchPlaceholder: "Search distro or desktop (e.g. garuda, mint, bazzite, kde, 가루다...)",
@@ -285,7 +285,8 @@ function applyTranslations() {
   const heroTitleEl = document.getElementById("heroTitle");
   heroTitleEl.textContent = t.heroTitle;
   heroTitleEl.title = t.heroTitleTooltip;
-  document.getElementById("heroSubtitle").textContent = t.heroSubtitle;
+  const heroSubtitleEl = document.getElementById("heroSubtitle");
+  if (heroSubtitleEl) heroSubtitleEl.textContent = t.heroSubtitle;
   document.getElementById("step0Title").textContent = t.step0Title;
   document.getElementById("step0Desc").innerHTML = t.step0Desc;
   document.getElementById("btnCopyAutoOneliner").textContent = t.btnCopyAutoOneliner;

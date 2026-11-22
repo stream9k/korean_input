@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-ibus-ibus-arch.log"
 
 LOG_ENABLED=false
@@ -1344,6 +1344,7 @@ MSG="🎉 ibus-hangul (GNOME 친화 대안 입력기) 한글 입력기(ibus-hang
 ⌨️  전환: Ctrl+Space 또는 한/영 키
 ⚙️  설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)
 📝 로그: /var/log/install-ibus-ibus-arch.log
+🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -1380,6 +1381,7 @@ GUIDE_DSK_EOF
   echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup (GNOME: 설정 → 키보드 → 입력 소스)"
   echo " 로그: $LOG_FILE"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

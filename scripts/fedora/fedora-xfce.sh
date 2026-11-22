@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-fedora-xfce.log"
 
 LOG_ENABLED=false
@@ -1174,6 +1174,7 @@ EOF
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 설정: fcitx5-configtool"
   echo " 진단: fcitx5-diagnose"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

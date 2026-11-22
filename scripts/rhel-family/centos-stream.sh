@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-centos-stream.log"
 
 LOG_ENABLED=false
@@ -1066,6 +1066,7 @@ EOF
   echo " 🎉 ibus-hangul 설치 완료! 재로그인 또는 재부팅 필요"
   echo " 전환: Ctrl+Space 또는 한/영 키"
   echo " 세부 설정: ibus-setup"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

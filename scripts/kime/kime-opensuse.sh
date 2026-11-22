@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-kime-kime-opensuse.log"
 
 LOG_ENABLED=false
@@ -2111,6 +2111,7 @@ MSG="🎉 kime (Rust 기반 경량 입력기) 한글 입력기 설정이 완료�
 ⚙️  설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)
 🩺 진단: kime-check
 📝 로그: /var/log/install-kime-kime-opensuse.log
+🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증) 참고
 
 (💡 이 안내창은 재부팅 후 1회만 표시되며 자동으로 삭제됩니다.)"
 
@@ -2148,6 +2149,7 @@ GUIDE_DSK_EOF
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
   echo " 진단: kime-check | 설정: ~/.config/kime/config.yaml (샘플: /usr/share/doc/kime/default_config.yaml)"
   echo " 로그: $LOG_FILE"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

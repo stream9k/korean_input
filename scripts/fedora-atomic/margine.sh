@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.4"
+SCRIPT_VERSION="1.5.5"
 LOG_FILE="/var/log/install-hangul-margine.log"
 
 LOG_ENABLED=false
@@ -1143,6 +1143,7 @@ EOF
   echo " 재부팅 명령: systemctl reboot"
   echo " KDE(Bazzite/Aurora/Kinoite): 가상 키보드(Fcitx 5) 자동 설정됨 (미적용 시 시스템설정 → 입력장치 → 가상키보드 확인)"
   echo " 전환: 한/영 키, 오른쪽 Alt(Alt_R), Ctrl+Space"
+  echo " 🔍 미작동 시: 설치 페이지(https://stream9k.github.io/korean_input/)의 3단계(설치 후 검증)를 참고하세요."
   echo "============================================================"
 }
 main "$@"

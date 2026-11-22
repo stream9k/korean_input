@@ -226,7 +226,6 @@ html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden
 <div class="container">
   <header>
     <h1><a id="heroTitle" class="hero-title-link" href="./" onclick="handleHomeResetClick(event)" title="초기 화면으로 돌아가기">한글 입력기 자동 설치 스크립트</a></h1>
-    <p class="subtitle" id="heroSubtitle">배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다.</p>
   </header>
 
   <div class="card" style="border-color: rgba(63,185,80,0.45); background: linear-gradient(180deg, rgba(63,185,80,0.06), var(--card));">
@@ -249,7 +248,7 @@ html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden
 
   <div class="card">
     <h2 id="step1Title" class="step-heading-stack">
-      <span id="step1Kicker" class="step-kicker">배포판/에디션 선택형</span>
+      <span id="step1Kicker" class="step-kicker">배포판/에디션 선택형 : 배포판과 에디션을 선택하면 맞춤 스크립트를 생성해 드립니다</span>
       <span id="step1HeadingMain">📋 1단계: 배포판 선택</span>
     </h2>
     <div class="search-wrap">
@@ -390,6 +389,30 @@ html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden
     </div>
   </div>
 
+  <div class="card">
+    <h2 id="step4Title">📚 지원 현황 확인 후 선택 / 입력기 강제 선택</h2>
+    <div class="legend-bar" style="display:flex; flex-wrap:wrap; gap:0.5rem 0.75rem; align-items:center; margin-bottom:1rem; padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border:1px solid var(--border); border-radius:8px; font-size:0.8rem;">
+      <span id="legendTitle" style="font-weight:600; color:var(--muted);">색상 / 상태 구분:</span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-verified">검증됨 ✅</span>
+        <span id="legendVerifiedDesc" style="color:var(--muted); font-size:0.75rem;">가장 안정적인 권장 환경</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-beta">베타 ⚠️</span>
+        <span id="legendBetaDesc" style="color:var(--muted); font-size:0.75rem;">표준 신뢰 단계</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-experimental">실험적 🧪</span>
+        <span id="legendExpDesc" style="color:var(--muted); font-size:0.75rem;">수동 설정/특수 환경</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span id="legendImeBadge" class="badge badge-ime">입력기 강제 선택 ⌨️</span>
+        <span id="legendImeDesc" style="color:var(--muted); font-size:0.75rem;">배포판 무관 범용/대안 입력기</span>
+      </span>
+    </div>
+    <div id="supportMatrix"></div>
+  </div>
+
   <div class="card" id="verifyCard" style="display:none;">
     <h2 id="step3Title">✅ 3단계: 설치 후 검증</h2>
     <pre><code id="verifyCodeBlock"># 재로그인 후 실행
@@ -415,30 +438,6 @@ fcitx5 -r</code></pre>
         <strong>해결 방법:</strong> 설정 → 키보드 → 키바인딩 (또는 레이아웃) → <strong>키보드 옵션 설정</strong> 체크 → <strong>한국어 한/영키 한자키</strong> → <strong>오른쪽 ALT키를 한/영키로 만들기</strong> 체크 후 적용하세요.
       </p>
     </div>
-  </div>
-
-  <div class="card">
-    <h2 id="step4Title">📚 지원 현황 확인 후 선택 / 입력기 강제 선택</h2>
-    <div class="legend-bar" style="display:flex; flex-wrap:wrap; gap:0.5rem 0.75rem; align-items:center; margin-bottom:1rem; padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border:1px solid var(--border); border-radius:8px; font-size:0.8rem;">
-      <span id="legendTitle" style="font-weight:600; color:var(--muted);">색상 / 상태 구분:</span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span class="badge badge-verified">검증됨 ✅</span>
-        <span id="legendVerifiedDesc" style="color:var(--muted); font-size:0.75rem;">가장 안정적인 권장 환경</span>
-      </span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span class="badge badge-beta">베타 ⚠️</span>
-        <span id="legendBetaDesc" style="color:var(--muted); font-size:0.75rem;">표준 신뢰 단계</span>
-      </span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span class="badge badge-experimental">실험적 🧪</span>
-        <span id="legendExpDesc" style="color:var(--muted); font-size:0.75rem;">수동 설정/특수 환경</span>
-      </span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span id="legendImeBadge" class="badge badge-ime">입력기 강제 선택 ⌨️</span>
-        <span id="legendImeDesc" style="color:var(--muted); font-size:0.75rem;">배포판 무관 범용/대안 입력기</span>
-      </span>
-    </div>
-    <div id="supportMatrix"></div>
   </div>
 </div>
 
@@ -510,9 +509,9 @@ fcitx5 -r</code></pre>
 
 <div class="toast" id="toast"></div>
 
-<script src="js/data.js?v=1.5.4"></script>
-<script src="js/templates.js?v=1.5.4"></script>
-<script src="js/app.js?v=1.5.4"></script>
+<script src="js/data.js?v=1.5.5"></script>
+<script src="js/templates.js?v=1.5.5"></script>
+<script src="js/app.js?v=1.5.5"></script>
 <!-- Prism.js for syntax highlighting (lightweight) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
