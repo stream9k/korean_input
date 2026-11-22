@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.5"
+SCRIPT_VERSION="1.5.6"
 LOG_FILE="/var/log/install-hangul-solus-xfce.log"
 
 LOG_ENABLED=false

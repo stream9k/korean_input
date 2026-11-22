@@ -493,6 +493,7 @@ function onDistroChange() {
 function selectEditionTag(edKey) {
   editionSelect.value = edKey;
   selectEdition(edKey);
+  scriptCard.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function selectEdition(edKey) {

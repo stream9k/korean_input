@@ -334,6 +334,30 @@ html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden
     </div>
   </div>
 
+  <div class="card">
+    <h2 id="step4Title">📚 지원 현황 확인 후 선택 / 입력기 강제 선택</h2>
+    <div class="legend-bar" style="display:flex; flex-wrap:wrap; gap:0.5rem 0.75rem; align-items:center; margin-bottom:1rem; padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border:1px solid var(--border); border-radius:8px; font-size:0.8rem;">
+      <span id="legendTitle" style="font-weight:600; color:var(--muted);">색상 / 상태 구분:</span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-verified">검증됨 ✅</span>
+        <span id="legendVerifiedDesc" style="color:var(--muted); font-size:0.75rem;">가장 안정적인 권장 환경</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-beta">베타 ⚠️</span>
+        <span id="legendBetaDesc" style="color:var(--muted); font-size:0.75rem;">표준 신뢰 단계</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span class="badge badge-experimental">실험적 🧪</span>
+        <span id="legendExpDesc" style="color:var(--muted); font-size:0.75rem;">수동 설정/특수 환경</span>
+      </span>
+      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
+        <span id="legendImeBadge" class="badge badge-ime">입력기 강제 선택 ⌨️</span>
+        <span id="legendImeDesc" style="color:var(--muted); font-size:0.75rem;">배포판 무관 범용/대안 입력기</span>
+      </span>
+    </div>
+    <div id="supportMatrix"></div>
+  </div>
+
   <div class="card" id="scriptCard" style="display:none;">
     <h2 id="step2Title">📄 2단계: 설치 방법 선택 (방법 A 또는 방법 B 중 하나만 실행하세요)</h2>
     <p id="step2Intro" style="color:var(--muted); font-size:0.9rem; margin-bottom:1.25rem;">
@@ -387,30 +411,6 @@ html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden
       <pre id="scriptContent"><code></code></pre>
       <div class="info-grid" id="scriptInfo"></div>
     </div>
-  </div>
-
-  <div class="card">
-    <h2 id="step4Title">📚 지원 현황 확인 후 선택 / 입력기 강제 선택</h2>
-    <div class="legend-bar" style="display:flex; flex-wrap:wrap; gap:0.5rem 0.75rem; align-items:center; margin-bottom:1rem; padding:0.65rem 0.9rem; background:rgba(0,0,0,0.35); border:1px solid var(--border); border-radius:8px; font-size:0.8rem;">
-      <span id="legendTitle" style="font-weight:600; color:var(--muted);">색상 / 상태 구분:</span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span class="badge badge-verified">검증됨 ✅</span>
-        <span id="legendVerifiedDesc" style="color:var(--muted); font-size:0.75rem;">가장 안정적인 권장 환경</span>
-      </span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span class="badge badge-beta">베타 ⚠️</span>
-        <span id="legendBetaDesc" style="color:var(--muted); font-size:0.75rem;">표준 신뢰 단계</span>
-      </span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span class="badge badge-experimental">실험적 🧪</span>
-        <span id="legendExpDesc" style="color:var(--muted); font-size:0.75rem;">수동 설정/특수 환경</span>
-      </span>
-      <span style="display:inline-flex; align-items:center; gap:0.35rem;">
-        <span id="legendImeBadge" class="badge badge-ime">입력기 강제 선택 ⌨️</span>
-        <span id="legendImeDesc" style="color:var(--muted); font-size:0.75rem;">배포판 무관 범용/대안 입력기</span>
-      </span>
-    </div>
-    <div id="supportMatrix"></div>
   </div>
 
   <div class="card" id="verifyCard" style="display:none;">
@@ -509,9 +509,9 @@ fcitx5 -r</code></pre>
 
 <div class="toast" id="toast"></div>
 
-<script src="js/data.js?v=1.5.5"></script>
-<script src="js/templates.js?v=1.5.5"></script>
-<script src="js/app.js?v=1.5.5"></script>
+<script src="js/data.js?v=1.5.6"></script>
+<script src="js/templates.js?v=1.5.6"></script>
+<script src="js/app.js?v=1.5.6"></script>
 <!-- Prism.js for syntax highlighting (lightweight) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
