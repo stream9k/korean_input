@@ -80,6 +80,10 @@ const I18N = {
     floatingHomeTitle: "선택을 해제하고 초기 화면으로 돌아가기",
     backToTopText: "맨 위로",
     backToTopTitle: "맨 위로 이동",
+    aiBtnIdle: "AI도우미",
+    aiBtnLoading: "로딩 중...",
+    aiBtnOpen: "AI도우미 닫기",
+    aiLoadError: "AI도우미를 불러오지 못했습니다",
     toastResetHome: "선택을 해제하고 초기 화면으로 돌아왔습니다",
     footerNote: "이 프로젝트들의 패키지 구성·설정 순서·예외 처리 로직을 참고해 템플릿을 만들었습니다.",
     thProject: "프로젝트",
@@ -168,6 +172,10 @@ const I18N = {
     floatingHomeTitle: "Clear selection and return to home",
     backToTopText: "Top",
     backToTopTitle: "Scroll to top",
+    aiBtnIdle: "AI Assistant",
+    aiBtnLoading: "Loading...",
+    aiBtnOpen: "Close AI Assistant",
+    aiLoadError: "Failed to load AI Assistant",
     toastResetHome: "Selection cleared — returned to home",
     footerNote: "Templates were created by referencing package setups, configuration order, and edge-case handling from these projects.",
     thProject: "Project",
@@ -413,6 +421,7 @@ function applyTranslations() {
   }
   renderSupportMatrix();
   updateSelectionUi();
+  if (typeof updateAiLauncherUi === "function") updateAiLauncherUi();
 }
 
 function setLang(lang, persist = true) {
@@ -1074,13 +1083,37 @@ function syncFromHash() {
   }
 }
 
+function isPageReload() {
+  try {
+    if (window.performance && typeof performance.getEntriesByType === "function") {
+      const navEntries = performance.getEntriesByType("navigation");
+      if (navEntries && navEntries.length > 0 && navEntries[0].type) {
+        return navEntries[0].type === "reload";
+      }
+    }
+    if (window.performance && performance.navigation) {
+      return performance.navigation.type === 1;
+    }
+  } catch {}
+  return false;
+}
+
 // ──────────────────────────────────────────────────────────────
 // 초기화
 // ──────────────────────────────────────────────────────────────
+const INITIAL_IS_RELOAD = isPageReload();
+if (INITIAL_IS_RELOAD && location.hash && "scrollRestoration" in history) {
+  try { history.scrollRestoration = "manual"; } catch {}
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   setLang(detectInitialLang(), false);
-  // URL 해시로 프리셋 지원 (예: #mint/cinnamon)
-  if (location.hash) {
+  if (INITIAL_IS_RELOAD) {
+    // F5 등 새로고침 시 선택된 해시(#distro/edition)를 제거하고 초기 주소로 복귀
+    resetToHome({ updateUrl: true, scrollTop: false, showNotice: false });
+    window.scrollTo(0, 0);
+  } else if (location.hash) {
+    // 직접 링크 접속 시 URL 해시로 프리셋 지원 (예: #mint/cinnamon)
     const [distro, edition] = location.hash.slice(1).split("/");
     if (DISTRO_DATA[distro]) {
       distroSelect.value = distro;
@@ -1119,7 +1152,184 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   }
+
+  initAiLauncher();
 });
+
+// ──────────────────────────────────────────────────────────────
+// AI도우미 플로팅 런처 (page-agent 지연 로드 + 토글/재오픈 지원)
+// ──────────────────────────────────────────────────────────────
+const PAGE_AGENT_SCRIPT_SRC =
+  "https://cdn.jsdelivr.net/npm/page-agent@1.5.7/dist/iife/page-agent.demo.js";
+const PAGE_AGENT_SCRIPT_ID = "page-agent-demo-script";
+
+let aiIsLoading = false;
+let aiIsOpen = false;
+let aiSavedConfig = null;
+let aiAttachedAgent = null;
+let aiPollTimer = null;
+
+function updateAiLauncherUi() {
+  const btn = document.getElementById("ai-trigger-btn");
+  if (!btn) return;
+  const t = I18N[currentLang] || I18N.ko;
+
+  btn.textContent = aiIsLoading
+    ? t.aiBtnLoading
+    : aiIsOpen
+      ? t.aiBtnOpen
+      : t.aiBtnIdle;
+  btn.classList.toggle("is-open", aiIsOpen && !aiIsLoading);
+  btn.setAttribute("aria-busy", String(aiIsLoading));
+  btn.setAttribute("aria-expanded", String(aiIsOpen));
+  if (aiIsLoading) {
+    btn.setAttribute("aria-disabled", "true");
+  } else {
+    btn.removeAttribute("aria-disabled");
+  }
+}
+
+function handleAiAgentDispose() {
+  aiIsOpen = false;
+  updateAiLauncherUi();
+}
+
+function detachAiDisposeListener() {
+  if (aiAttachedAgent) {
+    aiAttachedAgent.removeEventListener("dispose", handleAiAgentDispose);
+    aiAttachedAgent = null;
+  }
+}
+
+function attachAiDisposeListener(agent) {
+  if (!agent || aiAttachedAgent === agent) return;
+  detachAiDisposeListener();
+  if (typeof agent.addEventListener === "function") {
+    agent.addEventListener("dispose", handleAiAgentDispose);
+    aiAttachedAgent = agent;
+  }
+}
+
+function bindLoadedAiAgent() {
+  const sync = () => {
+    const agent = window.pageAgent;
+    if (!agent || agent.disposed) return false;
+
+    if (agent.config) {
+      aiSavedConfig = agent.config;
+    }
+    attachAiDisposeListener(agent);
+    aiIsLoading = false;
+    aiIsOpen = true;
+    updateAiLauncherUi();
+    return true;
+  };
+
+  if (sync()) return;
+
+  if (aiPollTimer !== null) {
+    window.clearInterval(aiPollTimer);
+  }
+
+  let attempts = 0;
+  aiPollTimer = window.setInterval(() => {
+    attempts += 1;
+    if (sync() || attempts >= 40) {
+      if (aiPollTimer !== null) {
+        window.clearInterval(aiPollTimer);
+        aiPollTimer = null;
+      }
+      if (aiIsLoading) {
+        aiIsLoading = false;
+        updateAiLauncherUi();
+      }
+    }
+  }, 50);
+}
+
+function loadAiDemoScript() {
+  aiIsLoading = true;
+  updateAiLauncherUi();
+
+  const oldScript = document.getElementById(PAGE_AGENT_SCRIPT_ID);
+  if (oldScript) {
+    oldScript.remove();
+  }
+
+  const script = document.createElement("script");
+  script.id = PAGE_AGENT_SCRIPT_ID;
+  script.src = PAGE_AGENT_SCRIPT_SRC;
+  script.crossOrigin = "anonymous";
+  script.onload = () => {
+    bindLoadedAiAgent();
+  };
+  script.onerror = () => {
+    aiIsLoading = false;
+    aiIsOpen = false;
+    updateAiLauncherUi();
+    const t = I18N[currentLang] || I18N.ko;
+    showToast(t.aiLoadError, "error");
+  };
+  document.body.appendChild(script);
+}
+
+function handleAiToggleClick() {
+  if (aiIsLoading) return;
+
+  const agent = window.pageAgent;
+  const isAlive =
+    Boolean(agent) &&
+    !agent.disposed &&
+    Boolean(agent.panel && agent.panel.wrapper) &&
+    document.body.contains(agent.panel.wrapper);
+
+  // 1. 이미 열려 있으면 숨기기 (대화 상태 유지)
+  if (aiIsOpen && isAlive) {
+    agent.panel.hide();
+    aiIsOpen = false;
+    updateAiLauncherUi();
+    return;
+  }
+
+  // 2. 살아 있지만 숨겨져 있으면 다시 표시
+  if (isAlive) {
+    attachAiDisposeListener(agent);
+    agent.panel.show();
+    aiIsOpen = true;
+    updateAiLauncherUi();
+    return;
+  }
+
+  // 3. 패널 X 버튼으로 dispose된 경우, 이미 로드된 PageAgent로 즉시 재생성
+  if (typeof window.PageAgent === "function" && aiSavedConfig) {
+    const nextAgent = new window.PageAgent(aiSavedConfig);
+    window.pageAgent = nextAgent;
+    attachAiDisposeListener(nextAgent);
+    if (nextAgent.panel && typeof nextAgent.panel.show === "function") {
+      nextAgent.panel.show();
+    }
+    aiIsOpen = true;
+    updateAiLauncherUi();
+    return;
+  }
+
+  // 4. 최초 실행: 데모 스크립트 동적 로드
+  loadAiDemoScript();
+}
+
+function initAiLauncher() {
+  const btn = document.getElementById("ai-trigger-btn");
+  if (!btn) return;
+  btn.addEventListener("click", handleAiToggleClick);
+  updateAiLauncherUi();
+  window.addEventListener("pagehide", () => {
+    if (aiPollTimer !== null) {
+      window.clearInterval(aiPollTimer);
+      aiPollTimer = null;
+    }
+    detachAiDisposeListener();
+  });
+}
 
 // 해시/히스토리 변경 감지 (뒤로 가기 / 앞으로 가기 / 수동 해시 삭제 시)
 window.addEventListener("hashchange", syncFromHash);

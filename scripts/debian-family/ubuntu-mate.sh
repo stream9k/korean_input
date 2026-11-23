@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.6"
+SCRIPT_VERSION="1.5.7"
 LOG_FILE="/var/log/install-hangul-ubuntu-mate.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

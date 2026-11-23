@@ -162,7 +162,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .search-unsupported { margin-top: 0.5rem; padding: 0.6rem 0.8rem; background: rgba(248,81,73,0.08); border: 1px solid rgba(248,81,73,0.25); border-radius: 6px; font-size: 0.82rem; }
 .search-generic-box { margin-top: 0.65rem; padding-top: 0.65rem; border-top: 1px dashed var(--border); }
 .search-generic-title { font-size: 0.8rem; color: var(--muted); margin-bottom: 0.4rem; font-weight: 500; }
-.footer { max-width: 900px; margin: 3rem auto 0; padding: 1.5rem 1.5rem 4.75rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
+.footer { max-width: 900px; margin: 3rem auto 0; padding: 1.5rem 1.5rem 5.5rem; border-top: 1px solid var(--border); color: var(--muted); font-size: 0.85rem; }
 .footer-note { text-align: center; margin-bottom: 1rem; color: var(--fg); }
 .footer-meta { text-align: center; margin-top: 1.25rem; color: var(--muted); }
 .ref-table-wrap { overflow-x: auto; background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
@@ -174,7 +174,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 .ref-table td:nth-child(3) { white-space: nowrap; }
 .footer a { color: var(--accent); }
 .footer a:hover { color: var(--accent-hover); }
-.floating-actions { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 60; display: flex; align-items: center; gap: 0.5rem; visibility: visible; opacity: 1; transition: visibility 0.25s, opacity 0.25s ease, translate 0.25s ease; }
+.floating-actions { position: fixed; bottom: 4.5rem; right: 1.25rem; z-index: 60; display: flex; align-items: center; gap: 0.5rem; visibility: visible; opacity: 1; transition: visibility 0.25s, opacity 0.25s ease, translate 0.25s ease; }
 html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden; opacity: 0; translate: 0 16px; pointer-events: none; }
 @supports (container-type: scroll-state) {
   .floating-actions { visibility: hidden; opacity: 0; translate: 0 16px; pointer-events: none; }
@@ -186,13 +186,21 @@ html.js-scroll-fallback:not(.is-scrolled) .floating-actions { visibility: hidden
 .floating-btn:hover { background: var(--border); color: #fff; text-decoration: none; }
 .floating-home-btn { background: rgba(31, 111, 235, 0.92); border-color: var(--accent); color: #fff; }
 .floating-home-btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #0d1117; }
+.ai-controls { position: fixed; bottom: 1.25rem; right: 1.25rem; z-index: 9999; display: flex; align-items: center; gap: 0.625rem; }
+.ai-trigger-btn { min-block-size: 40px; min-inline-size: 52px; padding: 0.625rem 1rem; background: #007aff; color: #fff; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 999px; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35); font-family: var(--font); font-weight: 700; font-size: 0.875rem; line-height: 1.2; transition: background-color 0.15s ease, border-color 0.15s ease, opacity 0.15s ease; }
+.ai-trigger-btn:hover { background: #0066d6; }
+.ai-trigger-btn:focus-visible { outline: 2px solid #79b8ff; outline-offset: 2px; }
+.ai-trigger-btn.is-open { background: #1e293b; border-color: rgba(148, 163, 184, 0.4); }
+.ai-trigger-btn.is-open:hover { background: #334155; }
+.ai-trigger-btn.is-open:focus-visible { outline-color: #94a3b8; }
+.ai-trigger-btn[aria-disabled="true"] { opacity: 0.75; cursor: wait; transform: none; }
 @media (prefers-reduced-motion: reduce) {
-  .floating-actions, .top-bar-inner { transition: none; }
+  .floating-actions, .top-bar-inner, .ai-trigger-btn { transition: none; }
 }
 @media (forced-colors: active) {
-  .floating-btn, .top-bar-home { border-color: ButtonText; }
+  .floating-btn, .top-bar-home, .ai-trigger-btn { border-color: ButtonText; }
 }
-.toast { position: fixed; bottom: 4.75rem; right: 1.25rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: translateY(100px); opacity: 0; transition: all 0.3s ease; z-index: 100; }
+.toast { position: fixed; bottom: 8rem; right: 1.25rem; background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.5rem; box-shadow: 0 8px 24px rgba(0,0,0,0.4); transform: translateY(100px); opacity: 0; transition: all 0.3s ease; z-index: 100; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.success { border-left: 4px solid var(--success); }
 .toast.error { border-left: 4px solid var(--danger); }
@@ -507,11 +515,15 @@ fcitx5 -r</code></pre>
   <button type="button" id="backToTopBtn" class="floating-btn" onclick="if(typeof scrollToTopClean==='function'){scrollToTopClean();}else{window.scrollTo({top:0,behavior:'smooth'});}" title="맨 위로 이동" aria-label="맨 위로 이동">↑ <span id="backToTopText">맨 위로</span></button>
 </div>
 
+<div id="ai-controls" class="ai-controls">
+  <button id="ai-trigger-btn" type="button" class="ai-trigger-btn" aria-busy="false" aria-expanded="false">AI도우미</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
-<script src="js/data.js?v=1.5.6"></script>
-<script src="js/templates.js?v=1.5.6"></script>
-<script src="js/app.js?v=1.5.6"></script>
+<script src="js/data.js?v=1.5.7"></script>
+<script src="js/templates.js?v=1.5.7"></script>
+<script src="js/app.js?v=1.5.7"></script>
 <!-- Prism.js for syntax highlighting (lightweight) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>

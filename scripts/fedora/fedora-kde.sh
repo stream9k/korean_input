@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.6"
+SCRIPT_VERSION="1.5.7"
 LOG_FILE="/var/log/install-hangul-fedora-kde.log"
 
 LOG_ENABLED=false
