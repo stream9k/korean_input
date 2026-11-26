@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-mint-cinnamon.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

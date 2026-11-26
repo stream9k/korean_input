@@ -2024,7 +2024,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -2255,7 +2255,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2438,7 +2438,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2623,7 +2623,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2847,26 +2847,34 @@ main "$@"
 `,
 
   // ─── NixOS ───
-  "nixos": (params) => `# ${params.distroName} ${params.editionLabel} - 한글 입력기 설정 (configuration.nix)
+  "nixos": (params) => {
+    const isWaylandEdition = ["kde", "gnome", "hyprland", "sway"].includes(params.editionKey);
+    const waylandFrontendLine = isWaylandEdition
+      ? `      waylandFrontend = true; # Wayland(${params.editionLabel}) 네이티브 입력 지원`
+      : `      # waylandFrontend = true; # Wayland 세션 사용 시 주석 해제`;
+    return `# ${params.distroName} ${params.editionLabel} - 한글 입력기 설정 (configuration.nix)
 # 이 파일은 실행 스크립트가 아닙니다. 아래 중 원하는 입력기(택 1)를 /etc/nixos/configuration.nix 에 병합하세요.
 
 { config, pkgs, ... }:
 
 {
   # 1. 입력기 선택 (아래 3가지 중 1개만 활성화하세요)
+  # 참고: i18n.inputMethod가 필요한 환경변수를 자동 관리하므로 GTK_IM_MODULE/QT_IM_MODULE을 수동 지정하지 마세요.
 
   # [방법 1] fcitx5 (fcitx5-hangul, 권장)
   i18n.inputMethod = {
     enable = true;
     type = "fcitx5";
     fcitx5 = {
-      # waylandFrontend = true; # Wayland(GNOME/KDE/Hyprland/Sway) 사용 시 권장
+${waylandFrontendLine}
       addons = with pkgs; [ fcitx5-hangul ];  # 한국어
       # addons = with pkgs; [ fcitx5-hangul fcitx5-mozc fcitx5-chinese-addons ]; # 다국어
     };
   };
 
-  # [방법 2] ibus (ibus-hangul, GNOME 등 기본) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # [방법 2] ibus (ibus-hangul, GNOME 권장) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # ⚠️ 주의: KDE Plasma 6 Wayland에서는 전역 QT_IM_MODULE/GTK_IM_MODULE과 IBus Wayland 가상 키보드가
+  # 충돌하여 Konsole 등 터미널에서 동작하지 않을 수 있습니다. (ibus-setup에서는 'Korean - Hangul' 선택 필요)
   # i18n.inputMethod = {
   #   enable = true;
   #   type = "ibus";
@@ -2881,14 +2889,7 @@ main "$@"
   #   type = "kime";
   # };
 
-  # 2. 환경변수 (Wayland/X11 공통)
-  environment.sessionVariables = {
-    GTK_IM_MODULE = "fcitx";
-    QT_IM_MODULE = "fcitx";
-    XMODIFIERS = "@im=fcitx";
-  };
-
-  # 3. 사용자별 Fcitx5 설정 (홈 매니저 사용 시)
+  # 2. 사용자별 Fcitx5 설정 (홈 매니저 사용 시)
   # home-manager 옵션 예시:
   # programs.fcitx5 = {
   #   enable = true;
@@ -2907,7 +2908,7 @@ main "$@"
   #   };
   # };
 
-  # 4. 폰트 (한글 렌더링)
+  # 3. 폰트 (한글 렌더링)
   fonts.packages = with pkgs; [ noto-fonts-cjk-sans noto-fonts-color-emoji ];
 }
 
@@ -2915,8 +2916,9 @@ main "$@"
 # 1. 위 내용을 /etc/nixos/configuration.nix 에 병합
 # 2. sudo nixos-rebuild switch
 # 3. 재부팅 또는 재로그인
-# 4. fcitx5-configtool 로 엔진 순서/핫키 확인
-`,
+# 4. (fcitx5) KDE 시스템 설정 → 키보드 → 가상 키보드 → Fcitx 5 선택 후 fcitx5-configtool 로 Hangul 추가
+`;
+  },
 
   // ─── fcitx5-hangul (표준 범용) ───
   "fcitx5": (params) => `#!/usr/bin/env bash
@@ -2925,7 +2927,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3452,7 +3454,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3851,7 +3853,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5019,7 +5021,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5171,7 +5173,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5348,7 +5350,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5478,7 +5480,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5643,7 +5645,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -5790,7 +5792,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5955,7 +5957,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6122,7 +6124,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6307,7 +6309,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6475,7 +6477,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6640,7 +6642,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6806,7 +6808,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }

@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-arch-blendos.log"
 
 LOG_ENABLED=false

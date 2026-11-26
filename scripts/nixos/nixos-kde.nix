@@ -5,19 +5,22 @@
 
 {
   # 1. 입력기 선택 (아래 3가지 중 1개만 활성화하세요)
+  # 참고: i18n.inputMethod가 필요한 환경변수를 자동 관리하므로 GTK_IM_MODULE/QT_IM_MODULE을 수동 지정하지 마세요.
 
   # [방법 1] fcitx5 (fcitx5-hangul, 권장)
   i18n.inputMethod = {
     enable = true;
     type = "fcitx5";
     fcitx5 = {
-      # waylandFrontend = true; # Wayland(GNOME/KDE/Hyprland/Sway) 사용 시 권장
+      waylandFrontend = true; # Wayland(KDE Plasma) 네이티브 입력 지원
       addons = with pkgs; [ fcitx5-hangul ];  # 한국어
       # addons = with pkgs; [ fcitx5-hangul fcitx5-mozc fcitx5-chinese-addons ]; # 다국어
     };
   };
 
-  # [방법 2] ibus (ibus-hangul, GNOME 등 기본) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # [방법 2] ibus (ibus-hangul, GNOME 권장) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # ⚠️ 주의: KDE Plasma 6 Wayland에서는 전역 QT_IM_MODULE/GTK_IM_MODULE과 IBus Wayland 가상 키보드가
+  # 충돌하여 Konsole 등 터미널에서 동작하지 않을 수 있습니다. (ibus-setup에서는 'Korean - Hangul' 선택 필요)
   # i18n.inputMethod = {
   #   enable = true;
   #   type = "ibus";
@@ -32,14 +35,7 @@
   #   type = "kime";
   # };
 
-  # 2. 환경변수 (Wayland/X11 공통)
-  environment.sessionVariables = {
-    GTK_IM_MODULE = "fcitx";
-    QT_IM_MODULE = "fcitx";
-    XMODIFIERS = "@im=fcitx";
-  };
-
-  # 3. 사용자별 Fcitx5 설정 (홈 매니저 사용 시)
+  # 2. 사용자별 Fcitx5 설정 (홈 매니저 사용 시)
   # home-manager 옵션 예시:
   # programs.fcitx5 = {
   #   enable = true;
@@ -58,7 +54,7 @@
   #   };
   # };
 
-  # 4. 폰트 (한글 렌더링)
+  # 3. 폰트 (한글 렌더링)
   fonts.packages = with pkgs; [ noto-fonts-cjk-sans noto-fonts-color-emoji ];
 }
 
@@ -66,4 +62,4 @@
 # 1. 위 내용을 /etc/nixos/configuration.nix 에 병합
 # 2. sudo nixos-rebuild switch
 # 3. 재부팅 또는 재로그인
-# 4. fcitx5-configtool 로 엔진 순서/핫키 확인
+# 4. (fcitx5) KDE 시스템 설정 → 키보드 → 가상 키보드 → Fcitx 5 선택 후 fcitx5-configtool 로 Hangul 추가

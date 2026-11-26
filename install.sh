@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.11"
+SCRIPT_VERSION="1.5.12"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -1982,6 +1982,8 @@ main() {
   fi
 
   if [[ "$FAMILY" == "nixos" ]]; then
+    local _nix_session
+    _nix_session=$(detect_session_type)
     echo
     echo "============================================================"
     if [[ "$IS_KO" == "true" ]]; then
@@ -1991,10 +1993,18 @@ main() {
       echo " [1] fcitx5 (fcitx5-hangul, 권장):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"fcitx5\";"
+      if [[ "$_nix_session" == "wayland" ]]; then
+        echo "   i18n.inputMethod.fcitx5.waylandFrontend = true;"
+      else
+        echo "   # i18n.inputMethod.fcitx5.waylandFrontend = true; # Wayland 세션 사용 시 추가"
+      fi
       echo "   i18n.inputMethod.fcitx5.addons = with pkgs; [ fcitx5-hangul ];"
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
-      echo " [2] ibus (ibus-hangul, GNOME 등 기본):"
+      echo " [2] ibus (ibus-hangul, GNOME 권장):"
+      echo "   # ⚠️ 주의: KDE Plasma 6 Wayland에서는 전역 QT_IM_MODULE/GTK_IM_MODULE과"
+      echo "   # IBus Wayland 가상 키보드가 충돌하여 터미널(Konsole) 등에서 안 될 수 있습니다."
+      echo "   # 또한 ibus-setup에서 'Korean - Korean'(단순 키보드)이 아닌 'Korean - Hangul'을 사용하세요."
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"ibus\";"
       echo "   i18n.inputMethod.ibus.engines = with pkgs.ibus-engines; [ hangul ];"
@@ -2008,17 +2018,25 @@ main() {
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " 상세 예시: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
-      echo " 적용: sudo nixos-rebuild switch"
+      echo " 적용: sudo nixos-rebuild switch (이후 재로그인/재부팅)"
     else
       echo " ℹ️  NixOS uses declarative configuration. Merge one IME block into /etc/nixos/configuration.nix:"
       echo
       echo " [1] fcitx5 (fcitx5-hangul, recommended):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"fcitx5\";"
+      if [[ "$_nix_session" == "wayland" ]]; then
+        echo "   i18n.inputMethod.fcitx5.waylandFrontend = true;"
+      else
+        echo "   # i18n.inputMethod.fcitx5.waylandFrontend = true; # Enable if using Wayland"
+      fi
       echo "   i18n.inputMethod.fcitx5.addons = with pkgs; [ fcitx5-hangul ];"
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
-      echo " [2] ibus (ibus-hangul, GNOME default):"
+      echo " [2] ibus (ibus-hangul, recommended for GNOME):"
+      echo "   # ⚠️ Warning: On KDE Plasma 6 Wayland, global QT_IM_MODULE/GTK_IM_MODULE"
+      echo "   # conflicts with IBus Wayland virtual keyboard (may fail in Konsole/terminals)."
+      echo "   # Also use 'Korean - Hangul' (not 'Korean - Korean' layout) in ibus-setup."
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"ibus\";"
       echo "   i18n.inputMethod.ibus.engines = with pkgs.ibus-engines; [ hangul ];"
@@ -2032,7 +2050,7 @@ main() {
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " Examples: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
-      echo " Apply: sudo nixos-rebuild switch"
+      echo " Apply: sudo nixos-rebuild switch (then re-login or reboot)"
     fi
     echo "============================================================"
     exit 0
