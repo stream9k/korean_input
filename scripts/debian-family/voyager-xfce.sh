@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.10"
+SCRIPT_VERSION="1.5.11"
 LOG_FILE="/var/log/install-hangul-voyager-xfce.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

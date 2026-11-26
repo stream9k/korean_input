@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.10"
+SCRIPT_VERSION="1.5.11"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -2001,6 +2001,8 @@ main() {
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " [3] kime (Rust 기반 한국어 전용 입력기):"
+      echo "   # ⚠️ 주의: kime는 Wayland 네이티브 입력 프로토콜이나 최신 Qt6(Plasma 6 등) 지원이"
+      echo "   # 불완전해서 그쪽 창들(터미널·시작 메뉴 등)에는 입력기가 붙지 않는 증상이 자주 발생합니다."
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"kime\";"
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
@@ -2023,6 +2025,8 @@ main() {
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " [3] kime (Rust-based Korean IME):"
+      echo "   # ⚠️ Warning: kime has incomplete support for Wayland native input protocols"
+      echo "   # and Qt6 (e.g., Plasma 6), so it often fails to attach in terminals or app launchers."
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"kime\";"
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"

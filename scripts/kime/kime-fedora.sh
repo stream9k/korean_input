@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.10"
+SCRIPT_VERSION="1.5.11"
 LOG_FILE="/var/log/install-kime-kime-fedora.log"
 
 LOG_ENABLED=false
@@ -1724,13 +1724,15 @@ main() {
   _cfg_summary="${_cfg_summary}\n   - 첫 로그인 1회 안내 팝업 등록 ($TARGET_HOME/.local/bin/hangul-first-login-guide.sh)"
 
   _extra_warn=$(append_conflict_ime_warn "kime" "$EXISTING_IME" "$_extra_warn" "$DESKTOP")
+  local _kime_compat_warn=" ⚠️  주의: kime는 Wayland 네이티브 입력 프로토콜이나 최신 Qt6(Plasma 6 등) 지원이 불완전해서 그쪽 창들(터미널·시작 메뉴 등)에는 입력기가 붙지 않는 증상이 자주 발생합니다. (모든 앱 호환이 필요하면 fcitx5 권장)"
+  if [[ -n "$_extra_warn" ]]; then
+    _extra_warn="${_extra_warn}\n${_kime_compat_warn}"
+  else
+    _extra_warn="$_kime_compat_warn"
+  fi
   if [[ "${DESKTOP,,}" == *"gnome"* && "$SESSION_TYPE" == "wayland" ]]; then
     local _gnome_warn=" ⚠️  참고: GNOME Wayland(Mutter)는 zwp_input_method_v2를 지원하지 않아 Wayland 네이티브/샌드박스 앱에서 kime 동작이 제한될 수 있습니다 (GTK/Qt IM 모듈 앱은 정상 동작, 참고: https://github.com/Riey/kime/issues/422)."
-    if [[ -n "$_extra_warn" ]]; then
-      _extra_warn="${_extra_warn}\n${_gnome_warn}"
-    else
-      _extra_warn="$_gnome_warn"
-    fi
+    _extra_warn="${_extra_warn}\n${_gnome_warn}"
   fi
 
   confirm_before_changes \
@@ -2141,6 +2143,7 @@ GUIDE_DSK_EOF
   echo
   echo "============================================================"
   echo " 🎉 kime 설치 완료! 재부팅(권장) 또는 로그아웃 후 다시 로그인하세요."
+  echo " ⚠️  주의: kime는 Wayland 네이티브 입력 프로토콜이나 최신 Qt6(Plasma 6 등) 지원이 불완전해서 그쪽 창들(터미널·시작 메뉴 등)에는 입력기가 붙지 않는 증상이 자주 발생합니다."
   echo " KDE Wayland: 시스템 설정 → 입력 및 출력 → 키보드 → 가상 키보드 → kime 데몬 선택"
   if [[ "$_kde6_wayland" == "true" ]]; then
     echo "              (안전 모드 적용됨: KWin 가상 키보드 사용을 위해 전역 QT_IM_MODULE/GTK_IM_MODULE 미설정 — kime-check 경고가 떠도 정상)"

@@ -25,6 +25,8 @@
   # };
 
   # [방법 3] kime (Rust 기반 한국어 전용 입력기) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # ⚠️ 주의: kime는 Wayland 네이티브 입력 프로토콜이나 최신 Qt6(Plasma 6 등) 지원이
+  # 불완전해서 그쪽 창들(터미널·시작 메뉴 등)에는 입력기가 붙지 않는 증상이 자주 발생합니다.
   # i18n.inputMethod = {
   #   enable = true;
   #   type = "kime";

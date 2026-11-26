@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.10"
+SCRIPT_VERSION="1.5.11"
 LOG_FILE="/var/log/install-ibus-ibus-fedora.log"
 
 LOG_ENABLED=false
