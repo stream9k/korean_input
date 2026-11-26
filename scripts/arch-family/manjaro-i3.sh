@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.8"
+SCRIPT_VERSION="1.5.9"
 LOG_FILE="/var/log/install-hangul-manjaro-i3.log"
 
 LOG_ENABLED=false

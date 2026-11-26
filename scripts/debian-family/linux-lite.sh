@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.8"
+SCRIPT_VERSION="1.5.9"
 LOG_FILE="/var/log/install-hangul-linux-lite.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

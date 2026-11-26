@@ -1,11 +1,12 @@
 # NixOS GNOME (configuration.nix) - 한글 입력기 설정 (configuration.nix)
-# 이 스크립트는 실행 파일이 아닙니다. configuration.nix 에 병합하세요.
+# 이 파일은 실행 스크립트가 아닙니다. 아래 중 원하는 입력기(택 1)를 /etc/nixos/configuration.nix 에 병합하세요.
 
-# 1. fcitx5 패키지 및 한글 엔진 추가
 { config, pkgs, ... }:
 
 {
-  # fcitx5 활성화
+  # 1. 입력기 선택 (아래 3가지 중 1개만 활성화하세요)
+
+  # [방법 1] fcitx5 (fcitx5-hangul, 권장)
   i18n.inputMethod = {
     enable = true;
     type = "fcitx5";
@@ -15,6 +16,19 @@
       # addons = with pkgs; [ fcitx5-hangul fcitx5-mozc fcitx5-chinese-addons ]; # 다국어
     };
   };
+
+  # [방법 2] ibus (ibus-hangul, GNOME 등 기본) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # i18n.inputMethod = {
+  #   enable = true;
+  #   type = "ibus";
+  #   ibus.engines = with pkgs.ibus-engines; [ hangul ];
+  # };
+
+  # [방법 3] kime (Rust 기반 한국어 전용 입력기) — 사용 시 위 fcitx5 블록을 지우고 주석 해제
+  # i18n.inputMethod = {
+  #   enable = true;
+  #   type = "kime";
+  # };
 
   # 2. 환경변수 (Wayland/X11 공통)
   environment.sessionVariables = {
