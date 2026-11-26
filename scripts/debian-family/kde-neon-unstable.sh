@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.7"
+SCRIPT_VERSION="1.5.8"
 LOG_FILE="/var/log/install-hangul-kde-neon-unstable.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.7"
+SCRIPT_VERSION="1.5.8"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -1994,12 +1994,12 @@ main() {
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"ibus\";"
       echo "   i18n.inputMethod.ibus.engines = with pkgs.ibus-engines; [ hangul ];"
-      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk ];"
+      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
     else
-      echo "   i18n.inputMethod.enabled = \"fcitx5\";"
-      echo "   i18n.inputMethod.fcitx5.enable = true;"
-      echo "   i18n.inputMethod.fcitx5.engines = with pkgs; [ fcitx5-hangul ];"
-      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk ];"
+      echo "   i18n.inputMethod.enable = true;"
+      echo "   i18n.inputMethod.type = \"fcitx5\";"
+      echo "   i18n.inputMethod.fcitx5.addons = with pkgs; [ fcitx5-hangul ];"
+      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
     fi
     if [[ "$IS_KO" == "true" ]]; then
       [[ "$SELECTED_IME" == "fcitx5" ]] && echo " 💡 IBus 설정 예시를 보려면 '--ibus' 옵션을 전달하세요."

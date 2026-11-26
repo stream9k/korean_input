@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.7"
+SCRIPT_VERSION="1.5.8"
 LOG_FILE="/var/log/install-hangul-solus-kde.log"
 
 LOG_ENABLED=false
