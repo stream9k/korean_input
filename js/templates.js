@@ -2024,7 +2024,7 @@ const SCRIPT_TEMPLATES = {
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 ${PREFLIGHT_COMMON_BASH}
@@ -2255,7 +2255,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2438,7 +2438,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2623,7 +2623,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -2923,7 +2923,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3450,7 +3450,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-ibus-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -3849,7 +3849,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-kime-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5014,7 +5014,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5166,7 +5166,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5343,7 +5343,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5473,7 +5473,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5638,7 +5638,7 @@ main "$@"
 
 set -eu
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_SH}
 require_root() { [ "$(id -u)" -eq 0 ] || err "root 권한 필요: sudo sh $0"; }
@@ -5785,7 +5785,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -5950,7 +5950,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6117,7 +6117,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6302,7 +6302,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6470,7 +6470,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6635,7 +6635,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }
@@ -6801,7 +6801,7 @@ main "$@"
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-${params.scriptId}.log"
 ${PREFLIGHT_COMMON_BASH}
 require_root() { [[ $EUID -eq 0 ]] || err "root 권한 필요: sudo bash $0"; }

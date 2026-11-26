@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.5.9"
+SCRIPT_VERSION="1.5.10"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -1986,45 +1986,45 @@ main() {
     echo "============================================================"
     if [[ "$IS_KO" == "true" ]]; then
       echo " ℹ️  NixOS는 선언적 OS이므로 스크립트로 패키지를 직접 설치하지 않습니다."
-      echo " /etc/nixos/configuration.nix 에 원하는 입력기 설정(택 1)과 폰트를 병합하세요:"
+      echo " /etc/nixos/configuration.nix 에 원하는 입력기 설정(택 1)을 병합하세요:"
       echo
       echo " [1] fcitx5 (fcitx5-hangul, 권장):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"fcitx5\";"
       echo "   i18n.inputMethod.fcitx5.addons = with pkgs; [ fcitx5-hangul ];"
+      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " [2] ibus (ibus-hangul, GNOME 등 기본):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"ibus\";"
       echo "   i18n.inputMethod.ibus.engines = with pkgs.ibus-engines; [ hangul ];"
+      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " [3] kime (Rust 기반 한국어 전용 입력기):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"kime\";"
-      echo
-      echo " [공통] 한글 폰트:"
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " 상세 예시: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
       echo " 적용: sudo nixos-rebuild switch"
     else
-      echo " ℹ️  NixOS uses declarative configuration. Merge one IME block and fonts into /etc/nixos/configuration.nix:"
+      echo " ℹ️  NixOS uses declarative configuration. Merge one IME block into /etc/nixos/configuration.nix:"
       echo
       echo " [1] fcitx5 (fcitx5-hangul, recommended):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"fcitx5\";"
       echo "   i18n.inputMethod.fcitx5.addons = with pkgs; [ fcitx5-hangul ];"
+      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " [2] ibus (ibus-hangul, GNOME default):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"ibus\";"
       echo "   i18n.inputMethod.ibus.engines = with pkgs.ibus-engines; [ hangul ];"
+      echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " [3] kime (Rust-based Korean IME):"
       echo "   i18n.inputMethod.enable = true;"
       echo "   i18n.inputMethod.type = \"kime\";"
-      echo
-      echo " [Common] Korean Fonts:"
       echo "   fonts.packages = with pkgs; [ noto-fonts-cjk-sans ];"
       echo
       echo " Examples: https://github.com/stream9k/korean_input/tree/main/scripts/nixos"
