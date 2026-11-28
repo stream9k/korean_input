@@ -1455,6 +1455,24 @@ EOF
   if [[ "$_fcitx5_family" == "arch" ]]; then
     run_as_user_sh "$USER" "systemctl --user enable fcitx5 2>/dev/null || true" || true
   fi
+  local OB_DIR="$TARGET_HOME/.config/openbox"
+  local OB_AUTOSTART="$OB_DIR/autostart"
+  if [[ "${DESKTOP,,}" == *"openbox"* || -f "$OB_AUTOSTART" ]]; then
+    mkdir -p "$OB_DIR"
+    if [[ ! -f "$OB_AUTOSTART" ]]; then
+      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$OB_AUTOSTART" || touch "$OB_AUTOSTART"
+    fi
+    if ! grep -qE '^[[:space:]]*[^#]*\bfcitx5\b' "$OB_AUTOSTART" 2>/dev/null; then
+      cat >> "$OB_AUTOSTART" <<'EOF'
+
+# Korean input method (fcitx5)
+if command -v fcitx5 >/dev/null 2>&1 && ! pgrep -x fcitx5 >/dev/null 2>&1; then
+  fcitx5 -d &
+fi
+EOF
+    fi
+    chown -R "$TARGET_UID:$TARGET_GID" "$OB_DIR"
+  fi
 
   # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정
   local _kde_detected=false

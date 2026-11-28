@@ -2592,6 +2592,26 @@ EOF
 
   # systemd user 서비스도 활성화 (Wayland 세션용)
   run_as_user_sh "$USER" "systemctl --user enable fcitx5 2>/dev/null || true" || true
+
+  # Openbox는 XDG autostart(.desktop)를 기본 실행하지 않으므로 ~/.config/openbox/autostart에도 등록
+  local OB_DIR="$TARGET_HOME/.config/openbox"
+  local OB_AUTOSTART="$OB_DIR/autostart"
+  if [[ "\${DESKTOP,,}" == *"openbox"* || -f "$OB_AUTOSTART" ]]; then
+    mkdir -p "$OB_DIR"
+    if [[ ! -f "$OB_AUTOSTART" ]]; then
+      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$OB_AUTOSTART" || touch "$OB_AUTOSTART"
+    fi
+    if ! grep -qE '^[[:space:]]*[^#]*\\bfcitx5\\b' "$OB_AUTOSTART" 2>/dev/null; then
+      cat >> "$OB_AUTOSTART" <<'EOF'
+
+# Korean input method (fcitx5)
+if command -v fcitx5 >/dev/null 2>&1 && ! pgrep -x fcitx5 >/dev/null 2>&1; then
+  fcitx5 -d &
+fi
+EOF
+    fi
+    chown -R "$TARGET_UID:$TARGET_GID" "$OB_DIR"
+  fi
   ok "자동시작 등록"
 
   # 5. KDE Plasma 가상 키보드 자동 설정 및 데스크톱별 안내
@@ -3429,6 +3449,24 @@ EOF
   if [[ "$_fcitx5_family" == "arch" ]]; then
     run_as_user_sh "$USER" "systemctl --user enable fcitx5 2>/dev/null || true" || true
   fi
+  local OB_DIR="$TARGET_HOME/.config/openbox"
+  local OB_AUTOSTART="$OB_DIR/autostart"
+  if [[ "\${DESKTOP,,}" == *"openbox"* || -f "$OB_AUTOSTART" ]]; then
+    mkdir -p "$OB_DIR"
+    if [[ ! -f "$OB_AUTOSTART" ]]; then
+      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$OB_AUTOSTART" || touch "$OB_AUTOSTART"
+    fi
+    if ! grep -qE '^[[:space:]]*[^#]*\\bfcitx5\\b' "$OB_AUTOSTART" 2>/dev/null; then
+      cat >> "$OB_AUTOSTART" <<'EOF'
+
+# Korean input method (fcitx5)
+if command -v fcitx5 >/dev/null 2>&1 && ! pgrep -x fcitx5 >/dev/null 2>&1; then
+  fcitx5 -d &
+fi
+EOF
+    fi
+    chown -R "$TARGET_UID:$TARGET_GID" "$OB_DIR"
+  fi
 ${KDE_VIRTUAL_KEYBOARD_SNIPPET(false)}
 ${FCITX5_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}
   echo
@@ -3827,6 +3865,24 @@ NoDisplay=false
 EOF
     chown -R "$TARGET_UID:$TARGET_GID" "$ADIR"
     ok "비-GNOME 데스크톱용 ibus-daemon 자동시작 등록 (NotShowIn=GNOME;)"
+    local OB_DIR="$TARGET_HOME/.config/openbox"
+    local OB_AUTOSTART="$OB_DIR/autostart"
+    if [[ "\${DESKTOP,,}" == *"openbox"* || -f "$OB_AUTOSTART" ]]; then
+      mkdir -p "$OB_DIR"
+      if [[ ! -f "$OB_AUTOSTART" ]]; then
+        [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$OB_AUTOSTART" || touch "$OB_AUTOSTART"
+      fi
+      if ! grep -qE '^[[:space:]]*[^#]*\\bibus-daemon\\b' "$OB_AUTOSTART" 2>/dev/null; then
+        cat >> "$OB_AUTOSTART" <<'EOF'
+
+# Korean input method (ibus)
+if command -v ibus-daemon >/dev/null 2>&1 && ! pgrep -x ibus-daemon >/dev/null 2>&1; then
+  ibus-daemon -drxR &
+fi
+EOF
+      fi
+      chown -R "$TARGET_UID:$TARGET_GID" "$OB_DIR"
+    fi
   fi
   ok "환경변수 설정 완료"
 ${IBUS_POST_LOGIN_GUIDE_SNIPPET(params.distroName, params.scriptId)}

@@ -970,10 +970,60 @@ EOF
   ok "$(msg "Fcitx5 프로필 및 한/영 전환 핫키 설정 완료" "Configured Fcitx5 profile and Hangul toggle hotkeys")"
 }
 
+write_openbox_autostart_ime() {
+  local target_home="$1"
+  local uid="$2"
+  local gid="$3"
+  local desktop="${4:-}"
+  local ime="${5:-fcitx5}"
+
+  local ob_dir="$target_home/.config/openbox"
+  local ob_autostart="$ob_dir/autostart"
+  if [[ "${desktop,,}" != *"openbox"* && ! -f "$ob_autostart" ]]; then
+    return 0
+  fi
+
+  mkdir -p "$ob_dir"
+  if [[ ! -f "$ob_autostart" ]]; then
+    if [[ -f /etc/xdg/openbox/autostart ]]; then
+      cp /etc/xdg/openbox/autostart "$ob_autostart"
+    else
+      touch "$ob_autostart"
+    fi
+  fi
+
+  if [[ "$ime" == "ibus" ]]; then
+    if ! grep -qE '^[[:space:]]*[^#]*\bibus-daemon\b' "$ob_autostart" 2>/dev/null; then
+      cat >> "$ob_autostart" <<'EOF'
+
+# Korean input method (ibus)
+if command -v ibus-daemon >/dev/null 2>&1 && ! pgrep -x ibus-daemon >/dev/null 2>&1; then
+  ibus-daemon -drxR &
+fi
+EOF
+      ok "$(msg "Openbox autostart에 IBus 자동시작 등록 완료" "Registered IBus in Openbox autostart")"
+    fi
+  else
+    if ! grep -qE '^[[:space:]]*[^#]*\bfcitx5\b' "$ob_autostart" 2>/dev/null; then
+      cat >> "$ob_autostart" <<'EOF'
+
+# Korean input method (fcitx5)
+if command -v fcitx5 >/dev/null 2>&1 && ! pgrep -x fcitx5 >/dev/null 2>&1; then
+  fcitx5 -d &
+fi
+EOF
+      ok "$(msg "Openbox autostart에 Fcitx5 자동시작 등록 완료" "Registered Fcitx5 in Openbox autostart")"
+    fi
+  fi
+
+  chown -R "$uid:$gid" "$ob_dir"
+}
+
 write_autostart_fcitx5() {
   local target_home="$1"
   local uid="$2"
   local gid="$3"
+  local desktop="${4:-${DESKTOP:-}}"
   local adir="$target_home/.config/autostart"
   mkdir -p "$adir"
   cat > "$adir/fcitx5.desktop" <<'EOF'
@@ -987,6 +1037,7 @@ NoDisplay=false
 EOF
   chown -R "$uid:$gid" "$adir"
   ok "$(msg "Fcitx5 자동시작 등록 완료" "Registered Fcitx5 autostart entry")"
+  write_openbox_autostart_ime "$target_home" "$uid" "$gid" "$desktop" "fcitx5"
 }
 
 configure_kde_virtual_keyboard() {
@@ -1858,6 +1909,7 @@ NoDisplay=false
 EOF
     chown -R "$target_uid:$target_gid" "$adir"
     ok "$(msg "비-GNOME 데스크톱용 ibus-daemon 자동시작 등록 (NotShowIn=GNOME;)" "Registered ibus-daemon autostart for non-GNOME (NotShowIn=GNOME;)")"
+    write_openbox_autostart_ime "$target_home" "$target_uid" "$target_gid" "$desktop" "ibus"
   fi
 }
 
@@ -2463,6 +2515,16 @@ EOF
   # KDE Plasma 가상 키보드(Fcitx 5) 자동 설정 (IBus 제외)
   if [[ "$SELECTED_IME" != "ibus" ]]; then
     configure_kde_virtual_keyboard "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$TARGET_USER" "$DESKTOP"
+    if [[ "$need_reboot" != "true" && -S "/run/user/$TARGET_UID/bus" ]] && \
+       [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]] && \
+       command -v fcitx5 >/dev/null 2>&1 && ! proc_running "$TARGET_UID" "fcitx5"; then
+      sudo -u "$TARGET_USER" \
+        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+        ${DISPLAY:+DISPLAY="$DISPLAY"} \
+        ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+        fcitx5 -d >/dev/null 2>&1 || true
+    fi
   fi
 
   # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록
