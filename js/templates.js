@@ -8,6 +8,26 @@ if (typeof GITHUB_REPO === "undefined" && typeof require === "function") {
 // ──────────────────────────────────────────────────────────────
 // 재부팅/재로그인 후 1회성 안내 팝업 자폭 스크립트 스니펫
 // ──────────────────────────────────────────────────────────────
+const OPENBOX_GUIDE_AUTOSTART_SNIPPET = `
+  local _ob_dir="$TARGET_HOME/.config/openbox"
+  local _ob_autostart="$_ob_dir/autostart"
+  if [[ "\${DESKTOP,,}" == *"openbox"* || -f "$_ob_autostart" ]]; then
+    mkdir -p "$_ob_dir"
+    if [[ ! -f "$_ob_autostart" ]]; then
+      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$_ob_autostart" || touch "$_ob_autostart"
+    fi
+    if ! grep -q 'hangul-first-login-guide\\.sh' "$_ob_autostart" 2>/dev/null; then
+      cat >> "$_ob_autostart" <<'OB_GUIDE_EOF'
+
+# One-shot Korean input first-login guide
+if [ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ]; then
+  "$HOME/.local/bin/hangul-first-login-guide.sh" &
+fi
+OB_GUIDE_EOF
+    fi
+    chown -R "$TARGET_UID:$TARGET_GID" "$_ob_dir"
+  fi`;
+
 const POST_LOGIN_GUIDE_SNIPPET = (distroName, isKde = false) => `
   # 재부팅/재로그인 후 1회성 안내 팝업 자동시작 등록 (표시 후 자폭)
   local GUIDE_DIR="$TARGET_HOME/.local/bin"
@@ -51,6 +71,7 @@ NoDisplay=false
 X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+${OPENBOX_GUIDE_AUTOSTART_SNIPPET}
 `;
 
 const KIME_POST_LOGIN_GUIDE_SNIPPET = (distroName, scriptId) => `
@@ -97,6 +118,7 @@ NoDisplay=false
 X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+${OPENBOX_GUIDE_AUTOSTART_SNIPPET}
 `;
 
 const IBUS_POST_LOGIN_GUIDE_SNIPPET = (distroName, scriptId) => `
@@ -141,6 +163,7 @@ NoDisplay=false
 X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+${OPENBOX_GUIDE_AUTOSTART_SNIPPET}
 `;
 
 const FCITX5_POST_LOGIN_GUIDE_SNIPPET = (distroName, scriptId) => `
@@ -192,6 +215,7 @@ NoDisplay=false
 X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
+${OPENBOX_GUIDE_AUTOSTART_SNIPPET}
 `;
 
 // ──────────────────────────────────────────────────────────────

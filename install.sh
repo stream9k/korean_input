@@ -1209,6 +1209,30 @@ X-GNOME-Autostart-enabled=true
 EOF
 
   chown -R "$target_uid:$target_gid" "$autostart_dir" "$bin_dir"
+
+  local ob_dir="$target_home/.config/openbox"
+  local ob_autostart="$ob_dir/autostart"
+  if [[ "${desktop,,}" == *"openbox"* || -f "$ob_autostart" ]]; then
+    mkdir -p "$ob_dir"
+    if [[ ! -f "$ob_autostart" ]]; then
+      if [[ -f /etc/xdg/openbox/autostart ]]; then
+        cp /etc/xdg/openbox/autostart "$ob_autostart"
+      else
+        touch "$ob_autostart"
+      fi
+    fi
+    if ! grep -q 'hangul-first-login-guide\.sh' "$ob_autostart" 2>/dev/null; then
+      cat >> "$ob_autostart" <<'EOF'
+
+# One-shot Korean input first-login guide
+if [ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ]; then
+  "$HOME/.local/bin/hangul-first-login-guide.sh" &
+fi
+EOF
+    fi
+    chown -R "$target_uid:$target_gid" "$ob_dir"
+  fi
+
   ok "$(msg "재부팅 후 1회성 안내 팝업 등록 완료 (다음 로그인 시 1회 표시 후 자폭)" "Registered one-shot first-login welcome notification (self-deletes after display)")"
 }
 

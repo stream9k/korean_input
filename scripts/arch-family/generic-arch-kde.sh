@@ -1235,6 +1235,25 @@ X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
 
+  local _ob_dir="$TARGET_HOME/.config/openbox"
+  local _ob_autostart="$_ob_dir/autostart"
+  if [[ "${DESKTOP,,}" == *"openbox"* || -f "$_ob_autostart" ]]; then
+    mkdir -p "$_ob_dir"
+    if [[ ! -f "$_ob_autostart" ]]; then
+      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$_ob_autostart" || touch "$_ob_autostart"
+    fi
+    if ! grep -q 'hangul-first-login-guide\.sh' "$_ob_autostart" 2>/dev/null; then
+      cat >> "$_ob_autostart" <<'OB_GUIDE_EOF'
+
+# One-shot Korean input first-login guide
+if [ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ]; then
+  "$HOME/.local/bin/hangul-first-login-guide.sh" &
+fi
+OB_GUIDE_EOF
+    fi
+    chown -R "$TARGET_UID:$TARGET_GID" "$_ob_dir"
+  fi
+
   echo
   echo "============================================================"
   echo " 🎉 설치 완료! 재로그인 또는 재부팅 필요"
