@@ -970,53 +970,71 @@ EOF
   ok "$(msg "Fcitx5 프로필 및 한/영 전환 핫키 설정 완료" "Configured Fcitx5 profile and Hangul toggle hotkeys")"
 }
 
-write_openbox_autostart_ime() {
-  local target_home="$1"
-  local uid="$2"
-  local gid="$3"
-  local desktop="${4:-}"
-  local ime="${5:-fcitx5}"
+ensure_wm_config_snippet() {
+  local target_home="$1" uid="$2" gid="$3" desktop="$4"
+  local wm_name="$5" cfg_rel="$6" default_src="$7" guard_re="$8" snippet="$9" make_exec="${10:-false}"
 
-  local ob_dir="$target_home/.config/openbox"
-  local ob_autostart="$ob_dir/autostart"
-  if [[ "${desktop,,}" != *"openbox"* && ! -f "$ob_autostart" ]]; then
+  local cfg_path="$target_home/$cfg_rel"
+  local cfg_dir
+  cfg_dir="$(dirname "$cfg_path")"
+  if [[ "${desktop,,}" != *"$wm_name"* && ! -f "$cfg_path" ]]; then
     return 0
   fi
 
-  mkdir -p "$ob_dir"
-  if [[ ! -f "$ob_autostart" ]]; then
-    if [[ -f /etc/xdg/openbox/autostart ]]; then
-      cp /etc/xdg/openbox/autostart "$ob_autostart"
+  mkdir -p "$cfg_dir"
+  if [[ ! -f "$cfg_path" ]]; then
+    if [[ -n "$default_src" && -f "$default_src" ]]; then
+      cp "$default_src" "$cfg_path"
     else
-      touch "$ob_autostart"
+      [[ "$make_exec" == "true" ]] && printf '#!/bin/sh\n' > "$cfg_path" || touch "$cfg_path"
     fi
   fi
 
+  if ! grep -qE "$guard_re" "$cfg_path" 2>/dev/null; then
+    printf '\n%s\n' "$snippet" >> "$cfg_path"
+    [[ "$make_exec" == "true" ]] && chmod +x "$cfg_path"
+    chown -R "$uid:$gid" "$cfg_dir"
+    return 0
+  fi
+
+  [[ "$make_exec" == "true" ]] && chmod +x "$cfg_path"
+  chown -R "$uid:$gid" "$cfg_dir"
+  return 1
+}
+
+write_openbox_autostart_ime() {
+  local target_home="$1" uid="$2" gid="$3" desktop="${4:-}" ime="${5:-fcitx5}"
+  local cmd="fcitx5 -d" proc="fcitx5" label="Fcitx5"
   if [[ "$ime" == "ibus" ]]; then
-    if ! grep -qE '^[[:space:]]*[^#]*\bibus-daemon\b' "$ob_autostart" 2>/dev/null; then
-      cat >> "$ob_autostart" <<'EOF'
-
-# Korean input method (ibus)
-if command -v ibus-daemon >/dev/null 2>&1 && ! pgrep -x ibus-daemon >/dev/null 2>&1; then
-  ibus-daemon -drxR &
-fi
-EOF
-      ok "$(msg "Openbox autostart에 IBus 자동시작 등록 완료" "Registered IBus in Openbox autostart")"
-    fi
-  else
-    if ! grep -qE '^[[:space:]]*[^#]*\bfcitx5\b' "$ob_autostart" 2>/dev/null; then
-      cat >> "$ob_autostart" <<'EOF'
-
-# Korean input method (fcitx5)
-if command -v fcitx5 >/dev/null 2>&1 && ! pgrep -x fcitx5 >/dev/null 2>&1; then
-  fcitx5 -d &
-fi
-EOF
-      ok "$(msg "Openbox autostart에 Fcitx5 자동시작 등록 완료" "Registered Fcitx5 in Openbox autostart")"
-    fi
+    cmd="ibus-daemon -drxR"
+    proc="ibus-daemon"
+    label="IBus"
   fi
 
-  chown -R "$uid:$gid" "$ob_dir"
+  local guard_re="^[[:space:]]*[^#]*\\b${proc}\\b"
+  local sh_snippet="# Korean input method (${proc})
+if command -v ${proc} >/dev/null 2>&1 && ! pgrep -x ${proc} >/dev/null 2>&1; then
+  ${cmd} &
+fi"
+
+  if ensure_wm_config_snippet "$target_home" "$uid" "$gid" "$desktop" "openbox" ".config/openbox/autostart" "/etc/xdg/openbox/autostart" "$guard_re" "$sh_snippet" "false"; then
+    ok "$(msg "Openbox autostart에 ${label} 자동시작 등록 완료" "Registered ${label} in Openbox autostart")"
+  fi
+  if ensure_wm_config_snippet "$target_home" "$uid" "$gid" "$desktop" "bspwm" ".config/bspwm/bspwmrc" "/usr/share/doc/bspwm/examples/bspwmrc" "$guard_re" "$sh_snippet" "true"; then
+    ok "$(msg "bspwmrc에 ${label} 자동시작 등록 완료" "Registered ${label} in bspwmrc")"
+  fi
+  if ensure_wm_config_snippet "$target_home" "$uid" "$gid" "$desktop" "sway" ".config/sway/config" "/etc/sway/config" "$guard_re" "# Korean input method (${proc})
+exec ${cmd}" "false"; then
+    ok "$(msg "Sway config에 ${label} 자동시작 등록 완료" "Registered ${label} in Sway config")"
+  fi
+  if ensure_wm_config_snippet "$target_home" "$uid" "$gid" "$desktop" "i3" ".config/i3/config" "/etc/i3/config" "$guard_re" "# Korean input method (${proc})
+exec --no-startup-id ${cmd}" "false"; then
+    ok "$(msg "i3 config에 ${label} 자동시작 등록 완료" "Registered ${label} in i3 config")"
+  fi
+  if ensure_wm_config_snippet "$target_home" "$uid" "$gid" "$desktop" "hyprland" ".config/hypr/hyprland.conf" "" "$guard_re" "# Korean input method (${proc})
+exec-once = ${cmd}" "false"; then
+    ok "$(msg "Hyprland config에 ${label} 자동시작 등록 완료" "Registered ${label} in Hyprland config")"
+  fi
 }
 
 write_autostart_fcitx5() {
@@ -1210,28 +1228,21 @@ EOF
 
   chown -R "$target_uid:$target_gid" "$autostart_dir" "$bin_dir"
 
-  local ob_dir="$target_home/.config/openbox"
-  local ob_autostart="$ob_dir/autostart"
-  if [[ "${desktop,,}" == *"openbox"* || -f "$ob_autostart" ]]; then
-    mkdir -p "$ob_dir"
-    if [[ ! -f "$ob_autostart" ]]; then
-      if [[ -f /etc/xdg/openbox/autostart ]]; then
-        cp /etc/xdg/openbox/autostart "$ob_autostart"
-      else
-        touch "$ob_autostart"
-      fi
-    fi
-    if ! grep -q 'hangul-first-login-guide\.sh' "$ob_autostart" 2>/dev/null; then
-      cat >> "$ob_autostart" <<'EOF'
-
-# One-shot Korean input first-login guide
+  local guide_guard='hangul-first-login-guide\.sh'
+  local sh_guide='# One-shot Korean input first-login guide
 if [ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ]; then
   "$HOME/.local/bin/hangul-first-login-guide.sh" &
-fi
-EOF
-    fi
-    chown -R "$target_uid:$target_gid" "$ob_dir"
-  fi
+fi'
+  local exec_guide='sh -c '\''[ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ] && "$HOME/.local/bin/hangul-first-login-guide.sh"'\'''
+
+  ensure_wm_config_snippet "$target_home" "$target_uid" "$target_gid" "$desktop" "openbox" ".config/openbox/autostart" "/etc/xdg/openbox/autostart" "$guide_guard" "$sh_guide" "false" || true
+  ensure_wm_config_snippet "$target_home" "$target_uid" "$target_gid" "$desktop" "bspwm" ".config/bspwm/bspwmrc" "/usr/share/doc/bspwm/examples/bspwmrc" "$guide_guard" "$sh_guide" "true" || true
+  ensure_wm_config_snippet "$target_home" "$target_uid" "$target_gid" "$desktop" "sway" ".config/sway/config" "/etc/sway/config" "$guide_guard" "# One-shot Korean input first-login guide
+exec ${exec_guide}" "false" || true
+  ensure_wm_config_snippet "$target_home" "$target_uid" "$target_gid" "$desktop" "i3" ".config/i3/config" "/etc/i3/config" "$guide_guard" "# One-shot Korean input first-login guide
+exec --no-startup-id ${exec_guide}" "false" || true
+  ensure_wm_config_snippet "$target_home" "$target_uid" "$target_gid" "$desktop" "hyprland" ".config/hypr/hyprland.conf" "" "$guide_guard" "# One-shot Korean input first-login guide
+exec-once = ${exec_guide}" "false" || true
 
   ok "$(msg "재부팅 후 1회성 안내 팝업 등록 완료 (다음 로그인 시 1회 표시 후 자폭)" "Registered one-shot first-login welcome notification (self-deletes after display)")"
 }

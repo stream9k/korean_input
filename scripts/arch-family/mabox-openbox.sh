@@ -1104,25 +1104,42 @@ EOF
   # systemd user 서비스도 활성화 (Wayland 세션용)
   run_as_user_sh "$USER" "systemctl --user enable fcitx5 2>/dev/null || true" || true
 
-  # Openbox는 XDG autostart(.desktop)를 기본 실행하지 않으므로 ~/.config/openbox/autostart에도 등록
-  local OB_DIR="$TARGET_HOME/.config/openbox"
-  local OB_AUTOSTART="$OB_DIR/autostart"
-  if [[ "${DESKTOP,,}" == *"openbox"* || -f "$OB_AUTOSTART" ]]; then
-    mkdir -p "$OB_DIR"
-    if [[ ! -f "$OB_AUTOSTART" ]]; then
-      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$OB_AUTOSTART" || touch "$OB_AUTOSTART"
-    fi
-    if ! grep -qE '^[[:space:]]*[^#]*\bfcitx5\b' "$OB_AUTOSTART" 2>/dev/null; then
-      cat >> "$OB_AUTOSTART" <<'EOF'
+  # Openbox/bspwm/Sway/i3/Hyprland 등 XDG autostart 미지원 WM/컴포지터 대응
 
-# Korean input method (fcitx5)
+  _ensure_wm_ime_line() {
+    local _wm="$1" _rel="$2" _src="$3" _line="$4" _exec="${5:-false}"
+    local _p="$TARGET_HOME/$_rel"
+    local _d
+    _d="$(dirname "$_p")"
+    if [[ "${DESKTOP,,}" != *"$_wm"* && ! -f "$_p" ]]; then
+      return 0
+    fi
+    mkdir -p "$_d"
+    if [[ ! -f "$_p" ]]; then
+      if [[ -n "$_src" && -f "$_src" ]]; then
+        cp "$_src" "$_p"
+      else
+        [[ "$_exec" == "true" ]] && printf '#!/bin/sh\n' > "$_p" || touch "$_p"
+      fi
+    fi
+    if ! grep -qE '^[[:space:]]*[^#]*\\bfcitx5\\b' "$_p" 2>/dev/null; then
+      printf '\n%s\n' "$_line" >> "$_p"
+    fi
+    [[ "$_exec" == "true" ]] && chmod +x "$_p"
+    chown -R "$TARGET_UID:$TARGET_GID" "$_d"
+  }
+  local _sh_i='# Korean input method (fcitx5)
 if command -v fcitx5 >/dev/null 2>&1 && ! pgrep -x fcitx5 >/dev/null 2>&1; then
   fcitx5 -d &
-fi
-EOF
-    fi
-    chown -R "$TARGET_UID:$TARGET_GID" "$OB_DIR"
-  fi
+fi'
+  _ensure_wm_ime_line "openbox" ".config/openbox/autostart" "/etc/xdg/openbox/autostart" "$_sh_i" "false"
+  _ensure_wm_ime_line "bspwm" ".config/bspwm/bspwmrc" "/usr/share/doc/bspwm/examples/bspwmrc" "$_sh_i" "true"
+  _ensure_wm_ime_line "sway" ".config/sway/config" "/etc/sway/config" "# Korean input method (fcitx5)
+exec fcitx5 -d" "false"
+  _ensure_wm_ime_line "i3" ".config/i3/config" "/etc/i3/config" "# Korean input method (fcitx5)
+exec --no-startup-id fcitx5 -d" "false"
+  _ensure_wm_ime_line "hyprland" ".config/hypr/hyprland.conf" "" "# Korean input method (fcitx5)
+exec-once = fcitx5 -d" "false"
   ok "자동시작 등록"
 
   # 5. KDE Plasma 가상 키보드 자동 설정 및 데스크톱별 안내
@@ -1233,24 +1250,41 @@ X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
 
-  local _ob_dir="$TARGET_HOME/.config/openbox"
-  local _ob_autostart="$_ob_dir/autostart"
-  if [[ "${DESKTOP,,}" == *"openbox"* || -f "$_ob_autostart" ]]; then
-    mkdir -p "$_ob_dir"
-    if [[ ! -f "$_ob_autostart" ]]; then
-      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$_ob_autostart" || touch "$_ob_autostart"
+  _ensure_wm_guide_line() {
+    local _wm="$1" _rel="$2" _src="$3" _line="$4" _exec="${5:-false}"
+    local _p="$TARGET_HOME/$_rel"
+    local _d
+    _d="$(dirname "$_p")"
+    if [[ "${DESKTOP,,}" != *"$_wm"* && ! -f "$_p" ]]; then
+      return 0
     fi
-    if ! grep -q 'hangul-first-login-guide\.sh' "$_ob_autostart" 2>/dev/null; then
-      cat >> "$_ob_autostart" <<'OB_GUIDE_EOF'
-
-# One-shot Korean input first-login guide
+    mkdir -p "$_d"
+    if [[ ! -f "$_p" ]]; then
+      if [[ -n "$_src" && -f "$_src" ]]; then
+        cp "$_src" "$_p"
+      else
+        [[ "$_exec" == "true" ]] && printf '#!/bin/sh\n' > "$_p" || touch "$_p"
+      fi
+    fi
+    if ! grep -q 'hangul-first-login-guide\.sh' "$_p" 2>/dev/null; then
+      printf '\n%s\n' "$_line" >> "$_p"
+    fi
+    [[ "$_exec" == "true" ]] && chmod +x "$_p"
+    chown -R "$TARGET_UID:$TARGET_GID" "$_d"
+  }
+  local _sh_g='# One-shot Korean input first-login guide
 if [ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ]; then
   "$HOME/.local/bin/hangul-first-login-guide.sh" &
-fi
-OB_GUIDE_EOF
-    fi
-    chown -R "$TARGET_UID:$TARGET_GID" "$_ob_dir"
-  fi
+fi'
+  local _ex_g='sh -c '''[ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ] && "$HOME/.local/bin/hangul-first-login-guide.sh"''''
+  _ensure_wm_guide_line "openbox" ".config/openbox/autostart" "/etc/xdg/openbox/autostart" "$_sh_g" "false"
+  _ensure_wm_guide_line "bspwm" ".config/bspwm/bspwmrc" "/usr/share/doc/bspwm/examples/bspwmrc" "$_sh_g" "true"
+  _ensure_wm_guide_line "sway" ".config/sway/config" "/etc/sway/config" "# One-shot Korean input first-login guide
+exec $_ex_g" "false"
+  _ensure_wm_guide_line "i3" ".config/i3/config" "/etc/i3/config" "# One-shot Korean input first-login guide
+exec --no-startup-id $_ex_g" "false"
+  _ensure_wm_guide_line "hyprland" ".config/hypr/hyprland.conf" "" "# One-shot Korean input first-login guide
+exec-once = $_ex_g" "false"
 
   echo
   echo "============================================================"

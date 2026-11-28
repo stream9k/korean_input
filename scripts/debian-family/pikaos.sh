@@ -1260,24 +1260,41 @@ X-GNOME-Autostart-enabled=true
 GUIDE_DSK_EOF
   chown -R "$TARGET_UID:$TARGET_GID" "$TARGET_HOME/.config/autostart" "$GUIDE_DIR"
 
-  local _ob_dir="$TARGET_HOME/.config/openbox"
-  local _ob_autostart="$_ob_dir/autostart"
-  if [[ "${DESKTOP,,}" == *"openbox"* || -f "$_ob_autostart" ]]; then
-    mkdir -p "$_ob_dir"
-    if [[ ! -f "$_ob_autostart" ]]; then
-      [[ -f /etc/xdg/openbox/autostart ]] && cp /etc/xdg/openbox/autostart "$_ob_autostart" || touch "$_ob_autostart"
+  _ensure_wm_guide_line() {
+    local _wm="$1" _rel="$2" _src="$3" _line="$4" _exec="${5:-false}"
+    local _p="$TARGET_HOME/$_rel"
+    local _d
+    _d="$(dirname "$_p")"
+    if [[ "${DESKTOP,,}" != *"$_wm"* && ! -f "$_p" ]]; then
+      return 0
     fi
-    if ! grep -q 'hangul-first-login-guide\.sh' "$_ob_autostart" 2>/dev/null; then
-      cat >> "$_ob_autostart" <<'OB_GUIDE_EOF'
-
-# One-shot Korean input first-login guide
+    mkdir -p "$_d"
+    if [[ ! -f "$_p" ]]; then
+      if [[ -n "$_src" && -f "$_src" ]]; then
+        cp "$_src" "$_p"
+      else
+        [[ "$_exec" == "true" ]] && printf '#!/bin/sh\n' > "$_p" || touch "$_p"
+      fi
+    fi
+    if ! grep -q 'hangul-first-login-guide\.sh' "$_p" 2>/dev/null; then
+      printf '\n%s\n' "$_line" >> "$_p"
+    fi
+    [[ "$_exec" == "true" ]] && chmod +x "$_p"
+    chown -R "$TARGET_UID:$TARGET_GID" "$_d"
+  }
+  local _sh_g='# One-shot Korean input first-login guide
 if [ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ]; then
   "$HOME/.local/bin/hangul-first-login-guide.sh" &
-fi
-OB_GUIDE_EOF
-    fi
-    chown -R "$TARGET_UID:$TARGET_GID" "$_ob_dir"
-  fi
+fi'
+  local _ex_g='sh -c '''[ -x "$HOME/.local/bin/hangul-first-login-guide.sh" ] && "$HOME/.local/bin/hangul-first-login-guide.sh"''''
+  _ensure_wm_guide_line "openbox" ".config/openbox/autostart" "/etc/xdg/openbox/autostart" "$_sh_g" "false"
+  _ensure_wm_guide_line "bspwm" ".config/bspwm/bspwmrc" "/usr/share/doc/bspwm/examples/bspwmrc" "$_sh_g" "true"
+  _ensure_wm_guide_line "sway" ".config/sway/config" "/etc/sway/config" "# One-shot Korean input first-login guide
+exec $_ex_g" "false"
+  _ensure_wm_guide_line "i3" ".config/i3/config" "/etc/i3/config" "# One-shot Korean input first-login guide
+exec --no-startup-id $_ex_g" "false"
+  _ensure_wm_guide_line "hyprland" ".config/hypr/hyprland.conf" "" "# One-shot Korean input first-login guide
+exec-once = $_ex_g" "false"
 
   echo
   echo "============================================================"
