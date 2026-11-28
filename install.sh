@@ -8,7 +8,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.6.1"
+SCRIPT_VERSION="1.6.2"
 LOG_FILE="/var/log/install-hangul-auto.log"
 LOG_ENABLED=false
 AUTO_YES=false
@@ -1929,7 +1929,7 @@ EOF
       ;;
   esac
 
-  if [[ "$family" != "debian-family" && "$family" != "vanilla" && "$family" != "rhel-family" && ! "${desktop,,}" == *"gnome"* ]]; then
+  if [[ ! "${desktop,,}" == *"gnome"* ]]; then
     local adir="$target_home/.config/autostart"
     mkdir -p "$adir"
     cat > "$adir/ibus-daemon.desktop" <<'EOF'
@@ -2173,6 +2173,16 @@ main() {
   if [[ "$SELECTED_IME" == "ibus" ]]; then
     install_ibus_for_family "$FAMILY"
     configure_ibus_user_session "$FAMILY" "$TARGET_USER" "$TARGET_HOME" "$TARGET_UID" "$TARGET_GID" "$DESKTOP"
+    if [[ "$need_reboot" != "true" && ! "${DESKTOP,,}" == *"gnome"* && -S "/run/user/$TARGET_UID/bus" ]] && \
+       [[ -n "${DISPLAY:-}" || -n "${WAYLAND_DISPLAY:-}" ]] && \
+       command -v ibus-daemon >/dev/null 2>&1 && ! proc_running "$TARGET_UID" "ibus-daemon"; then
+      sudo -u "$TARGET_USER" \
+        XDG_RUNTIME_DIR="/run/user/$TARGET_UID" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$TARGET_UID/bus" \
+        ${DISPLAY:+DISPLAY="$DISPLAY"} \
+        ${WAYLAND_DISPLAY:+WAYLAND_DISPLAY="$WAYLAND_DISPLAY"} \
+        ibus-daemon -drxR >/dev/null 2>&1 || true
+    fi
   else
   local KDE_WILL KDE6_WAYLAND
   KDE_WILL=$(will_configure_kde "$TARGET_HOME" "$DESKTOP")

@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.6.1"
+SCRIPT_VERSION="1.6.2"
 LOG_FILE="/var/log/install-hangul-ubuntu-studio.log"
 BACKUP_DIR="/root/hangul-backup-$(date +%Y%m%d-%H%M%S)"
 

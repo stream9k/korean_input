@@ -4,7 +4,7 @@
 
 set -eu
 
-SCRIPT_VERSION="1.6.1"
+SCRIPT_VERSION="1.6.2"
 LOG_FILE="/var/log/install-hangul-chimera-linux.log"
 
 LOG_ENABLED=false

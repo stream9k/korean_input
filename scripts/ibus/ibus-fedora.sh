@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-SCRIPT_VERSION="1.6.1"
+SCRIPT_VERSION="1.6.2"
 LOG_FILE="/var/log/install-ibus-ibus-fedora.log"
 
 LOG_ENABLED=false
@@ -1311,7 +1311,7 @@ EOF
       ;;
   esac
 
-  if [[ "$_ibus_family" != "debian" && "$_ibus_family" != "vanilla" && ! "${DESKTOP,,}" == *"gnome"* ]]; then
+  if [[ "$_ibus_family" != "vanilla" && ! "${DESKTOP,,}" == *"gnome"* ]]; then
     local ADIR="$TARGET_HOME/.config/autostart"
     mkdir -p "$ADIR"
     cat > "$ADIR/ibus-daemon.desktop" <<'EOF'
